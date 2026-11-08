@@ -66,6 +66,11 @@ BEGIN
     FROM #d d LEFT JOIN #v v ON v.DocumentoId = d.DocumentoId
     GROUP BY d.DocumentoId, d.IssueId, d.Clave;
 
+    /* Issues de proyectos excluidos: se dan por procesados sin integrarse (el worker ya los filtra en
+       el JQL; esto cubre los que llegaron antes de excluir el proyecto o por un backfill). */
+    DELETE i FROM #i i WHERE EXISTS (SELECT 1 FROM cfg.ProyectoExcluido x WHERE x.FuenteId = @FuenteId AND x.ProyectoClave = i.ProyectoClave);
+    DELETE d FROM #d d WHERE NOT EXISTS (SELECT 1 FROM #i i WHERE i.DocumentoId = d.DocumentoId);
+
     /* 2. ops.Issue ---------------------------------------------------------------------------- */
     MERGE ops.Issue AS t
     USING (

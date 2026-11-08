@@ -1,4 +1,5 @@
-/* Issue con sus catálogos resueltos. Base de casi todos los reportes. */
+/* Issue con sus catálogos resueltos. Base de casi todos los reportes.
+   Oculta los issues eliminados y los de proyectos excluidos (cfg.ProyectoExcluido). */
 CREATE OR ALTER VIEW rpt.vIssue
 AS
 SELECT
@@ -18,5 +19,6 @@ LEFT JOIN ops.Proyecto p ON p.FuenteId = i.FuenteId AND p.ProyectoId = i.Proyect
 LEFT JOIN ops.Estado   e ON e.FuenteId = i.FuenteId AND e.EstadoId   = i.EstadoId
 LEFT JOIN ops.Usuario ur ON ur.FuenteId = i.FuenteId AND ur.AccountId = i.ResponsableId
 LEFT JOIN ops.Usuario ui ON ui.FuenteId = i.FuenteId AND ui.AccountId = i.InformanteId
-WHERE i.Eliminado = 0;
+WHERE i.Eliminado = 0
+  AND NOT EXISTS (SELECT 1 FROM cfg.ProyectoExcluido x WHERE x.FuenteId = i.FuenteId AND x.ProyectoClave = p.Clave);
 GO

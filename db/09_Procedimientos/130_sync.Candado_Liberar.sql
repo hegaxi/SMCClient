@@ -4,7 +4,7 @@ CREATE OR ALTER PROCEDURE sync.Candado_Liberar
 AS
 BEGIN
     SET NOCOUNT ON;
-    UPDATE c SET ExpiraEn = SYSDATETIMEOFFSET(), Propietario = NULL
+    UPDATE c SET ExpiraEn = DATEADD(SECOND, -1, SYSDATETIMEOFFSET()), Propietario = NULL
     FROM sync.Candado c JOIN cfg.Fuente f ON f.FuenteId = c.FuenteId
     WHERE f.Codigo = @Fuente AND c.Propietario = @Propietario;
 END;

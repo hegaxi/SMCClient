@@ -88,8 +88,9 @@ EXEC prueba.Correr 'proyecto', 'catalogo', @d;
 SET @ok = (SELECT CASE WHEN COUNT(*) = 2 THEN 1 ELSE 0 END FROM ops.Proyecto WHERE Eliminado = 0); EXEC prueba.Afirmar @ok, N'2 proyectos';
 GO
 
-/* ===== 2. Issues (incluye un documento malo y un campo que aún no está en el catálogo) ===== */
+/* ===== 2. Issues (incluye un documento malo, un proyecto excluido y un campo que aún no está en el catálogo) ===== */
 DECLARE @ok bit;
+EXEC sync.Proyecto_Excluir @Fuente = 'prueba', @Clave = 'TST', @Motivo = N'Proyecto de pruebas';
 DECLARE @d sync.DocumentoTipo;
 INSERT @d (IdExterno, Actualizado, Json) VALUES
  ('5001', '2026-11-01T10:00:00-06:00', N'{"id":"5001","key":"MDA-1","fields":{
@@ -112,10 +113,14 @@ INSERT @d (IdExterno, Actualizado, Json) VALUES
     "timespent":28800,"parent":{"id":"4999","key":"SCR-1"},"customfield_10016":5,
     "customfield_10020":[{"id":990,"name":"Sprint 3","state":"closed","boardId":540,"goal":"","startDate":"2026-10-01T11:00:03.281Z","endDate":"2026-10-15T05:30:00.000Z","completeDate":"2026-10-16T18:03:39.409Z"},
                          {"id":991,"name":"Sprint 4","state":"active","boardId":540,"startDate":"2026-10-16T11:00:00.000Z","endDate":"2026-10-30T05:30:00.000Z"}]}}'),
- ('5003', '2026-11-02T13:00:00-06:00', N'{"id":"5003","fields":{"summary":"documento sin key: debe quedar en cuarentena"}}');
+ ('5003', '2026-11-02T13:00:00-06:00', N'{"id":"5003","fields":{"summary":"documento sin key: debe quedar en cuarentena"}}'),
+ ('5004', '2026-11-02T11:00:00-06:00', N'{"id":"5004","key":"TST-1","fields":{"summary":"issue de un proyecto de pruebas","project":{"id":"902","key":"TST"},
+    "status":{"id":"1","name":"To Do","statusCategory":{"key":"new"}},"created":"2026-11-02T11:00:00.000-0600","updated":"2026-11-02T11:00:00.000-0600"}}');
 EXEC prueba.Correr 'issue', 'incremental', @d;
 
 SET @ok = (SELECT CASE WHEN COUNT(*) = 2 THEN 1 ELSE 0 END FROM ops.Issue); EXEC prueba.Afirmar @ok, N'2 issues integrados aunque un documento venía mal';
+SET @ok = (SELECT CASE WHEN Procesado = 1 THEN 1 ELSE 0 END FROM raw.Documento WHERE Entidad = 'issue' AND IdExterno = '5004'); EXEC prueba.Afirmar @ok, N'Issue de proyecto excluido: se da por procesado sin integrarse';
+SET @ok = (SELECT CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END FROM ops.Issue WHERE Clave = 'TST-1'); EXEC prueba.Afirmar @ok, N'Proyecto excluido no llega a ops.Issue';
 SET @ok = (SELECT CASE WHEN Intentos >= 1 AND Procesado = 0 AND ErrorProceso LIKE N'%sin "id" o "key"%' THEN 1 ELSE 0 END FROM raw.Documento WHERE IdExterno = '5003'); EXEC prueba.Afirmar @ok, N'Documento malo marcado con su error';
 SET @ok = (SELECT CASE WHEN COUNT(*) >= 1 THEN 1 ELSE 0 END FROM sync.Evento WHERE Codigo = 'documento.error'); EXEC prueba.Afirmar @ok, N'Aviso documento.error registrado';
 SET @ok = (SELECT CASE WHEN Estado = 'parcial' THEN 1 ELSE 0 END FROM sync.Ejecucion WHERE EjecucionId = (SELECT MAX(EjecucionId) FROM sync.Ejecucion WHERE Entidad = 'issue')); EXEC prueba.Afirmar @ok, N'Ejecución con errores queda "parcial"';
@@ -199,7 +204,7 @@ SET @ok = (SELECT CASE WHEN COUNT(*) = 1 THEN 1 ELSE 0 END FROM sync.Evento WHER
 SET @ok = (SELECT CASE WHEN COUNT(*) = 1 THEN 1 ELSE 0 END FROM sync.Evento WHERE Codigo = 'campo.baja'); EXEC prueba.Afirmar @ok, N'Aviso campo.baja';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 1 THEN 1 ELSE 0 END FROM sync.Evento WHERE Codigo = 'campo.alta'); EXEC prueba.Afirmar @ok, N'Aviso campo.alta';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 2 THEN 1 ELSE 0 END FROM sync.Solicitud WHERE Modo = 'backfill' AND Estado = 'pendiente'); EXEC prueba.Afirmar @ok, N'Backfill programado para los 2 campos nuevos';
-SET @ok = (SELECT CASE WHEN COUNT(*) = 2 THEN 1 ELSE 0 END FROM raw.Documento WHERE Entidad = 'issue' AND Procesado = 0 AND Intentos = 0); EXEC prueba.Afirmar @ok, N'Issues marcados para reprocesar desde raw';
+SET @ok = (SELECT CASE WHEN COUNT(*) = 3 THEN 1 ELSE 0 END FROM raw.Documento WHERE Entidad = 'issue' AND Procesado = 0 AND Intentos = 0); EXEC prueba.Afirmar @ok, N'Issues marcados para reprocesar desde raw (incluye el del proyecto excluido)';
 
 -- El worker atiende el backfill de customfield_10099 (JQL cf[10099] is not EMPTY).
 DECLARE @s TABLE (SolicitudId bigint, Fuente varchar(50), Entidad varchar(40), Modo varchar(20), Parametros nvarchar(max));
@@ -242,6 +247,15 @@ BEGIN CATCH
 END CATCH;
 EXEC prueba.Afirmar @fallo, N'Un segundo worker no puede sincronizar la misma fuente (error 50010)';
 EXEC sync.Ejecucion_Finalizar @EjecucionId = @ej, @Estado = 'ok';
+EXEC sync.Candado_Liberar @Fuente = 'prueba', @Propietario = N'worker-1';
+
+-- Un worker que muere deja su ejecución "corriendo"; la siguiente que tome el candado la cierra.
+DECLARE @muerta bigint, @nueva bigint;
+EXEC sync.Ejecucion_Iniciar @Fuente = 'prueba', @Entidad = 'worklog', @Modo = 'incremental', @Propietario = N'worker-muerto', @EjecucionId = @muerta OUTPUT;
+UPDATE c SET ExpiraEn = DATEADD(MINUTE, -1, SYSDATETIMEOFFSET()) FROM sync.Candado c JOIN cfg.Fuente f ON f.FuenteId = c.FuenteId WHERE f.Codigo = 'prueba';  -- el candado del muerto expira
+EXEC sync.Ejecucion_Iniciar @Fuente = 'prueba', @Entidad = 'worklog', @Modo = 'incremental', @Propietario = N'worker-1', @EjecucionId = @nueva OUTPUT;
+SET @ok = (SELECT CASE WHEN Estado = 'error' AND Mensaje LIKE N'Abandonada%' THEN 1 ELSE 0 END FROM sync.Ejecucion WHERE EjecucionId = @muerta); EXEC prueba.Afirmar @ok, N'Ejecución abandonada por un worker caído se cierra al tomar el candado';
+EXEC sync.Ejecucion_Finalizar @EjecucionId = @nueva, @Estado = 'ok';
 EXEC sync.Candado_Liberar @Fuente = 'prueba', @Propietario = N'worker-1';
 
 DECLARE @estado TABLE (Fuente varchar(50), Ultima datetimeoffset, Min int, Vigentes bit, Sinc bit, Pend int, Cuar int, Avisos int);

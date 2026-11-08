@@ -17,7 +17,7 @@ Se revisaron proyectos y issues reales (solo lectura) para basar el diseño en d
 
 | Hallazgo | Consecuencia en el diseño |
 |---|---|
-| 21 proyectos: 12 `software` (Scrum), 8 `service_desk` (mesa de ayuda), 1 `business`. Varios son de pruebas (`TS25`, `TSM26`, `TSSM26`). | En Jira ambos son *issues*: un solo modelo `ops.Issue`, distinguido por `TipoProyecto`. Qué proyectos se sincronizan es configurable (`cfg.EntidadSync.Parametros.jqlBase`). |
+| 21 proyectos: 12 `software` (Scrum), 8 `service_desk` (mesa de ayuda), 1 `business`. Tres son de pruebas (`TS25`, `TSM26`, `TSSM26`). | En Jira ambos son *issues*: un solo modelo `ops.Issue`, distinguido por `TipoProyecto`. Los proyectos de prueba se excluyen en `cfg.ProyectoExcluido` (ver §5.4). |
 | Los SLA son campos personalizados (`customfield_10055` *Time to resolution*, `customfield_10056` *Time to first response*) con `slaDisplayFormat: NEW_SLA_FORMAT`: la búsqueda **no trae el ciclo en curso**. | Los SLA se leen de `/rest/servicedeskapi/request/{id}/sla`, que sí trae ciclo en curso y ciclos completados. Un SLA nuevo aparece solo (`SlaId` + `Nombre`). |
 | La búsqueda trae solo **20 worklogs por issue** (`SMC26-18` tiene 96). | Los worklogs se sincronizan aparte con `/worklog/updated` + `/worklog/list`, y los borrados con `/worklog/deleted`. |
 | Muchos worklogs los registra **Automation for Jira** (`accountType: app`). | Se guarda el autor tal cual y su `TipoCuenta`. **Decisión pendiente:** a quién atribuir esas horas (ver §9). |
@@ -116,7 +116,38 @@ Las entidades `changelog` y `sla` son **dependientes**: se piden solo para los i
   salvo para los procedimientos marcados con la propiedad extendida `smc:exentoSync = 1` (estado, avisos, catálogo).
 - React consulta `api.Sync_Estado` cada pocos segundos y muestra la pantalla de sincronización hasta que los datos estén vigentes.
 
-### 5.3 El controlador único
+### 5.3 El worker (C#)
+
+`src/SMCClient.Sync` (biblioteca) + `src/SMCClient.Worker` (servicio de Windows). La biblioteca se puede hospedar
+también dentro de la API con `services.AddSmcSync(configuracion)`.
+
+| Pieza | Responsabilidad |
+|---|---|
+| `Sincronizador` | Recorre fuentes y entidades en el orden de la base; decide qué venció; atiende la cola de solicitudes; conciliación diaria. |
+| `IExtractor` (uno por entidad) | Sabe hablar con **un** endpoint de Jira (paginación, formato) y entrega JSON crudo. Si Atlassian cambia un endpoint, se cambia solo su extractor. |
+| `JiraCliente` | HTTP con autenticación (Cloud: correo + API token; Data Center: token personal) y resiliencia estándar: 6 reintentos ante 429/5xx/timeout respetando `Retry-After`, circuit breaker. |
+| `SyncRepositorio` | Llama a los procedimientos `sync.*` (lotes JSON por TVP). No contiene SQL de negocio. |
+| `SyncWorker` | `BackgroundService`: ciclo al arrancar y cada `IntervaloRevisionSegundos`. |
+
+Detalles que cuidan la operación:
+
+- **Zona horaria del JQL.** Jira interpreta las fechas del JQL en la zona del usuario técnico; el worker la consulta (`/myself`) y convierte la marca de agua.
+- **Reintentos con espera.** Si una entidad falla, no se reintenta en cada ciclo sino tras `MinutosReintentoTrasError`; los datos dejan de estar vigentes y el aviso queda en `sync.Ejecucion`.
+- **Paro ordenado.** Al detener el servicio se cierra la ejecución en curso y se libera el candado. Si el proceso muere, la siguiente ejecución que tome el candado cierra la abandonada.
+- **Cola por fuente.** Cada worker solo toma solicitudes de las fuentes que tiene configuradas, así varias instancias no se bloquean entre sí.
+
+### 5.4 Proyectos excluidos
+
+`cfg.ProyectoExcluido` (alta y baja con `sync.Proyecto_Excluir`). Un proyecto excluido:
+
+- no se pide a Jira (el worker agrega `project not in (...)` al JQL),
+- si llega de todos modos, la base lo da por procesado sin integrarlo y no se piden su changelog, worklogs ni SLA,
+- se oculta en `rpt.*` y en `api.*` aunque ya tuviera datos.
+
+Al volver a incluirlo se programa un backfill del proyecto completo (issues, historial, worklogs y SLA).
+En smco están excluidos `TS25`, `TSM26` y `TSSM26` (`db/instancias/smco.sql`).
+
+### 5.5 El controlador único
 
 - Lista los procedimientos del esquema `api` con `sys.procedures`, `sys.parameters` y `sys.dm_exec_describe_first_result_set_for_object`.
 - Lee las propiedades extendidas: `MS_Description` (texto para el usuario), `smc:permiso` (`lectura` / `admin`) y `smc:exentoSync`.
@@ -160,5 +191,5 @@ Ver [`db/README.md`](../db/README.md). Resumen: `00_Preparacion` → `01_Esquema
 
 1. **Worklogs de Automation for Jira.** ¿Las horas se atribuyen a la app o a otra persona (el responsable del issue, un campo, el comentario del worklog)? Hoy se guardan como `TipoCuentaAutor = app` y se pueden filtrar.
 2. **Story points.** No se encontró el campo con valor en las muestras. ¿Lo usan? ¿Con qué nombre?
-3. **Proyectos a sincronizar.** ¿Se excluyen los de pruebas (`TS25`, `TSM26`, `TSSM26`) y los temporales? Se configura en `jqlBase`.
+3. ~~Proyectos de prueba~~: resuelto, se excluyen `TS25`, `TSM26` y `TSSM26`. Los temporales (`S22T`, `S2T`) siguen incluidos; se excluyen con `sync.Proyecto_Excluir` si se decide.
 4. **Horario laboral para SLA propios.** JSM ya calcula los SLA con su calendario. Si se quieren métricas que JSM no tiene (p. ej. tiempo en cada estado en horario laboral), se agrega un calendario en `cfg`.

@@ -43,10 +43,11 @@ $env:SQLCMDPASSWORD = '...'
 SQLCMDPASSWORD='...' ./deploy.sh -S localhost -d SMCClient -U sa -C --crear-bd
 ```
 
-Después del primer despliegue se registra la instancia de Jira (una sola vez):
+Después del primer despliegue se configura la instancia de Jira. Lo propio de cada ambiente vive en
+`instancias/` (fuera del despliegue ordenado) y se puede repetir:
 
-```sql
-EXEC sync.Fuente_Registrar @Codigo = 'smco', @Tipo = 'jira-cloud', @UrlBase = N'https://smco.atlassian.net';
+```bash
+sqlcmd -S . -d SMCClient -E -i instancias/smco.sql   # registra smco y excluye TS25, TSM26, TSSM26
 ```
 
 ## Reglas para agregar objetos
@@ -62,8 +63,9 @@ EXEC sync.Fuente_Registrar @Codigo = 'smco', @Tipo = 'jira-cloud', @UrlBase = N'
 ## Pruebas
 
 `tests/010_prueba_integracion.sql` simula al worker con datos ficticios (con la forma real de Jira Cloud) y
-verifica 51 condiciones: carga inicial, documento malo en cuarentena, campo eliminado, renombrado, recreado con
+verifica 54 condiciones: carga inicial, documento malo en cuarentena, campo eliminado, renombrado, recreado con
 otro ID, campo nuevo con backfill, catálogo incompleto, candado entre workers y procedimientos `api.*`.
+También verifica la exclusión de proyectos y el cierre de ejecuciones abandonadas por un worker caído.
 Se corre sobre una base **recién desplegada**:
 
 ```bash
