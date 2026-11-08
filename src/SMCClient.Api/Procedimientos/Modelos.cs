@@ -10,7 +10,8 @@ public sealed record ProcedimientoInfo(
     IReadOnlyList<ColumnaInfo>? Columnas,
     IReadOnlyList<string>? TitulosResultados,
     string Titulo,
-    bool Accion)
+    bool Accion,
+    bool Oculto = false)
 {
     /// <summary>Parámetros que llena el servidor (usuario autenticado); no se exponen ni se aceptan del cliente.</summary>
     internal IReadOnlyList<ParametroInfo> ParametrosDeContexto { get; init; } = Array.Empty<ParametroInfo>();

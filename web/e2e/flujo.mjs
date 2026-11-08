@@ -109,6 +109,49 @@ try {
     await pagina.getByText('Es obligatorio.').waitFor();
   });
 
+  await paso('Busqueda avanzada desde cero', async () => {
+    await pagina.getByRole('link', { name: 'Búsqueda avanzada' }).click();
+    await titulo('Búsqueda avanzada').waitFor();
+    await pagina.getByText('1–2 de 2 issues').waitFor();
+    // Criterio de lista con los valores existentes y su número de issues.
+    await pagina.getByRole('button', { name: /Estado: todos/ }).click();
+    await pagina.getByRole('checkbox', { name: /In Progress/ }).check();
+    await pagina.getByRole('button', { name: 'Aplicar' }).click();
+    await pagina.getByRole('button', { name: 'SCR-7' }).waitFor({ state: 'detached' });
+    await pagina.waitForURL(/Criterios=/);
+    // Campo personalizado de Jira desde "Más criterios".
+    await pagina.getByRole('button', { name: '+ Más criterios' }).click();
+    await pagina.getByRole('searchbox', { name: 'Buscar campo' }).fill('Estac');
+    await pagina.getByRole('button', { name: 'Estación' }).click();
+    await pagina.getByRole('checkbox', { name: /ESTACIÓN SUR/ }).check();
+    await pagina.getByRole('button', { name: 'Aplicar' }).click();
+    await pagina.getByRole('button', { name: /Estación: ESTACIÓN SUR/ }).waitFor();
+    // Fecha relativa.
+    await pagina.getByRole('button', { name: '+ Más criterios' }).click();
+    await pagina.getByRole('button', { name: 'Creado', exact: true }).click();
+    await pagina.getByLabel('Valor: tipo de fecha').selectOption({ label: 'Inicio del año' });
+    await pagina.getByRole('button', { name: 'Aplicar' }).click();
+    await pagina.getByRole('button', { name: /Creado: desde inicio del año/ }).waitFor();
+    // Columnas a elegir.
+    await pagina.getByRole('button', { name: 'Columnas' }).click();
+    await pagina.getByLabel('Agregar columna').selectOption({ label: 'Etiquetas' });
+    await pagina.getByLabel('Agregar columna').selectOption({ label: 'Estación' });
+    await pagina.getByRole('button', { name: 'Listo' }).click();
+    await pagina.getByRole('columnheader', { name: 'Etiquetas' }).waitFor();
+    await pagina.getByRole('cell', { name: /urgente/ }).waitFor();
+    await pagina.getByRole('button', { name: 'MDA-1' }).waitFor();
+  });
+
+  await paso('La busqueda se recarga desde la direccion y se guarda como filtro', async () => {
+    await pagina.reload();
+    await pagina.getByRole('button', { name: /Estación: ESTACIÓN SUR/ }).waitFor();
+    await pagina.getByRole('columnheader', { name: 'Estación' }).waitFor();
+    await pagina.getByRole('button', { name: 'Guardar como filtro' }).click();
+    await pagina.getByLabel(/Nombre del filtro/).fill('En curso por estación');
+    await pagina.getByRole('button', { name: 'Guardar filtro' }).click();
+    await pagina.getByText('Filtro «En curso por estación» guardado').waitFor();
+  });
+
   // ----- Filtros y tableros -----
   await paso('Guardar un filtro con fecha relativa', async () => {
     await pagina.getByRole('link', { name: 'Horas por persona' }).click();
@@ -134,6 +177,7 @@ try {
 
     await pagina.getByRole('button', { name: 'Agregar widget' }).click();
     await pagina.getByLabel(/^Título/).fill('Total de horas');
+    await pagina.getByLabel(/^Filtro/).selectOption({ label: 'Horas desde octubre · Horas por persona' });
     await pagina.getByLabel('Cálculo').selectOption({ label: 'Suma' });
     await pagina.getByLabel(/^Columna/).selectOption({ label: 'Horas totales' });
     await pagina.getByLabel('Ancho').selectOption({ label: '1/4' });
@@ -142,12 +186,22 @@ try {
 
     await pagina.getByRole('button', { name: 'Agregar widget' }).click();
     await pagina.getByLabel(/^Título/).fill('Horas por persona');
+    await pagina.getByLabel(/^Filtro/).selectOption({ label: 'Horas desde octubre · Horas por persona' });
     await pagina.getByLabel('Mostrar como').selectOption('barras');
     await pagina.getByLabel(/^Agrupar por/).selectOption({ label: 'Persona' });
     await pagina.getByLabel(/^Valor/).selectOption({ label: 'Horas totales' });
     await pagina.getByLabel('Ancho').selectOption({ label: '3/4' });
     await pagina.getByRole('button', { name: 'Guardar widget' }).click();
     await pagina.getByRole('list', { name: 'Horas por persona' }).waitFor();
+
+    // Widget con la búsqueda avanzada guardada: tabla con columnas que salen de la búsqueda.
+    await pagina.getByRole('button', { name: 'Agregar widget' }).click();
+    await pagina.getByLabel(/^Título/).fill('En curso por estación');
+    await pagina.getByLabel(/^Filtro/).selectOption({ label: 'En curso por estación · Búsqueda avanzada' });
+    await pagina.getByLabel('Mostrar como').selectOption('tabla');
+    await pagina.getByRole('checkbox', { name: 'Estación' }).waitFor();
+    await pagina.getByRole('button', { name: 'Guardar widget' }).click();
+    await titulo('En curso por estación').waitFor();
     await pagina.getByRole('button', { name: 'Terminar edición' }).click();
     await pagina.getByText('26', { exact: true }).waitFor();   // 10 h registradas + 16 h automáticas
   });

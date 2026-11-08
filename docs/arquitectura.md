@@ -204,6 +204,7 @@ sola aplicación con la misma autenticación de Windows.
 | `smc:accion` | procedimiento | No corre sola al abrirla; pide confirmación |
 | `smc:resultados` | procedimiento | Títulos de cada conjunto de resultados |
 | `smc:opciones` | parámetro | Lista desplegable; también traduce esos valores en las tablas |
+| `smc:oculto` | procedimiento | No aparece en el menú (lo usa una pantalla propia, p. ej. los campos de la búsqueda avanzada) |
 
 - **Convenciones de presentación**: columnas `Clave` / `PadreClave` abren el detalle del issue; `TotalFilas` + `@Pagina` activan la paginación; un solo registro con más de 6 columnas se muestra como ficha en las consultas de detalle.
 
@@ -220,6 +221,34 @@ sola aplicación con la misma autenticación de Windows.
 - **Lógica en SQL**: `dash.fn_FechaRelativa` / `dash.fn_ResolverParametros` convierten las fechas relativas; `api.Tablero_Obtener` entrega cada widget con su consulta y los parámetros ya resueltos y si quien lo ve puede ejecutarla (`seg.fn_ProcedimientosPermitidos`, la misma función que decide los permisos de la API).
 - **Seguridad**: el widget se ejecuta por el controlador único con los permisos de quien ve el tablero; compartir un tablero no comparte permisos. Solo el propietario modifica filtros, tableros y widgets; un filtro usado por un widget no se borra; no se guardan filtros de acciones ni con los parámetros que pone el servidor.
 - **Interfaz**: los widgets se arman con los metadatos de la consulta (columnas y tipos). El indicador "conteo" usa `TotalFilas` en consultas paginadas. Las barras son de una sola serie (un color validado para contraste en modo claro y oscuro, sin leyenda, valor en texto, tooltip al pasar o enfocar y vista de tabla).
+
+### 5.9 Búsqueda avanzada (filtros desde cero, como el navegador de Jira)
+
+Criterios sobre **cualquier** campo, columnas a elegir y ordenar, orden y paginación en el servidor.
+
+| Pieza | Qué hace |
+|---|---|
+| `cfg.CampoConsulta` (semilla `11_DatosSemilla/040`) | Campos estándar: etiqueta, tipo (`texto`, `numero`, `fecha`, `lista`, `usuario`, `bit`), expresión SQL de un valor o de varios (sprints, etiquetas, componentes) y columnas predeterminadas |
+| `rpt.fn_CamposBuscador()` | Une los estándar con los **personalizados de Jira** (`meta.CampoJira` activos que se guardan, clave `cf:<id>`), con su tipo deducido del esquema de Jira y los operadores de cada tipo. Un campo que Jira agrega aparece solo al sincronizar metadatos; uno que alimenta un campo estándar (sprint, story points, tipo de solicitud) no se repite |
+| `api.Issues_Campos` / `api.Issues_Valores` | Campos y operadores; valores existentes de un campo con cuántos issues tiene cada uno (para los selectores) |
+| `api.Issues_Consultar` | `@Criterios` (arreglo JSON `{campo, operador, valor, hasta, valores}`), `@Columnas`, `@OrdenarPor`, `@Descendente`, `@Pagina`, `@TamanoPagina` (≤ 500) |
+
+Operadores: listas `en` / `no_en`; texto `contiene`, `no_contiene`, `igual`, `distinto`; números `igual`, `distinto`,
+`mayor`, `mayor_igual`, `menor`, `menor_igual`, `entre`; fechas `desde`, `hasta`, `entre`, `igual` (fijas o relativas
+`{hoy-30}`, `{inicio_mes}`…); sí/no `es`; todos `vacio` / `no_vacio`. Los criterios se combinan con Y. En campos de varios
+valores `en` = alguno coincide y `no_en` = ninguno (incluye los que no tienen valor).
+
+**Seguridad del SQL dinámico.** El SQL se arma solo con expresiones de la lista blanca (`rpt.fn_CamposBuscador`) y
+operadores conocidos; los valores nunca se concatenan: la consulta los lee del propio JSON (`JSON_VALUE(@c, '$[k].valor')`,
+`OPENJSON(@c, '$[k].valores')`) y se ejecuta con `sp_executesql`. Campos, operadores, columnas u orden desconocidos → 400
+con un mensaje claro. `EXECUTE AS OWNER` porque el SQL dinámico no hereda el encadenamiento de propietarios (el rol
+`smc_api` sigue sin leer tablas). Las pruebas (`db/tests/040`) incluyen intentos de inyección en campo, columnas, orden y valores.
+
+**Interfaz.** `BuscadorIssues`: texto libre, chips para Proyecto / Tipo / Estado / Responsable y *+ Más criterios* (buscador
+de campos agrupado en Jira / personalizados); cada criterio se edita según su tipo; *Columnas* (agregar, quitar, reordenar);
+orden al hacer clic en el encabezado; CSV de hasta 500; todo vive en la dirección. *Guardar como filtro* lo deja disponible
+para los widgets (con `TamanoPagina` 500, así los conteos y barras cubren más que una página); el editor de widgets
+ejecuta el filtro una vez para conocer sus columnas.
 
 ---
 

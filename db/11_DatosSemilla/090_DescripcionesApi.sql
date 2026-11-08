@@ -6,6 +6,7 @@
    smc:exentoSync  1 = se puede ejecutar aunque los datos no estén sincronizados
    smc:accion      1 = modifica algo (la interfaz nunca lo ejecuta solo al abrirlo; pide confirmar)
    smc:resultados  títulos de cada conjunto de resultados, separados por '|'
+   smc:oculto      1 = no aparece en el menú (lo usa una pantalla propia de la interfaz)
    smc:opciones    (en un parámetro) valores permitidos: valor=Etiqueta|valor2=Etiqueta2 */
 DECLARE @p TABLE (Objeto nvarchar(300), Titulo nvarchar(100), Descripcion nvarchar(400), Permiso varchar(10), Exento char(1));
 INSERT @p VALUES
@@ -40,7 +41,10 @@ INSERT @p VALUES
  ('api.Widget_Guardar',   N'Guardar widget',             N'Agrega o modifica un widget de un tablero.',                                                    'usuario', '1'),
  ('api.Widget_Eliminar',  N'Quitar widget',              N'Quita un widget de un tablero.',                                                                'usuario', '1'),
  ('api.Widget_Mover',     N'Mover widget',               N'Cambia el orden de un widget.',                                                                 'usuario', '1'),
- ('api.Tablero_Inicio',   N'Tablero de inicio',          N'Elige el tablero que se muestra al entrar.',                                                    'usuario', '1');
+ ('api.Tablero_Inicio',   N'Tablero de inicio',          N'Elige el tablero que se muestra al entrar.',                                                    'usuario', '1'),
+ ('api.Issues_Consultar', N'Búsqueda avanzada',          N'Filtros desde cero sobre cualquier campo de Jira (también los personalizados), con columnas y orden a elegir.', 'lectura', '0'),
+ ('api.Issues_Campos',    N'Campos de búsqueda',         N'Campos y operadores disponibles en la búsqueda avanzada.',                                      'lectura', '1'),
+ ('api.Issues_Valores',   N'Valores de un campo',        N'Valores existentes de un campo, para elegirlos en la búsqueda avanzada.',                       'lectura', '0');
 
 DECLARE @o nvarchar(300), @t nvarchar(100), @d nvarchar(400), @pe varchar(10), @e char(1);
 DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT Objeto, Titulo, Descripcion, Permiso, Exento FROM @p;
@@ -74,6 +78,9 @@ EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Activo', N'MS_Descripti
 EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', '@Permisos', N'MS_Description', N'Separados por coma: lectura (todas las consultas), admin (administración) o api.Nombre (un procedimiento)';
 EXEC adm.Descripcion_Establecer 'api.Aviso_Atender', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Mapeo_Establecer', NULL, N'smc:accion', N'1';
+
+EXEC adm.Descripcion_Establecer 'api.Issues_Campos', NULL, N'smc:oculto', N'1';
+EXEC adm.Descripcion_Establecer 'api.Issues_Valores', NULL, N'smc:oculto', N'1';
 
 EXEC adm.Descripcion_Establecer 'api.Issue_Detalle', NULL, N'smc:resultados', N'Datos del issue|Campos personalizados|Tiempo registrado|SLA|Historial de estados';
 EXEC adm.Descripcion_Establecer 'api.Sync_Estado', NULL, N'smc:resultados', N'Resumen por fuente|Detalle por entidad';

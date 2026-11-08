@@ -65,6 +65,9 @@ dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administr
 
 ## Pruebas
 
+`tests/040_prueba_buscador.sql` verifica 40 reglas de la búsqueda avanzada (cada operador y tipo, campos de varios valores y
+personalizados, columnas, orden, paginación, guardado como filtro e intentos de inyección). Va después de `010`.
+
 `tests/030_prueba_tableros.sql` verifica 31 reglas de filtros y tableros (fechas relativas, permisos, compartir, propiedad).
 
 `tests/020_prueba_seguridad.sql` verifica 33 reglas de seguridad: contraseñas, bloqueo, cambio obligatorio, sello de
@@ -80,6 +83,7 @@ Se corre sobre una base **recién desplegada**:
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/010_prueba_integracion.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/020_prueba_seguridad.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/030_prueba_tableros.sql
+sqlcmd -S localhost -d SMCClient -b -I -x -i tests/040_prueba_buscador.sql
 ```
 
 ## Contrato con el worker (qué documento JSON va en cada entidad)

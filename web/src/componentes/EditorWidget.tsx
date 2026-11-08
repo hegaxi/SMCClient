@@ -1,7 +1,7 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { api, ErrorApi } from '../api';
 import { esNumero, etiqueta } from '../formato';
-import type { Fila, ProcedimientoInfo } from '../tipos';
+import type { ColumnaInfo, Fila, ProcedimientoInfo } from '../tipos';
 import { AGREGACIONES, leerConfig, type ConfigWidget, type TipoWidget } from '../widgets';
 
 interface Props {
@@ -27,7 +27,24 @@ export function EditorWidget({ tableroId, widget, filtros, procs, onGuardado, on
   const [ocupado, setOcupado] = useState(false);
 
   const filtro = usables.find((f) => String(f.FiltroId) === filtroId);
-  const columnas = procs.find((p) => p.nombre === filtro?.Procedimiento)?.columnas?.filter((c) => c.nombre !== 'TotalFilas') ?? [];
+  const deMetadatos = procs.find((p) => p.nombre === filtro?.Procedimiento)?.columnas ?? null;
+
+  // Consultas con columnas variables (la búsqueda avanzada): se ejecuta el filtro una vez para conocerlas.
+  const [dinamicas, setDinamicas] = useState<{ filtroId: string; columnas: ColumnaInfo[] } | null>(null);
+  const procFiltro = filtro ? String(filtro.Procedimiento) : null;
+  const parametrosFiltro = filtro ? String(filtro.ParametrosResueltos ?? '{}') : null;
+  useEffect(() => {
+    if (!procFiltro || deMetadatos || dinamicas?.filtroId === filtroId) return;
+    let vigente = true;
+    let parametros: Record<string, unknown> = {};
+    try { parametros = JSON.parse(parametrosFiltro ?? '{}'); } catch { /* sin parámetros */ }
+    api.ejecutar(procFiltro, parametros)
+      .then((r) => vigente && setDinamicas({ filtroId, columnas: r.resultados[0]?.columnas ?? [] }))
+      .catch(() => vigente && setDinamicas({ filtroId, columnas: [] }));
+    return () => { vigente = false; };
+  }, [procFiltro, parametrosFiltro, deMetadatos, filtroId, dinamicas?.filtroId]);
+
+  const columnas = (deMetadatos ?? (dinamicas?.filtroId === filtroId ? dinamicas.columnas : [])).filter((c) => c.nombre !== 'TotalFilas');
   const numericas = columnas.filter((c) => esNumero(tipoBase(c.tipo)));
   const cambiar = (c: Partial<ConfigWidget>) => setConfig((x) => ({ ...x, ...c }));
 

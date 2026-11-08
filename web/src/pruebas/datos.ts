@@ -6,7 +6,7 @@ export const parametro = (p: Partial<ParametroInfo> & { nombre: string; tipo: st
 
 export const procedimiento = (p: Partial<ProcedimientoInfo> & { nombre: string }): ProcedimientoInfo => ({
   descripcion: null, permiso: 'lectura', exentoSync: false, parametros: [], columnas: null, titulosResultados: null,
-  titulo: p.nombre, accion: false, ...p,
+  titulo: p.nombre, accion: false, oculto: false, ...p,
 });
 
 /** fetch simulado: responde según método y ruta; guarda las peticiones. */

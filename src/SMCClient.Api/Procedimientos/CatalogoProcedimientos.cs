@@ -13,7 +13,7 @@ public interface ICatalogoProcedimientos
 /// <summary>
 /// Lee de SQL Server los procedimientos del esquema api: parámetros (sys.parameters), columnas del primer
 /// resultado (sys.dm_exec_describe_first_result_set_for_object) y propiedades extendidas
-/// (MS_Description, smc:permiso, smc:exentoSync). Se guarda en memoria y se recarga solo cuando cambia
+/// (MS_Description, smc:permiso, smc:exentoSync, smc:titulo, smc:accion, smc:oculto…). Se guarda en memoria y se recarga solo cuando cambia
 /// algo en la base (firma = fechas de modificación + propiedades extendidas), así un procedimiento
 /// nuevo aparece sin reiniciar la API.
 /// </summary>
@@ -37,7 +37,8 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                OBJECT_DEFINITION(p.object_id),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:resultados') AS nvarchar(3750)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:titulo') AS nvarchar(200)),
-               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:accion') AS nvarchar(10))
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:accion') AS nvarchar(10)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:oculto') AS nvarchar(10))
         FROM sys.procedures p
         WHERE p.schema_id = SCHEMA_ID('api')
         ORDER BY p.name;
@@ -99,7 +100,7 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
         await using var cmd = new SqlCommand(SqlMetadatos, cn);
         await using var r = await cmd.ExecuteReaderAsync(ct);
 
-        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion, string? Resultados, string Titulo, bool Accion)>();
+        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion, string? Resultados, string Titulo, bool Accion, bool Oculto)>();
         while (await r.ReadAsync(ct))
         {
             procs.Add((r.GetInt32(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
@@ -108,7 +109,8 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                        r.IsDBNull(5) ? "" : r.GetString(5),
                        r.IsDBNull(6) ? null : r.GetString(6),
                        r.IsDBNull(7) ? r.GetString(1).Replace('_', ' ') : r.GetString(7),
-                       !r.IsDBNull(8) && r.GetString(8).Trim() == "1"));
+                       !r.IsDBNull(8) && r.GetString(8).Trim() == "1",
+                       !r.IsDBNull(9) && r.GetString(9).Trim() == "1"));
         }
 
         await r.NextResultAsync(ct);
@@ -147,7 +149,8 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                 columnas.GetValueOrDefault(p.Id),
                 p.Resultados?.Split('|', StringSplitOptions.TrimEntries),
                 p.Titulo,
-                p.Accion)
+                p.Accion,
+                p.Oculto)
             {
                 ParametrosDeContexto = todos.Where(x => deUsuario.Contains(x.Nombre)).ToList(),
             };

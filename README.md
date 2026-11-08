@@ -166,6 +166,14 @@ Qué hace:
 - Las reglas están en SQL Server (`dash.*`, `api.Filtro_*`, `api.Tablero_*`, `api.Widget_*`): solo el propietario modifica,
   no se guardan filtros de acciones ni de consultas no permitidas, no se borra un filtro que usa un widget, etc.
 
+### 6. Búsqueda avanzada (como el navegador de issues de Jira)
+
+*Consultas → Búsqueda avanzada*: texto libre, criterios sobre **cualquier** campo — también los personalizados de Jira,
+que aparecen solos al sincronizarse — con operadores según el tipo (es alguno de / ninguno de, contiene, mayor que, entre,
+desde / hasta con fechas fijas o relativas, está vacío…), columnas a elegir y reordenar, orden por encabezado y paginación.
+La búsqueda queda en la dirección (se comparte el enlace) y se puede **guardar como filtro** para usarla en un widget.
+Detalle técnico y seguridad del SQL dinámico: [`docs/arquitectura.md` §5.9](docs/arquitectura.md).
+
 ## Pruebas
 
 ```bash

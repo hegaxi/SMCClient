@@ -34,6 +34,8 @@ export interface ProcedimientoInfo {
   titulo: string;
   /** Modifica algo: no se ejecuta solo al abrirlo y pide confirmación. */
   accion: boolean;
+  /** No aparece en el menú: lo usa una pantalla propia (p. ej. los campos de la búsqueda avanzada). */
+  oculto: boolean;
 }
 
 export type Fila = Record<string, unknown>;

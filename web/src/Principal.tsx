@@ -3,6 +3,7 @@ import { api, ErrorApi } from './api';
 import { etiquetasDeValores, formatear } from './formato';
 import { useSincronizacion } from './sincronizacion';
 import type { Fila, ProcedimientoInfo, Sesion, ValoresFormulario } from './tipos';
+import { BuscadorIssues } from './componentes/BuscadorIssues';
 import { CambiarContrasena } from './componentes/CambiarContrasena';
 import { EditorTablero } from './componentes/EditorTablero';
 import { MisFiltros } from './componentes/MisFiltros';
@@ -86,7 +87,7 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   }, []);
 
   const grupos = useMemo(() => {
-    const lista = [...(procs ?? [])].filter((p) => p.permiso !== 'usuario').sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
+    const lista = [...(procs ?? [])].filter((p) => p.permiso !== 'usuario' && !p.oculto).sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
     return [
       { titulo: 'Consultas', procs: lista.filter((p) => p.permiso === 'lectura' && !p.exentoSync) },
       { titulo: 'Sincronización', procs: lista.filter((p) => p.permiso === 'lectura' && p.exentoSync) },
@@ -150,6 +151,13 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   else if (seleccion.nombre === VISTA_FILTROS) contenido = <MisFiltros onAbrir={(n, v) => navegar(n, v)} />;
   else if (seleccion.nombre === VISTA_CONTRASENA) contenido = <CambiarContrasena obligatorio={false} onListo={() => navegar(null)} onCancelar={() => navegar(null)} />;
   else if (seleccion.nombre === VISTA_RESTABLECER && sesion.esAdministrador) contenido = <RestablecerContrasena />;
+  else if (proc?.nombre === 'Issues_Consultar')
+    contenido = (
+      <BuscadorIssues key={`${proc.nombre}-${vista}`} proc={proc} valoresUrl={seleccion.valores} onNavegar={navegar}
+                      puedeVerDetalle={procs.some((p) => p.nombre === 'Issue_Detalle')}
+                      puedeGuardarFiltro={procs.some((p) => p.nombre === 'Filtro_Guardar')}
+                      onSyncPendiente={sync.marcarPendiente} />
+    );
   else if (proc)
     contenido = (
       <VistaProcedimiento
