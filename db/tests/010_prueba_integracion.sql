@@ -147,12 +147,15 @@ DECLARE @d sync.DocumentoTipo;
 INSERT @d (IdExterno, Actualizado, Json) VALUES
  ('7001', '2026-11-01T09:00:00-06:00', N'{"id":"7001","issueId":"5001","author":{"accountId":"agente-1","displayName":"Agente Uno","accountType":"atlassian"},"started":"2026-10-30T10:00:00.000-0600","timeSpentSeconds":7200,"created":"2026-10-30T12:00:00.000-0600","updated":"2026-10-30T12:00:00.000-0600"}'),
  ('7002', '2026-11-01T09:30:00-06:00', N'{"id":"7002","issueId":"5001","author":{"accountId":"557058:automation","displayName":"Automation for Jira","accountType":"app"},"started":"2026-10-31T10:00:00.000-0600","timeSpentSeconds":3600,"created":"2026-10-31T12:00:00.000-0600","updated":"2026-10-31T12:00:00.000-0600"}'),
- ('7003', '2026-11-02T09:00:00-06:00', N'{"id":"7003","issueId":"5002","author":{"accountId":"dev-1","displayName":"Dev Uno","accountType":"atlassian"},"started":"2026-10-20T10:00:00.000-0600","timeSpentSeconds":28800,"created":"2026-10-20T19:00:00.000-0600","updated":"2026-10-20T19:00:00.000-0600"}');
+ ('7003', '2026-11-02T09:00:00-06:00', N'{"id":"7003","issueId":"5002","author":{"accountId":"dev-1","displayName":"Dev Uno","accountType":"atlassian"},"started":"2026-10-20T10:00:00.000-0600","timeSpentSeconds":28800,"created":"2026-10-20T19:00:00.000-0600","updated":"2026-10-20T19:00:00.000-0600"}'),
+ -- Automation for Jira: 1 día por día hábil. MDA-1 se asignó a agente-1 el 2026-10-30 09:21 (ver changelog).
+ ('7004', '2026-11-01T10:00:00-06:00', N'{"id":"7004","issueId":"5001","author":{"accountId":"557058:automation","displayName":"Automation for Jira","accountType":"app"},"started":"2026-10-30T08:00:00.000-0600","timeSpentSeconds":28800,"updated":"2026-10-30T08:00:00.000-0600"}'),
+ ('7005', '2026-11-01T10:00:00-06:00', N'{"id":"7005","issueId":"5001","author":{"accountId":"557058:automation","displayName":"Automation for Jira","accountType":"app"},"started":"2026-10-31T08:00:00.000-0600","timeSpentSeconds":28800,"updated":"2026-10-31T08:00:00.000-0600"}');
 EXEC prueba.Correr 'worklog', 'incremental', @d;
 DELETE @d;
 INSERT @d (IdExterno, Json) VALUES ('7002', N'{"worklogId":7002,"updatedTime":1793000000000}');
 EXEC prueba.Correr 'worklog_eliminado', 'incremental', @d;
-SET @ok = (SELECT CASE WHEN SUM(Segundos) = 36000 THEN 1 ELSE 0 END FROM ops.Worklog WHERE Eliminado = 0); EXEC prueba.Afirmar @ok, N'Worklogs vigentes = 10 h (uno eliminado)';
+SET @ok = (SELECT CASE WHEN SUM(Segundos) = 93600 THEN 1 ELSE 0 END FROM ops.Worklog WHERE Eliminado = 0); EXEC prueba.Afirmar @ok, N'Worklogs vigentes = 26 h (uno eliminado)';
 
 DELETE @d;
 INSERT @d (IdExterno, Json) VALUES
@@ -180,6 +183,11 @@ INSERT @d (IdExterno, Json) VALUES
 EXEC prueba.Correr 'changelog', 'incremental', @d;
 SET @ok = (SELECT CASE WHEN COUNT(*) = 3 THEN 1 ELSE 0 END FROM ops.IssueCambio); EXEC prueba.Afirmar @ok, N'Changelog: 3 cambios (incluye un campo personalizado)';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 1 THEN 1 ELSE 0 END FROM rpt.vTransicionEstado WHERE Clave = 'MDA-1'); EXEC prueba.Afirmar @ok, N'Transición de estado visible en rpt.vTransicionEstado';
+SET @ok = (SELECT CASE WHEN Origen = 'manual' AND AtribuidoAId = 'agente-1' AND MetodoAtribucion = 'autor' THEN 1 ELSE 0 END FROM rpt.vWorklog WHERE WorklogId = '7001'); EXEC prueba.Afirmar @ok, N'Worklog manual: se atribuye a su autor';
+SET @ok = (SELECT CASE WHEN Origen = 'automatico' AND AtribuidoAId = 'agente-1' AND MetodoAtribucion = 'historial' THEN 1 ELSE 0 END FROM rpt.vWorklog WHERE WorklogId = '7005'); EXEC prueba.Afirmar @ok, N'Worklog automático: se atribuye al responsable que tenía el issue ese día';
+SET @ok = (SELECT CASE WHEN Origen = 'automatico' AND AtribuidoAId IS NULL AND AtribuidoA = N'(Sin responsable)' THEN 1 ELSE 0 END FROM rpt.vWorklog WHERE WorklogId = '7004'); EXEC prueba.Afirmar @ok, N'Worklog automático antes de asignar el issue: sin responsable';
+SET @ok = (SELECT CASE WHEN Autor = N'Automation for Jira' THEN 1 ELSE 0 END FROM rpt.vWorklog WHERE WorklogId = '7005'); EXEC prueba.Afirmar @ok, N'El autor original de Jira se conserva';
+SET @ok = (SELECT CASE WHEN AtribuidoAId = 'dev-1' AND MetodoAtribucion = 'autor' THEN 1 ELSE 0 END FROM rpt.vWorklog WHERE WorklogId = '7003'); EXEC prueba.Afirmar @ok, N'Worklog manual de otro proyecto: su autor';
 GO
 
 /* ===== 4. Cambios en Jira ===== */
@@ -262,9 +270,14 @@ DECLARE @estado TABLE (Fuente varchar(50), Ultima datetimeoffset, Min int, Vigen
 INSERT @estado EXEC api.Sync_Estado @Detalle = 0;
 SET @ok = (SELECT CASE WHEN Vigentes = 1 THEN 1 ELSE 0 END FROM @estado WHERE Fuente = 'prueba'); EXEC prueba.Afirmar @ok, N'Después de sincronizar: DatosVigentes = 1';
 
-DECLARE @h TABLE (Autor nvarchar(255), Tipo varchar(20), Proyecto varchar(50), TipoProyecto varchar(30), Issues int, Registros int, Horas decimal(12,2));
+DECLARE @h TABLE (Persona nvarchar(255), Proyecto varchar(50), TipoProyecto varchar(30), Issues int, Registradas decimal(12,2), Automaticas decimal(12,2), Totales decimal(12,2));
 INSERT @h EXEC api.Horas_PorPersona @Desde = '2026-10-01', @Hasta = '2026-11-30';
-SET @ok = (SELECT CASE WHEN SUM(Horas) = 10 THEN 1 ELSE 0 END FROM @h); EXEC prueba.Afirmar @ok, N'api.Horas_PorPersona: 10 h';
+SET @ok = (SELECT CASE WHEN SUM(Registradas) = 10 AND SUM(Automaticas) = 16 AND SUM(Totales) = 26 THEN 1 ELSE 0 END FROM @h); EXEC prueba.Afirmar @ok, N'api.Horas_PorPersona: 10 h registradas + 16 h automáticas';
+SET @ok = (SELECT CASE WHEN Registradas = 2 AND Automaticas = 8 THEN 1 ELSE 0 END FROM @h WHERE Persona = N'Agente Uno'); EXEC prueba.Afirmar @ok, N'Agente Uno: 2 h registradas y 8 h automáticas de cuando era responsable';
+SET @ok = (SELECT CASE WHEN Automaticas = 8 AND Registradas = 0 THEN 1 ELSE 0 END FROM @h WHERE Persona = N'(Sin responsable)'); EXEC prueba.Afirmar @ok, N'Horas automáticas sin responsable quedan visibles aparte';
+DELETE @h;
+INSERT @h EXEC api.Horas_PorPersona @Desde = '2026-10-01', @Hasta = '2026-11-30', @Origen = 'manual';
+SET @ok = (SELECT CASE WHEN SUM(Totales) = 10 THEN 1 ELSE 0 END FROM @h); EXEC prueba.Afirmar @ok, N'Filtro @Origen = manual';
 
 DECLARE @sla TABLE (Proyecto varchar(50), Sla nvarchar(255), Ciclos int, Cumplidos int, Incumplidos int, EnCurso int, Pct decimal(5,1), HorasProm decimal(10,2));
 INSERT @sla EXEC api.Sla_Resumen @Desde = '2026-10-01', @Hasta = '2026-11-30';

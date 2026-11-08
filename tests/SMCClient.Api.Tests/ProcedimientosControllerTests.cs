@@ -63,8 +63,13 @@ public class ProcedimientosControllerTests(ApiFixture bd) : IClassFixture<ApiFix
         Assert.Equal("MDA-1", fila.GetProperty("Clave").GetString());
         Assert.Equal(1, fila.GetProperty("TotalFilas").GetInt32());
 
-        var horas = await Json(await Post(bd.Cliente(), "api.Horas_PorPersona", """{"@Desde":"2026-10-01","Hasta":"2026-11-30"}"""));
-        Assert.Equal(10m, horas.GetProperty("resultados")[0].GetProperty("filas").EnumerateArray().Sum(f => f.GetProperty("Horas").GetDecimal()));
+        var horas = (await Json(await Post(bd.Cliente(), "api.Horas_PorPersona", """{"@Desde":"2026-10-01","Hasta":"2026-11-30"}""")))
+            .GetProperty("resultados")[0].GetProperty("filas").EnumerateArray().ToList();
+        Assert.Equal(10m, horas.Sum(f => f.GetProperty("HorasRegistradas").GetDecimal()));
+        Assert.Equal(16m, horas.Sum(f => f.GetProperty("HorasAutomaticas").GetDecimal()));
+
+        var origen = await Post(bd.Cliente(), "Horas_PorPersona", """{"Desde":"2026-10-01","Hasta":"2026-11-30","Origen":"otro"}""");
+        Assert.Equal(HttpStatusCode.BadRequest, origen.StatusCode);
 
         var detalle = await Json(await Post(bd.Cliente(), "Issue_Detalle", """{"Clave":"MDA-1"}"""));
         Assert.Equal(5, detalle.GetProperty("resultados").GetArrayLength());   // issue, campos, worklogs, SLA, historial

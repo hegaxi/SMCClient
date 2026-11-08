@@ -65,9 +65,9 @@ sqlcmd -S . -d SMCClient -E -i instancias/smco.sql   # registra smco y excluye T
 ## Pruebas
 
 `tests/010_prueba_integracion.sql` simula al worker con datos ficticios (con la forma real de Jira Cloud) y
-verifica 54 condiciones: carga inicial, documento malo en cuarentena, campo eliminado, renombrado, recreado con
+verifica 62 condiciones: carga inicial, documento malo en cuarentena, campo eliminado, renombrado, recreado con
 otro ID, campo nuevo con backfill, catálogo incompleto, candado entre workers y procedimientos `api.*`.
-También verifica la exclusión de proyectos y el cierre de ejecuciones abandonadas por un worker caído.
+También verifica la atribución de worklogs automáticos, la exclusión de proyectos y el cierre de ejecuciones abandonadas por un worker caído.
 Se corre sobre una base **recién desplegada**:
 
 ```bash

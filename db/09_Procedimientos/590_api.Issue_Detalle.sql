@@ -19,7 +19,7 @@ BEGIN
     SELECT CampoId, Campo, TipoSchema, CampoActivo, Orden, ValorId, ValorTexto, ValorNumero, ValorFecha, ValorJson
     FROM rpt.vIssueCampoValor WHERE IssueSk = @IssueSk ORDER BY Campo, Orden;
 
-    SELECT WorklogId, Autor, TipoCuentaAutor, Inicio, Horas FROM rpt.vWorklog WHERE IssueSk = @IssueSk ORDER BY Inicio;
+    SELECT WorklogId, Inicio, Horas, Origen, AtribuidoA, MetodoAtribucion, Autor FROM rpt.vWorklog WHERE IssueSk = @IssueSk ORDER BY Inicio;
 
     SELECT Sla, Ciclo, EnCurso, Inicio, Fin, Vencimiento, ObjetivoMs, TranscurridoMs, Pausado, Incumplido, MinutosParaVencer
     FROM rpt.vSla WHERE IssueSk = @IssueSk ORDER BY Sla, Ciclo;

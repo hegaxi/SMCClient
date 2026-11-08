@@ -14,7 +14,7 @@ INSERT @p VALUES
  ('api.Proyectos_Listar', N'Proyectos Scrum y de mesa de ayuda.',                           'lectura', '0'),
  ('api.Issues_Buscar',    N'Búsqueda de historias y tickets.',                              'lectura', '0'),
  ('api.Issue_Detalle',    N'Detalle de un issue: campos, worklogs, SLA e historial.',       'lectura', '0'),
- ('api.Horas_PorPersona', N'Horas invertidas por persona y proyecto.',                      'lectura', '0'),
+ ('api.Horas_PorPersona', N'Horas por persona y proyecto: registradas por personas y automáticas (Automation for Jira) por separado.',                      'lectura', '0'),
  ('api.Sla_Resumen',      N'Cumplimiento de SLA por proyecto.',                             'lectura', '0'),
  ('api.Sla_EnRiesgo',     N'Tickets con SLA por vencer o vencido.',                         'lectura', '0'),
  ('api.Sprint_Avance',    N'Avance por sprint (issues, story points y horas).',             'lectura', '0');
@@ -36,4 +36,5 @@ EXEC adm.Descripcion_Establecer 'api.Issues_Buscar', '@TipoProyecto', N'MS_Descr
 EXEC adm.Descripcion_Establecer 'api.Issues_Buscar', '@Categoria', N'MS_Description', N'new, indeterminate o done';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Desde', N'MS_Description', N'Fecha inicial (inclusive)';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Hasta', N'MS_Description', N'Fecha final (inclusive)';
+EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Origen', N'MS_Description', N'manual (registradas por personas), automatico (Automation for Jira) o vacío para ambas';
 GO

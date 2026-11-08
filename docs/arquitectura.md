@@ -20,7 +20,7 @@ Se revisaron proyectos y issues reales (solo lectura) para basar el diseño en d
 | 21 proyectos: 12 `software` (Scrum), 8 `service_desk` (mesa de ayuda), 1 `business`. Tres son de pruebas (`TS25`, `TSM26`, `TSSM26`). | En Jira ambos son *issues*: un solo modelo `ops.Issue`, distinguido por `TipoProyecto`. Los proyectos de prueba se excluyen en `cfg.ProyectoExcluido` (ver §5.4). |
 | Los SLA son campos personalizados (`customfield_10055` *Time to resolution*, `customfield_10056` *Time to first response*) con `slaDisplayFormat: NEW_SLA_FORMAT`: la búsqueda **no trae el ciclo en curso**. | Los SLA se leen de `/rest/servicedeskapi/request/{id}/sla`, que sí trae ciclo en curso y ciclos completados. Un SLA nuevo aparece solo (`SlaId` + `Nombre`). |
 | La búsqueda trae solo **20 worklogs por issue** (`SMC26-18` tiene 96). | Los worklogs se sincronizan aparte con `/worklog/updated` + `/worklog/list`, y los borrados con `/worklog/deleted`. |
-| Muchos worklogs los registra **Automation for Jira** (`accountType: app`). | Se guarda el autor tal cual y su `TipoCuenta`. **Decisión pendiente:** a quién atribuir esas horas (ver §9). |
+| Los worklogs los registra **Automation for Jira** (`accountType: app`): exactamente 1 día por cada día hábil que el issue sigue abierto, sin comentario (visto en mesa de ayuda y en Scrum). | No miden esfuerzo sino días abiertos. Se separan como `automatico` y se atribuyen al responsable del issue ese día (ver §5.6). |
 | Los informantes de la mesa de ayuda son clientes del portal (`accountId` `qm:…`, `accountType: customer`) y Jira devuelve su correo. | `ops.Usuario` guarda nombre y tipo de cuenta, **no el correo** (dato personal que no se necesita). |
 | Fechas con zona sin dos puntos: `2026-07-08T09:30:36.291-0600`. | Función `sync.fn_FechaJira`; todo se guarda como `datetimeoffset`. |
 | Sprint en `customfield_10020` (`gh-sprint`), tipo de solicitud en `customfield_10010` (`vp-origin`). No se encontró campo de *story points* con valor en las muestras. | Los campos se encuentran por **reglas** (tipo custom o nombre), no por ID fijo. Si *story points* no existe, el rol queda sin campo y se avisa; no rompe nada. |
@@ -169,6 +169,23 @@ En smco están excluidos `TS25`, `TSM26` y `TSSM26` (`db/instancias/smco.sql`).
 - **Autenticación.** Windows (Negotiate / IIS) en intranet; grupos de AD para lectura y administración, leídos de la configuración en cada evaluación. Modo `Desarrollo` sin autenticación, que la API rechaza fuera del ambiente Development.
 - **Worker opcional dentro de la API** con `Api:HospedarWorker = true` (por omisión corre como servicio aparte).
 
+
+### 5.6 Atribución de horas (worklogs)
+
+En Jira el autor de los worklogs automáticos es la propia automatización y, en una regla programada, eso no se
+puede cambiar. `rpt.vWorklog` agrega, sin perder el autor original:
+
+| Columna | Valor |
+|---|---|
+| `Origen` | `manual` (lo registró una persona) o `automatico` (lo registró una app) |
+| `AtribuidoA` | Manual: el autor. Automático: el responsable del issue **el día del worklog**, reconstruido del historial del campo assignee; si nunca cambió, el responsable actual; si no tenía, `(Sin responsable)` |
+| `MetodoAtribucion` | `autor`, `historial` o `responsable_actual` (para auditar de dónde salió) |
+
+Se calcula al consultar, así que si el historial llega después la atribución se corrige sola.
+`api.Horas_PorPersona` entrega **HorasRegistradas** (esfuerzo real), **HorasAutomaticas** (días abiertos) y el total,
+y permite filtrar por `@Origen`. Las automáticas suman 8 h por cada issue abierto, así que una persona con varios
+issues abiertos puede tener más de 8 h automáticas en un día: no deben leerse como jornada trabajada.
+
 ---
 
 ## 6. Escalabilidad
@@ -204,7 +221,7 @@ Ver [`db/README.md`](../db/README.md). Resumen: `00_Preparacion` → `01_Esquema
 
 ## 9. Decisiones pendientes
 
-1. **Worklogs de Automation for Jira.** ¿Las horas se atribuyen a la app o a otra persona (el responsable del issue, un campo, el comentario del worklog)? Hoy se guardan como `TipoCuentaAutor = app` y se pueden filtrar.
+1. ~~Worklogs de Automation for Jira~~: resuelto (§5.6). Si en el futuro las personas registran horas a mano, aparecerán solas como `HorasRegistradas`.
 2. **Story points.** No se encontró el campo con valor en las muestras. ¿Lo usan? ¿Con qué nombre?
 3. ~~Proyectos de prueba~~: resuelto, se excluyen `TS25`, `TSM26` y `TSSM26`. Los temporales (`S22T`, `S2T`) siguen incluidos; se excluyen con `sync.Proyecto_Excluir` si se decide.
 4. **Horario laboral para SLA propios.** JSM ya calcula los SLA con su calendario. Si se quieren métricas que JSM no tiene (p. ej. tiempo en cada estado en horario laboral), se agrega un calendario en `cfg`.
