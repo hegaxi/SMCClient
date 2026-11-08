@@ -7,7 +7,7 @@ tickets, historias, tiempo invertido, SLA y avance de sprints.
 |---|---|---|
 | Base de datos (SQL Server 2017+, recomendado 2019+) | [`db/`](db/README.md) | Lista |
 | Worker de sincronización Jira → SQL Server (.NET 8) | `src/SMCClient.Sync`, `src/SMCClient.Worker` | Listo |
-| Controlador único (ASP.NET Core) | — | Pendiente |
+| API con un solo controlador (ASP.NET Core 8) | `src/SMCClient.Api` | Lista |
 | Interfaz (React) | — | Pendiente |
 
 La arquitectura, cómo resiste cambios en Jira y cómo funciona la sincronización están en
@@ -69,12 +69,53 @@ Si el token falta, el worker no arranca y lo dice. Al arrancar hace la sincroniz
 Las frecuencias por entidad, los endpoints de Jira y los proyectos excluidos están en la base
 (`cfg.EntidadSync`, `cfg.ProyectoExcluido`), no en el worker.
 
+### 3. API
+
+```powershell
+cd src/SMCClient.Api
+dotnet run --environment Development      # sin autenticación (solo en Development), http://localhost:5xxx
+```
+
+| Método | Ruta | Qué hace |
+|---|---|---|
+| `GET` | `/api/procedimientos` | Procedimientos del esquema `api` que el usuario puede ejecutar, con parámetros (tipo, longitud, opcional, descripción) y columnas del resultado |
+| `GET` | `/api/procedimientos/{nombre}` | Metadatos de uno |
+| `POST` | `/api/procedimientos/{nombre}` | Lo ejecuta. Cuerpo: `{"Proyecto":"SMC26","Pagina":1}`. Respuesta: `{"resultados":[{"columnas":[…],"filas":[{…}],"truncado":false}],"salida":{}}` |
+| `GET` | `/salud` | La API responde y llega a SQL Server (anónimo, para monitoreo) |
+
+Respuestas de error (`application/problem+json`, con `codigo`):
+
+| Estado | `codigo` | Cuándo |
+|---|---|---|
+| 400 | `parametro.invalido` | Parámetro faltante, desconocido, de otro tipo o demasiado largo (detalle en `errors`) |
+| 400 / 404 / 409… | `sql.5NNNN` | `THROW` de negocio del procedimiento. Si los tres últimos dígitos son un 4xx se usa ese estado (`THROW 50404` → 404) |
+| 403 | `procedimiento.sin_permiso` | El procedimiento es `smc:permiso = admin` y el usuario no está en `Seguridad:GruposAdmin` |
+| 404 | `procedimiento.no_existe` | No es un procedimiento del esquema `api` |
+| 503 | `sync.pendiente` | Los datos de Jira aún no están sincronizados (encabezado `Retry-After`); no aplica a los procedimientos `smc:exentoSync = 1` |
+| 504 | `sql.timeout` | La consulta excedió `Api:TimeoutSqlSegundos` |
+
+**Publicación en IIS** (intranet): `dotnet publish src/SMCClient.Api -c Release -o C:\SMCClient\api`, sitio con el
+Hosting Bundle de .NET 8, **Autenticación de Windows habilitada y Anónima deshabilitada**. El pool corre con una
+cuenta que en SQL Server solo tiene el rol `smc_api`. Grupos de AD en `appsettings.json`:
+
+```json
+"Seguridad": { "Autenticacion": "Windows", "GruposLectura": [], "GruposAdmin": [ "DOMINIO\\SMC-Administradores" ] }
+```
+
+`GruposLectura` vacío = cualquier usuario del dominio puede consultar. Los grupos se pueden cambiar sin reiniciar.
+
+**Agregar una consulta nueva** no requiere tocar la API: se crea el procedimiento en `db/09_Procedimientos` (esquema
+`api`) y sus propiedades en `db/11_DatosSemilla/090_DescripcionesApi.sql` (`MS_Description`, `smc:permiso`,
+`smc:exentoSync`). Sin `smc:permiso` el procedimiento queda solo para administradores. La API lo detecta sola.
+
 ## Pruebas
 
 ```bash
 ./db/deploy.sh -S localhost -d SMCClient -U sa -C --crear-bd          # SQLCMDPASSWORD en el entorno
 sqlcmd -S localhost -d SMCClient -U sa -C -b -I -x -i db/tests/010_prueba_integracion.sql
-SMC_TEST_SQL="Server=localhost;Database=SMCClient;User Id=sa;Password=...;TrustServerCertificate=true" dotnet test
+SMC_TEST_SQL="Server=localhost;User Id=sa;Password=...;TrustServerCertificate=true" dotnet test
 ```
 
-Sin `SMC_TEST_SQL` las pruebas de integración del worker se omiten y solo corren las unitarias.
+Con `SMC_TEST_SQL` (servidor, **sin** `Database`) cada suite crea una base desechable con los scripts de `db/` en orden,
+corre sus pruebas y la borra; la de la API además crea un login que solo tiene el rol `smc_api`.
+Sin `SMC_TEST_SQL` solo corren las pruebas unitarias.

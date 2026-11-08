@@ -8,8 +8,8 @@ AS
 BEGIN
     SET NOCOUNT ON; SET XACT_ABORT ON;
     DECLARE @FuenteId int = (SELECT FuenteId FROM cfg.Fuente WHERE Codigo = @Fuente);
-    IF @FuenteId IS NULL THROW 50110, 'La fuente no existe.', 1;
-    IF NOT EXISTS (SELECT 1 FROM cfg.RolCampo WHERE Rol = @Rol) THROW 50111, 'El rol no existe.', 1;
+    IF @FuenteId IS NULL THROW 50404, 'La fuente no existe.', 1;
+    IF NOT EXISTS (SELECT 1 FROM cfg.RolCampo WHERE Rol = @Rol) THROW 50404, 'El rol no existe.', 1;
     IF @CampoId IS NOT NULL AND NOT EXISTS (SELECT 1 FROM meta.CampoJira WHERE FuenteId = @FuenteId AND CampoId = @CampoId AND Activo = 1)
         THROW 50112, 'El campo no existe o está inactivo en el catálogo.', 1;
 

@@ -6,7 +6,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @FuenteId int = (SELECT FuenteId FROM cfg.Fuente WHERE Codigo = @Fuente);
-    IF @Fuente IS NOT NULL AND @FuenteId IS NULL THROW 50100, 'La fuente no existe.', 1;
+    IF @Fuente IS NOT NULL AND @FuenteId IS NULL THROW 50404, 'La fuente no existe.', 1;
 
     IF NOT EXISTS (SELECT 1 FROM sync.Solicitud WHERE Estado IN ('pendiente', 'tomada') AND Modo = 'incremental'
                    AND ISNULL(FuenteId, -1) = ISNULL(@FuenteId, -1) AND Entidad IS NULL)

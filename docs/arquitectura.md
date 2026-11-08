@@ -147,12 +147,27 @@ Detalles que cuidan la operación:
 Al volver a incluirlo se programa un backfill del proyecto completo (issues, historial, worklogs y SLA).
 En smco están excluidos `TS25`, `TSM26` y `TSSM26` (`db/instancias/smco.sql`).
 
-### 5.5 El controlador único
+### 5.5 El controlador único (`src/SMCClient.Api`)
 
-- Lista los procedimientos del esquema `api` con `sys.procedures`, `sys.parameters` y `sys.dm_exec_describe_first_result_set_for_object`.
-- Lee las propiedades extendidas: `MS_Description` (texto para el usuario), `smc:permiso` (`lectura` / `admin`) y `smc:exentoSync`.
-- Ejecuta solo nombres que existen en esos metadatos, con `CommandType.StoredProcedure` y parámetros tipados (nunca SQL armado con texto del usuario).
-- La base refuerza esto: el usuario de la API solo tiene `EXECUTE` sobre `api`.
+`ProcedimientosController` es el único controlador. Flujo de un `POST /api/procedimientos/{nombre}`:
+
+```
+1. Catálogo (en memoria)      ¿existe api.{nombre}?                         no → 404
+2. Autorización               smc:permiso lectura/admin vs. grupos de AD     no → 403
+3. Compuerta de sincronización api.Sync_Estado (caché de 5 s)               pendiente → 503 + Retry-After
+                              (se salta si smc:exentoSync = 1)
+4. Validación                 cada valor JSON al tipo exacto del parámetro   error → 400 con detalle por parámetro
+                              obligatorios, desconocidos, longitud, rango
+5. Ejecución                  CommandType.StoredProcedure + SqlParameter     THROW 5NNNN → 4xx con su mensaje
+6. Respuesta                  todos los conjuntos de resultados + salidas    tope de Api:MaxFilas por conjunto
+```
+
+- **Metadatos.** `sys.procedures`, `sys.parameters`, `sys.dm_exec_describe_first_result_set_for_object` y las propiedades extendidas. SQL Server no registra qué parámetros de un procedimiento T-SQL tienen valor por omisión, así que se lee del encabezado del procedimiento. Se recargan solos cuando cambia algo en la base (una firma de fechas de modificación y propiedades), así un procedimiento nuevo aparece sin reiniciar.
+- **Nada de SQL dinámico.** El nombre que se ejecuta sale del catálogo, nunca del texto del cliente; los valores viajan como parámetros tipados.
+- **Parámetros de contexto.** Los listados en `Api:ParametrosDeUsuario` (hoy `@SolicitadoPor`) los llena el servidor con el usuario autenticado; no se exponen ni se aceptan del cliente.
+- **Permisos mínimos.** La cuenta de la API solo tiene el rol `smc_api` (`EXECUTE` y `VIEW DEFINITION` sobre `api`); las pruebas corren con un login así.
+- **Autenticación.** Windows (Negotiate / IIS) en intranet; grupos de AD para lectura y administración, leídos de la configuración en cada evaluación. Modo `Desarrollo` sin autenticación, que la API rechaza fuera del ambiente Development.
+- **Worker opcional dentro de la API** con `Api:HospedarWorker = true` (por omisión corre como servicio aparte).
 
 ---
 

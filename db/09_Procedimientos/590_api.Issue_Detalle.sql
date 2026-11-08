@@ -6,7 +6,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @IssueSk bigint = (SELECT TOP (1) IssueSk FROM rpt.vIssue WHERE Clave = @Clave ORDER BY Actualizado DESC);
-    IF @IssueSk IS NULL THROW 50120, 'No existe el issue.', 1;
+    IF @IssueSk IS NULL THROW 50404, 'No existe el issue.', 1;
 
     SELECT Clave, ProyectoClave, ProyectoNombre, TipoProyecto, TipoIssue, TipoSolicitud, Resumen, Estado, CategoriaEstado,
            Prioridad, Resolucion, Responsable, Informante, PadreClave, StoryPoints,

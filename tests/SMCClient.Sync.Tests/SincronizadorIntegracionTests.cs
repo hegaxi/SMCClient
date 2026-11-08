@@ -1,4 +1,5 @@
 using Microsoft.Data.SqlClient;
+using SMCClient.Pruebas;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using SMCClient.Sync.Configuracion;
@@ -9,23 +10,13 @@ using Xunit;
 
 namespace SMCClient.Sync.Tests;
 
-/// <summary>Solo corre si la variable SMC_TEST_SQL apunta a una base SMCClient desplegada.</summary>
-public sealed class FactSiSqlAttribute : FactAttribute
-{
-    public FactSiSqlAttribute()
-    {
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("SMC_TEST_SQL")))
-            Skip = "Defina SMC_TEST_SQL con la cadena de conexión a una base SMCClient desplegada.";
-    }
-}
-
 /// <summary>
 /// Worker completo (Sincronizador + SyncRepositorio reales) contra SQL Server y un Jira simulado con la forma
 /// de las respuestas de Jira Cloud. Cada prueba usa una fuente nueva para no chocar con otros datos.
 /// </summary>
-public class SincronizadorIntegracionTests
+public class SincronizadorIntegracionTests(BaseDatosPrueba bd) : IClassFixture<BaseDatosPrueba>
 {
-    private static readonly string Cadena = Environment.GetEnvironmentVariable("SMC_TEST_SQL") ?? "";
+    private string Cadena => bd.Cadena;
 
     [FactSiSql]
     public async Task Sincroniza_todo_al_arrancar_luego_solo_lo_vencido_y_atiende_solicitudes()
@@ -114,7 +105,7 @@ public class SincronizadorIntegracionTests
         Assert.Contains("500", await Escalar<string>("SELECT TOP (1) e.Mensaje FROM sync.Ejecucion e JOIN cfg.Fuente f ON f.FuenteId = e.FuenteId WHERE f.Codigo = @f AND e.Entidad = 'campo' ORDER BY e.EjecucionId DESC", fuente));
     }
 
-    private static Sincronizador Crear(string fuente, FakeJira jira)
+    private Sincronizador Crear(string fuente, FakeJira jira)
     {
         var opciones = Options.Create(new SmcSyncOptions
         {
@@ -186,7 +177,7 @@ public class SincronizadorIntegracionTests
             """)
         .Get("/rest/servicedeskapi/request/5005/sla", """{"values":[],"isLastPage":true}""");
 
-    private static async Task<bool> DatosVigentes(string fuente)
+    private async Task<bool> DatosVigentes(string fuente)
     {
         await using var cn = new SqlConnection(Cadena);
         await cn.OpenAsync();
@@ -198,7 +189,7 @@ public class SincronizadorIntegracionTests
         return false;
     }
 
-    private static async Task Ejecutar(string sql, string fuente)
+    private async Task Ejecutar(string sql, string fuente)
     {
         await using var cn = new SqlConnection(Cadena);
         await cn.OpenAsync();
@@ -207,7 +198,7 @@ public class SincronizadorIntegracionTests
         await cmd.ExecuteNonQueryAsync();
     }
 
-    private static async Task<T> Escalar<T>(string sql, string fuente)
+    private async Task<T> Escalar<T>(string sql, string fuente)
     {
         await using var cn = new SqlConnection(Cadena);
         await cn.OpenAsync();

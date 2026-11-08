@@ -59,6 +59,8 @@ sqlcmd -S . -d SMCClient -E -i instancias/smco.sql   # registra smco y excluye T
 4. Cambiar una tabla existente: migración en `04_Migraciones` **y** actualizar su `CREATE TABLE` (ver `04_Migraciones/README.md`).
 5. Un procedimiento que llama a otro va con un número mayor (evita avisos de dependencia).
 6. El esquema `api` es el contrato con el controlador: no se cambian columnas existentes de sus resultados; se agregan al final o se crea `api.Nombre_v2`.
+7. Cada procedimiento `api.*` declara en `11_DatosSemilla/090_DescripcionesApi.sql` su `MS_Description`, `smc:permiso` (`lectura` | `admin`; sin él, solo administradores) y `smc:exentoSync` (`1` si debe responder aunque los datos no estén sincronizados).
+8. Errores para el usuario: `THROW 5NNNN, 'mensaje', 1`. Si `NNN` es un código HTTP 4xx, la API responde con ese estado (`50404` → 404); si no, 400.
 
 ## Pruebas
 

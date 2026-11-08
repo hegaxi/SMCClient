@@ -15,4 +15,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SMCClient.Sync\SMCClient.Sync.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Compile Include="..\Comun\*.cs" Link="Comun\%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>
