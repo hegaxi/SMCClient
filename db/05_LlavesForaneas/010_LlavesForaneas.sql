@@ -1,0 +1,30 @@
+/* Llaves foráneas en un solo lugar, después de crear TODAS las tablas (así el orden de 03_Tablas no importa).
+   Decisión: ops.Issue NO tiene FK a Proyecto/Estado/Usuario. Jira puede entregar un issue antes que
+   el catálogo de su estado o proyecto; una FK rechazaría el issue y frenaría la sincronización. */
+DECLARE @fk TABLE (Nombre sysname, Sql nvarchar(max));
+INSERT @fk VALUES
+ ('FK_cfg_EntidadSync_Fuente', 'ALTER TABLE cfg.EntidadSync ADD CONSTRAINT FK_cfg_EntidadSync_Fuente FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_cfg_MapeoCampo_Fuente',  'ALTER TABLE cfg.MapeoCampo  ADD CONSTRAINT FK_cfg_MapeoCampo_Fuente  FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_cfg_MapeoCampo_Rol',     'ALTER TABLE cfg.MapeoCampo  ADD CONSTRAINT FK_cfg_MapeoCampo_Rol     FOREIGN KEY (Rol) REFERENCES cfg.RolCampo (Rol);'),
+ ('FK_meta_CampoJira_Fuente',  'ALTER TABLE meta.CampoJira  ADD CONSTRAINT FK_meta_CampoJira_Fuente  FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_raw_Documento_Fuente',   'ALTER TABLE raw.Documento   ADD CONSTRAINT FK_raw_Documento_Fuente   FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_sync_Ejecucion_Fuente',  'ALTER TABLE sync.Ejecucion  ADD CONSTRAINT FK_sync_Ejecucion_Fuente  FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_sync_MarcaAgua_Fuente',  'ALTER TABLE sync.MarcaAgua  ADD CONSTRAINT FK_sync_MarcaAgua_Fuente  FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_sync_Candado_Fuente',    'ALTER TABLE sync.Candado    ADD CONSTRAINT FK_sync_Candado_Fuente    FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_ops_Proyecto_Fuente',    'ALTER TABLE ops.Proyecto    ADD CONSTRAINT FK_ops_Proyecto_Fuente    FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_ops_Issue_Fuente',       'ALTER TABLE ops.Issue       ADD CONSTRAINT FK_ops_Issue_Fuente       FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_ops_IssueCampoValor_Issue', 'ALTER TABLE ops.IssueCampoValor ADD CONSTRAINT FK_ops_IssueCampoValor_Issue FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;'),
+ ('FK_ops_IssueCambio_Issue',  'ALTER TABLE ops.IssueCambio ADD CONSTRAINT FK_ops_IssueCambio_Issue  FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;'),
+ ('FK_ops_IssueSprint_Issue',  'ALTER TABLE ops.IssueSprint ADD CONSTRAINT FK_ops_IssueSprint_Issue  FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;'),
+ ('FK_ops_IssueSla_Issue',     'ALTER TABLE ops.IssueSla    ADD CONSTRAINT FK_ops_IssueSla_Issue     FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;');
+
+DECLARE @n sysname, @s nvarchar(max);
+DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT Nombre, Sql FROM @fk;
+OPEN c; FETCH c INTO @n, @s;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = @n) EXEC (@s);
+    FETCH c INTO @n, @s;
+END;
+CLOSE c; DEALLOCATE c;
+GO
