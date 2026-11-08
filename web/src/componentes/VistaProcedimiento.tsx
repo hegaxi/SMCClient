@@ -3,6 +3,7 @@ import { api, ErrorApi } from '../api';
 import { construirCuerpo, valoresIniciales } from '../formato';
 import type { ProcedimientoInfo, ResultadoEjecucion, ValoresFormulario } from '../tipos';
 import { Formulario } from './Formulario';
+import { GuardarFiltro } from './GuardarFiltro';
 import { TablaResultados } from './TablaResultados';
 
 interface Props {
@@ -13,12 +14,16 @@ interface Props {
   puedeVerDetalle: boolean;
   onSyncPendiente: () => void;
   etiquetasValores?: Map<string, Map<string, string>>;
+  /** Muestra "Guardar como filtro" (si el usuario tiene filtros y la consulta no es una acción). */
+  puedeGuardarFiltro?: boolean;
 }
 
 /** Los maneja la paginación (botones Anterior / Siguiente), no el formulario. */
 const PARAMETROS_PAGINACION = new Set(['Pagina', 'TamanoPagina']);
 
-export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetalle, onSyncPendiente, etiquetasValores }: Props) {
+export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetalle, onSyncPendiente, etiquetasValores, puedeGuardarFiltro }: Props) {
+  const [guardando, setGuardando] = useState(false);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [valores, setValores] = useState<ValoresFormulario>(() => ({ ...valoresIniciales(proc.parametros), ...valoresUrl }));
   const [errores, setErrores] = useState<Record<string, string[]>>({});
   const [mensaje, setMensaje] = useState<string | null>(null);
@@ -105,6 +110,18 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
         onEnviar={enviar}
         textoBoton={proc.accion ? 'Ejecutar' : 'Consultar'}
       />
+
+      {puedeGuardarFiltro && !proc.accion && !guardando && (
+        <div className="acciones guardar-filtro-acciones">
+          <button type="button" className="boton secundario-btn" onClick={() => { setGuardando(true); setAviso(null); }}>Guardar como filtro</button>
+          {aviso && <span className="secundario" role="status">{aviso}</span>}
+        </div>
+      )}
+      {guardando && (
+        <GuardarFiltro proc={proc} valores={valores}
+                       onGuardado={(n) => { setGuardando(false); setAviso(`Filtro "${n}" guardado. Úselo en un tablero o en Mis filtros.`); }}
+                       onCancelar={() => setGuardando(false)} />
+      )}
 
       {mensaje && <p className="alerta" role="alert">{mensaje}</p>}
 

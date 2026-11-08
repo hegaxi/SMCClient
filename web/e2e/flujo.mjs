@@ -109,6 +109,49 @@ try {
     await pagina.getByText('Es obligatorio.').waitFor();
   });
 
+  // ----- Filtros y tableros -----
+  await paso('Guardar un filtro con fecha relativa', async () => {
+    await pagina.getByRole('link', { name: 'Horas por persona' }).click();
+    await pagina.getByLabel(/^Desde/).fill('2026-10-01');
+    await pagina.getByRole('button', { name: 'Consultar' }).click();
+    await pagina.getByRole('columnheader', { name: 'Horas registradas' }).waitFor();
+    await pagina.getByRole('button', { name: 'Guardar como filtro' }).click();
+    await pagina.getByLabel(/Nombre del filtro/).fill('Horas desde octubre');
+    await pagina.getByLabel('Hasta', { exact: true }).selectOption({ label: 'Hoy' });
+    await pagina.getByLabel(/Compartir con quienes/).check();
+    await pagina.getByRole('button', { name: 'Guardar filtro' }).click();
+    await pagina.getByText('Filtro "Horas desde octubre" guardado').waitFor();
+  });
+
+  await paso('Crear un tablero compartido con widgets', async () => {
+    await pagina.getByRole('link', { name: '+ Nuevo tablero' }).click();
+    await pagina.getByLabel(/^Nombre/).fill('Equipo');
+    await pagina.getByLabel('Descripción').fill('Horas del equipo');
+    await pagina.getByLabel('Compartir con').fill('rol:Consulta');
+    await pagina.getByRole('button', { name: 'Guardar' }).click();
+    await titulo('Equipo').waitFor();
+    await pagina.getByRole('button', { name: 'Editar' }).click();
+
+    await pagina.getByRole('button', { name: 'Agregar widget' }).click();
+    await pagina.getByLabel(/^Título/).fill('Total de horas');
+    await pagina.getByLabel('Cálculo').selectOption({ label: 'Suma' });
+    await pagina.getByLabel(/^Columna/).selectOption({ label: 'Horas totales' });
+    await pagina.getByLabel('Ancho').selectOption({ label: '1/4' });
+    await pagina.getByRole('button', { name: 'Guardar widget' }).click();
+    await titulo('Total de horas').waitFor();
+
+    await pagina.getByRole('button', { name: 'Agregar widget' }).click();
+    await pagina.getByLabel(/^Título/).fill('Horas por persona');
+    await pagina.getByLabel('Mostrar como').selectOption('barras');
+    await pagina.getByLabel(/^Agrupar por/).selectOption({ label: 'Persona' });
+    await pagina.getByLabel(/^Valor/).selectOption({ label: 'Horas totales' });
+    await pagina.getByLabel('Ancho').selectOption({ label: '3/4' });
+    await pagina.getByRole('button', { name: 'Guardar widget' }).click();
+    await pagina.getByRole('list', { name: 'Horas por persona' }).waitFor();
+    await pagina.getByRole('button', { name: 'Terminar edición' }).click();
+    await pagina.getByText('26', { exact: true }).waitFor();   // 10 h registradas + 16 h automáticas
+  });
+
   // ----- Administración de usuarios desde la aplicación (reglas en SQL Server) -----
   let temporal = '';
   await paso('Administrador da de alta un usuario', async () => {
@@ -148,6 +191,17 @@ try {
     if (await pagina.getByRole('heading', { name: 'Administración' }).count()) throw new Error('Un usuario de Consulta ve Administración.');
     await pagina.getByRole('link', { name: 'Buscar historias y tickets' }).click();
     await pagina.getByRole('button', { name: 'MDA-1' }).waitFor();
+  });
+
+  await paso('El usuario ve el tablero compartido y lo usa de inicio', async () => {
+    await pagina.getByRole('link', { name: /^Equipo/ }).click();
+    await pagina.getByText('De Administrador', { exact: false }).waitFor();
+    await pagina.getByRole('list', { name: 'Horas por persona' }).waitFor();
+    if (await pagina.getByRole('button', { name: 'Editar' }).count()) throw new Error('Puede editar un tablero que no es suyo.');
+    await pagina.getByRole('button', { name: 'Usar como inicio' }).click();
+    await pagina.getByRole('button', { name: 'Quitar de inicio' }).waitFor();
+    await pagina.goto(BASE);
+    await titulo('Equipo').waitFor();   // al entrar ve su tablero
   });
 
   if (erroresConsola.length) throw new Error(`Errores en la consola del navegador:\n${erroresConsola.join('\n')}`);

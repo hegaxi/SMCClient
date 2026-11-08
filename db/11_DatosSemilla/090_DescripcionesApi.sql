@@ -29,7 +29,18 @@ INSERT @p VALUES
  ('api.Roles_Listar',     N'Roles',                      N'Roles y sus permisos.',                                                                         'admin',   '1'),
  ('api.Rol_Guardar',      N'Guardar rol',                N'Crea o modifica un rol y sus permisos.',                                                        'admin',   '1'),
  ('api.Rol_Eliminar',     N'Eliminar rol',               N'Elimina un rol sin usuarios asignados.',                                                        'admin',   '1'),
- ('api.Auditoria_Listar', N'Auditoría',                  N'Quién hizo qué en la administración y cuándo.',                                                 'admin',   '1');
+ ('api.Auditoria_Listar', N'Auditoría',                  N'Quién hizo qué en la administración y cuándo.',                                                 'admin',   '1'),
+ ('api.Filtros_Listar',   N'Mis filtros',                N'Filtros guardados propios y compartidos.',                                                      'usuario', '1'),
+ ('api.Filtro_Guardar',   N'Guardar filtro',             N'Guarda una consulta con sus valores para reutilizarla o usarla en un tablero.',                'usuario', '1'),
+ ('api.Filtro_Eliminar',  N'Eliminar filtro',            N'Elimina un filtro guardado que no use ningún widget.',                                         'usuario', '1'),
+ ('api.Tableros_Listar',  N'Tableros',                   N'Tableros propios y compartidos.',                                                               'usuario', '1'),
+ ('api.Tablero_Guardar',  N'Guardar tablero',            N'Crea o modifica un tablero y con quién se comparte.',                                           'usuario', '1'),
+ ('api.Tablero_Eliminar', N'Eliminar tablero',           N'Elimina un tablero con sus widgets.',                                                           'usuario', '1'),
+ ('api.Tablero_Obtener',  N'Ver tablero',                N'Un tablero con sus widgets listos para mostrarse.',                                             'usuario', '1'),
+ ('api.Widget_Guardar',   N'Guardar widget',             N'Agrega o modifica un widget de un tablero.',                                                    'usuario', '1'),
+ ('api.Widget_Eliminar',  N'Quitar widget',              N'Quita un widget de un tablero.',                                                                'usuario', '1'),
+ ('api.Widget_Mover',     N'Mover widget',               N'Cambia el orden de un widget.',                                                                 'usuario', '1'),
+ ('api.Tablero_Inicio',   N'Tablero de inicio',          N'Elige el tablero que se muestra al entrar.',                                                    'usuario', '1');
 
 DECLARE @o nvarchar(300), @t nvarchar(100), @d nvarchar(400), @pe varchar(10), @e char(1);
 DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT Objeto, Titulo, Descripcion, Permiso, Exento FROM @p;
@@ -47,6 +58,14 @@ CLOSE c; DEALLOCATE c;
 -- Títulos de cada conjunto de resultados (la interfaz los usa como encabezados).
 EXEC adm.Descripcion_Establecer 'api.Sync_Solicitar', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', NULL, N'smc:accion', N'1';
+DECLARE @accionesDash TABLE (Objeto nvarchar(300));
+INSERT @accionesDash VALUES ('api.Filtro_Guardar'), ('api.Filtro_Eliminar'), ('api.Tablero_Guardar'), ('api.Tablero_Eliminar'),
+                            ('api.Widget_Guardar'), ('api.Widget_Eliminar'), ('api.Widget_Mover'), ('api.Tablero_Inicio');
+DECLARE @oa nvarchar(300);
+DECLARE ca CURSOR LOCAL FAST_FORWARD FOR SELECT Objeto FROM @accionesDash;
+OPEN ca; FETCH ca INTO @oa;
+WHILE @@FETCH_STATUS = 0 BEGIN EXEC adm.Descripcion_Establecer @Objeto = @oa, @Nombre = N'smc:accion', @Valor = N'1'; FETCH ca INTO @oa; END;
+CLOSE ca; DEALLOCATE ca;
 EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Rol_Eliminar', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Login', N'MS_Description', N'Nombre de usuario para iniciar sesión (p. ej. mbravo)';

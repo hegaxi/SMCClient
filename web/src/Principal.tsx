@@ -2,8 +2,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { api, ErrorApi } from './api';
 import { etiquetasDeValores, formatear } from './formato';
 import { useSincronizacion } from './sincronizacion';
-import type { ProcedimientoInfo, Sesion, ValoresFormulario } from './tipos';
+import type { Fila, ProcedimientoInfo, Sesion, ValoresFormulario } from './tipos';
 import { CambiarContrasena } from './componentes/CambiarContrasena';
+import { EditorTablero } from './componentes/EditorTablero';
+import { MisFiltros } from './componentes/MisFiltros';
+import { TableroVista } from './componentes/TableroVista';
 import { Inicio } from './componentes/Inicio';
 import { PantallaSincronizacion } from './componentes/PantallaSincronizacion';
 import { RestablecerContrasena } from './componentes/RestablecerContrasena';
@@ -12,6 +15,10 @@ import { VistaProcedimiento } from './componentes/VistaProcedimiento';
 /** Vistas propias de la interfaz (no son procedimientos). */
 const VISTA_CONTRASENA = '_contrasena';
 const VISTA_RESTABLECER = '_restablecer';
+const VISTA_TABLERO = '_tablero';
+const VISTA_TABLERO_NUEVO = '_tablero_nuevo';
+const VISTA_TABLERO_EDITAR = '_tablero_editar';
+const VISTA_FILTROS = '_filtros';
 
 interface Seleccion {
   nombre: string | null;
@@ -48,9 +55,17 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   const [seleccion, setSeleccion] = useState<Seleccion>(leerUrl);
   const [vista, setVista] = useState(0); // fuerza a recrear la vista al navegar
 
+  const [tableros, setTableros] = useState<Fila[]>([]);
+
   useEffect(() => {
     api.listar().then(setProcs).catch((e) => setErrorCarga(e instanceof ErrorApi ? e.message : 'No se pudo cargar la aplicación.'));
   }, []);
+
+  const tienenTableros = procs?.some((p) => p.nombre === 'Tableros_Listar') ?? false;
+  const cargarTableros = useCallback(() => {
+    if (tienenTableros) api.ejecutar('Tableros_Listar').then((r) => setTableros(r.resultados[0]?.filas ?? [])).catch(() => setTableros([]));
+  }, [tienenTableros]);
+  useEffect(() => { cargarTableros(); }, [cargarTableros]);
 
   useEffect(() => {
     const alVolver = () => {
@@ -114,8 +129,26 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   const avisos = sync.fuentes.reduce((n, f) => n + Number(f.AvisosAbiertos ?? 0), 0);
   const verAvisos = procs.some((p) => p.nombre === 'Avisos_Listar');
 
+  const tableroInicio = tableros.find((t) => t.EsInicio === true);
+  const abrirTablero = (id: unknown) => navegar(VISTA_TABLERO, { t: String(id) });
+  const tableroVista = (id: number) => (
+    <TableroVista key={`${id}-${vista}`} tableroId={id} procs={procs} etiquetasValores={etiquetasValores}
+                  onAbrirConsulta={(n, v) => navegar(n, v)}
+                  onEditarTablero={(t) => navegar(VISTA_TABLERO_EDITAR, { t: String(t.TableroId) })}
+                  onEliminado={() => { cargarTableros(); navegar(null); }}
+                  onCambio={cargarTableros}
+                  onSyncPendiente={sync.marcarPendiente} />
+  );
+
   let contenido;
-  if (seleccion.nombre === VISTA_CONTRASENA) contenido = <CambiarContrasena obligatorio={false} onListo={() => navegar(null)} onCancelar={() => navegar(null)} />;
+  if (seleccion.nombre === VISTA_TABLERO && seleccion.valores.t) contenido = tableroVista(Number(seleccion.valores.t));
+  else if (seleccion.nombre === VISTA_TABLERO_NUEVO || seleccion.nombre === VISTA_TABLERO_EDITAR)
+    contenido = (
+      <EditorTablero key={`${seleccion.nombre}-${vista}`} tablero={tableros.find((t) => String(t.TableroId) === seleccion.valores.t)}
+                     onGuardado={(id) => { cargarTableros(); abrirTablero(id); }} onCancelar={() => window.history.back()} />
+    );
+  else if (seleccion.nombre === VISTA_FILTROS) contenido = <MisFiltros onAbrir={(n, v) => navegar(n, v)} />;
+  else if (seleccion.nombre === VISTA_CONTRASENA) contenido = <CambiarContrasena obligatorio={false} onListo={() => navegar(null)} onCancelar={() => navegar(null)} />;
   else if (seleccion.nombre === VISTA_RESTABLECER && sesion.esAdministrador) contenido = <RestablecerContrasena />;
   else if (proc)
     contenido = (
@@ -127,18 +160,24 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
         puedeVerDetalle={procs.some((p) => p.nombre === 'Issue_Detalle')}
         onSyncPendiente={sync.marcarPendiente}
         etiquetasValores={etiquetasValores}
+        puedeGuardarFiltro={procs.some((p) => p.nombre === 'Filtro_Guardar')}
       />
     );
+  else if (tableroInicio) contenido = tableroVista(Number(tableroInicio.TableroId));
   else contenido = <Inicio consultas={grupos.find((g) => g.titulo === 'Consultas')?.procs ?? []} onAbrir={(n) => navegar(n)} />;
 
-  const enlace = (nombre: string, titulo: string, descripcion?: string | null) => (
-    <li key={nombre}>
-      <a href={`?p=${encodeURIComponent(nombre)}`} aria-current={seleccion.nombre === nombre ? 'page' : undefined} title={descripcion ?? undefined}
-         onClick={(e) => { e.preventDefault(); navegar(nombre); }}>
-        {titulo}
-      </a>
-    </li>
-  );
+  const enlace = (nombre: string, titulo: string, descripcion?: string | null, valores: ValoresFormulario = {}) => {
+    const actual = seleccion.nombre === nombre && Object.entries(valores).every(([k, v]) => seleccion.valores[k] === v);
+    const q = new URLSearchParams({ ...valores, p: nombre });
+    return (
+      <li key={`${nombre}-${JSON.stringify(valores)}`}>
+        <a href={`?${q}`} aria-current={actual ? 'page' : undefined} title={descripcion ?? undefined}
+           onClick={(e) => { e.preventDefault(); navegar(nombre, valores); }}>
+          {titulo}
+        </a>
+      </li>
+    );
+  };
 
   return (
     <div className="app">
@@ -150,6 +189,17 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
             <button type="button" className="insignia" onClick={() => navegar('Avisos_Listar')}>{avisos} aviso(s)</button>
           )}
         </p>
+        {tienenTableros && (
+          <section>
+            <h2>Tableros</h2>
+            <ul>
+              {tableros.map((t) => enlace(VISTA_TABLERO, `${String(t.Nombre)}${t.EsInicio ? ' ★' : ''}`,
+                t.EsMio ? String(t.Descripcion ?? '') : `De ${String(t.Propietario)}`, { t: String(t.TableroId) }))}
+              {enlace(VISTA_TABLERO_NUEVO, '+ Nuevo tablero')}
+              {enlace(VISTA_FILTROS, 'Mis filtros')}
+            </ul>
+          </section>
+        )}
         {grupos.map((g) => (
           <section key={g.titulo}>
             <h2>{g.titulo}</h2>

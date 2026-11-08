@@ -9,7 +9,7 @@ carpeta, por el número del archivo.
 | Orden | Carpeta | Qué contiene | ¿Se repite en cada despliegue? |
 |---|---|---|---|
 | 00 | `00_Preparacion` | Validación de versión y bitácora `adm.ScriptEjecutado` | Sí |
-| 01 | `01_Esquemas` | `cfg`, `meta`, `raw`, `sync`, `ops`, `rpt`, `seg`, `api` | Sí (solo crea si falta) |
+| 01 | `01_Esquemas` | `cfg`, `meta`, `raw`, `sync`, `ops`, `rpt`, `seg`, `dash`, `api` | Sí (solo crea si falta) |
 | 02 | `02_Tipos` | Tipos tabla (TVP) para enviar lotes desde el worker | Sí (solo crea si falta) |
 | 03 | `03_Tablas` | Una tabla por archivo, con su llave primaria, en su forma **más reciente** | Sí (solo crea si falta) |
 | 04 | `04_Migraciones` | Cambios a tablas que ya existen en producción | **No: una sola vez por base** |
@@ -65,6 +65,8 @@ dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administr
 
 ## Pruebas
 
+`tests/030_prueba_tableros.sql` verifica 31 reglas de filtros y tableros (fechas relativas, permisos, compartir, propiedad).
+
 `tests/020_prueba_seguridad.sql` verifica 33 reglas de seguridad: contraseñas, bloqueo, cambio obligatorio, sello de
 sesión, roles, permisos por categoría y por procedimiento, reglas de administración y auditoría.
 
@@ -77,6 +79,7 @@ Se corre sobre una base **recién desplegada**:
 ```bash
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/010_prueba_integracion.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/020_prueba_seguridad.sql
+sqlcmd -S localhost -d SMCClient -b -I -x -i tests/030_prueba_tableros.sql
 ```
 
 ## Contrato con el worker (qué documento JSON va en cada entidad)

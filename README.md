@@ -153,6 +153,19 @@ Qué hace:
 - **Consultas.** Corren solas al abrirlas si no les falta nada obligatorio; las acciones (`smc:accion`) nunca, y piden confirmación. Tablas ordenables, descarga CSV, paginación, la clave de un issue abre su detalle, los filtros quedan en la dirección (se pueden compartir y funciona "Atrás").
 - Accesible (etiquetas, errores ligados a cada campo, navegación con teclado), adaptable a pantallas chicas y con modo oscuro.
 
+### 5. Filtros y tableros
+
+- **Guardar como filtro**: en cualquier consulta, después de elegir los valores. Las fechas se pueden guardar fijas o
+  **relativas** (hoy, hace 7 / 30 días, inicio de semana, de mes, del mes anterior, fin del mes anterior, inicio del año),
+  para que el tablero siempre muestre datos actuales. Un filtro puede ser privado o compartido.
+- **Tableros**: en el menú *Tableros* → *Nuevo tablero*. Se comparten con usuarios o roles (`ana, rol:Consulta`).
+  Cada widget usa un filtro y se muestra como **indicador** (un número: conteo, suma, promedio, máximo, mínimo o primer
+  valor), **barras** (agrupadas por una columna, con *Ver tabla*) o **tabla**. Ancho de 1/4 a completo; se ordenan con ↑ ↓.
+- **Para cada usuario**: quien recibe un tablero lo ve con *sus* permisos (si no puede ejecutar la consulta de un widget,
+  el widget dice "Sin permiso") y puede elegirlo como **pantalla de inicio** (*Usar como inicio*).
+- Las reglas están en SQL Server (`dash.*`, `api.Filtro_*`, `api.Tablero_*`, `api.Widget_*`): solo el propietario modifica,
+  no se guardan filtros de acciones ni de consultas no permitidas, no se borra un filtro que usa un widget, etc.
+
 ## Pruebas
 
 ```bash

@@ -207,6 +207,20 @@ sola aplicación con la misma autenticación de Windows.
 
 - **Convenciones de presentación**: columnas `Clave` / `PadreClave` abren el detalle del issue; `TotalFilas` + `@Pagina` activan la paginación; un solo registro con más de 6 columnas se muestra como ficha en las consultas de detalle.
 
+
+### 5.8 Filtros guardados y tableros (esquema `dash`)
+
+| Tabla | Qué guarda |
+|---|---|
+| `dash.Filtro` | Una consulta del esquema `api` + sus valores en JSON. Los valores `{hoy}`, `{hoy-30}`, `{inicio_mes}`, `{inicio_mes_anterior}`, `{fin_mes_anterior}`, `{inicio_semana}`, `{inicio_anio}` son fechas relativas |
+| `dash.Tablero` / `dash.TableroCompartido` | El tablero y con qué usuarios o roles se comparte |
+| `dash.Widget` | Título, filtro, tipo (`indicador`, `barras`, `tabla`), configuración JSON, ancho y orden |
+| `dash.Preferencia` | El tablero de inicio de cada usuario |
+
+- **Lógica en SQL**: `dash.fn_FechaRelativa` / `dash.fn_ResolverParametros` convierten las fechas relativas; `api.Tablero_Obtener` entrega cada widget con su consulta y los parámetros ya resueltos y si quien lo ve puede ejecutarla (`seg.fn_ProcedimientosPermitidos`, la misma función que decide los permisos de la API).
+- **Seguridad**: el widget se ejecuta por el controlador único con los permisos de quien ve el tablero; compartir un tablero no comparte permisos. Solo el propietario modifica filtros, tableros y widgets; un filtro usado por un widget no se borra; no se guardan filtros de acciones ni con los parámetros que pone el servidor.
+- **Interfaz**: los widgets se arman con los metadatos de la consulta (columnas y tipos). El indicador "conteo" usa `TotalFilas` en consultas paginadas. Las barras son de una sola serie (un color validado para contraste en modo claro y oscuro, sin leyenda, valor en texto, tooltip al pasar o enfocar y vista de tabla).
+
 ---
 
 ## 6. Escalabilidad

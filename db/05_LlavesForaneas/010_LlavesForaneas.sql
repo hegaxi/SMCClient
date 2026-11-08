@@ -20,6 +20,13 @@ INSERT @fk VALUES
  ('FK_seg_UsuarioRol_Usuario', 'ALTER TABLE seg.UsuarioRol ADD CONSTRAINT FK_seg_UsuarioRol_Usuario FOREIGN KEY (UsuarioId) REFERENCES seg.Usuario (UsuarioId) ON DELETE CASCADE;'),
  ('FK_seg_UsuarioRol_Rol',     'ALTER TABLE seg.UsuarioRol ADD CONSTRAINT FK_seg_UsuarioRol_Rol     FOREIGN KEY (RolId) REFERENCES seg.Rol (RolId);'),
  ('FK_seg_RolPermiso_Rol',     'ALTER TABLE seg.RolPermiso ADD CONSTRAINT FK_seg_RolPermiso_Rol     FOREIGN KEY (RolId) REFERENCES seg.Rol (RolId) ON DELETE CASCADE;'),
+ ('FK_dash_Filtro_Propietario',    'ALTER TABLE dash.Filtro ADD CONSTRAINT FK_dash_Filtro_Propietario FOREIGN KEY (PropietarioId) REFERENCES seg.Usuario (UsuarioId);'),
+ ('FK_dash_Tablero_Propietario',   'ALTER TABLE dash.Tablero ADD CONSTRAINT FK_dash_Tablero_Propietario FOREIGN KEY (PropietarioId) REFERENCES seg.Usuario (UsuarioId);'),
+ ('FK_dash_TableroCompartido_Tablero', 'ALTER TABLE dash.TableroCompartido ADD CONSTRAINT FK_dash_TableroCompartido_Tablero FOREIGN KEY (TableroId) REFERENCES dash.Tablero (TableroId) ON DELETE CASCADE;'),
+ ('FK_dash_Widget_Tablero',        'ALTER TABLE dash.Widget ADD CONSTRAINT FK_dash_Widget_Tablero FOREIGN KEY (TableroId) REFERENCES dash.Tablero (TableroId) ON DELETE CASCADE;'),
+ ('FK_dash_Widget_Filtro',         'ALTER TABLE dash.Widget ADD CONSTRAINT FK_dash_Widget_Filtro FOREIGN KEY (FiltroId) REFERENCES dash.Filtro (FiltroId);'),
+ ('FK_dash_Preferencia_Usuario',   'ALTER TABLE dash.Preferencia ADD CONSTRAINT FK_dash_Preferencia_Usuario FOREIGN KEY (UsuarioId) REFERENCES seg.Usuario (UsuarioId) ON DELETE CASCADE;'),
+ ('FK_dash_Preferencia_Tablero',   'ALTER TABLE dash.Preferencia ADD CONSTRAINT FK_dash_Preferencia_Tablero FOREIGN KEY (TableroInicioId) REFERENCES dash.Tablero (TableroId) ON DELETE SET NULL;'),
  ('FK_ops_IssueSla_Issue',     'ALTER TABLE ops.IssueSla    ADD CONSTRAINT FK_ops_IssueSla_Issue     FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;');
 
 DECLARE @n sysname, @s nvarchar(max);

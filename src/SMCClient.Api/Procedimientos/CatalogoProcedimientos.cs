@@ -28,6 +28,7 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
         FROM sys.procedures p WHERE p.schema_id = SCHEMA_ID('api');
         """;
 
+    // TYPE_NAME(system_type_id): el tipo base, así sysname y los tipos alias llegan como nvarchar, etc.
     private const string SqlMetadatos = """
         SELECT p.object_id, p.name,
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'MS_Description') AS nvarchar(3750)),
@@ -41,7 +42,7 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
         WHERE p.schema_id = SCHEMA_ID('api')
         ORDER BY p.name;
 
-        SELECT pa.object_id, pa.name, TYPE_NAME(pa.user_type_id), pa.max_length, pa.precision, pa.scale, pa.is_output,
+        SELECT pa.object_id, pa.name, TYPE_NAME(pa.system_type_id), pa.max_length, pa.precision, pa.scale, pa.is_output,
                CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'MS_Description') AS nvarchar(3750)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:opciones') AS nvarchar(3750))
         FROM sys.parameters pa JOIN sys.procedures p ON p.object_id = pa.object_id

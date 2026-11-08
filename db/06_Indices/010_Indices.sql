@@ -33,4 +33,8 @@ IF INDEXPROPERTY(OBJECT_ID('sync.Evento'), 'IX_sync_Evento_Abiertos', 'IndexId')
     CREATE INDEX IX_sync_Evento_Abiertos ON sync.Evento (Fecha DESC) INCLUDE (Nivel, Codigo, FuenteId) WHERE Atendido = 0;
 IF INDEXPROPERTY(OBJECT_ID('seg.Auditoria'), 'IX_seg_Auditoria_Fecha', 'IndexId') IS NULL
     CREATE INDEX IX_seg_Auditoria_Fecha ON seg.Auditoria (Fecha DESC) INCLUDE (Usuario, Accion);
+IF INDEXPROPERTY(OBJECT_ID('dash.Widget'), 'IX_dash_Widget_Tablero', 'IndexId') IS NULL
+    CREATE INDEX IX_dash_Widget_Tablero ON dash.Widget (TableroId, Orden);
+IF INDEXPROPERTY(OBJECT_ID('dash.Widget'), 'IX_dash_Widget_Filtro', 'IndexId') IS NULL
+    CREATE INDEX IX_dash_Widget_Filtro ON dash.Widget (FiltroId);
 GO

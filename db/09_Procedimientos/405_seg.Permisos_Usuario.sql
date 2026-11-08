@@ -26,14 +26,6 @@ BEGIN
         RETURN;
     END;
 
-    SELECT p.name AS Procedimiento
-    FROM sys.procedures p
-    CROSS APPLY (SELECT ISNULL(CAST((SELECT value FROM sys.extended_properties
-                                     WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:permiso') AS nvarchar(50)), N'admin') AS Permiso) x
-    WHERE p.schema_id = SCHEMA_ID('api')
-      AND (x.Permiso = N'usuario'
-           OR EXISTS (SELECT 1 FROM seg.UsuarioRol ur JOIN seg.RolPermiso rp ON rp.RolId = ur.RolId
-                      WHERE ur.UsuarioId = @UsuarioId AND (rp.Permiso = x.Permiso OR rp.Permiso = N'api.' + p.name)))
-    ORDER BY p.name;
+    SELECT Procedimiento FROM seg.fn_ProcedimientosPermitidos(@UsuarioId) ORDER BY Procedimiento;
 END;
 GO
