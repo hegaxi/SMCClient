@@ -7,7 +7,10 @@ public sealed record ProcedimientoInfo(
     string Permiso,
     bool ExentoSync,
     IReadOnlyList<ParametroInfo> Parametros,
-    IReadOnlyList<ColumnaInfo>? Columnas)
+    IReadOnlyList<ColumnaInfo>? Columnas,
+    IReadOnlyList<string>? TitulosResultados,
+    string Titulo,
+    bool Accion)
 {
     /// <summary>Parámetros que llena el servidor (usuario autenticado); no se exponen ni se aceptan del cliente.</summary>
     internal IReadOnlyList<ParametroInfo> ParametrosDeContexto { get; init; } = Array.Empty<ParametroInfo>();
@@ -17,8 +20,12 @@ public sealed record ProcedimientoInfo(
 /// <param name="Tipo">Tipo de SQL Server: int, varchar, date, datetimeoffset...</param>
 /// <param name="Longitud">Caracteres para texto (-1 = max); null para otros tipos.</param>
 /// <param name="Opcional">El procedimiento declara un valor por omisión: se puede omitir.</param>
+/// <param name="Opciones">Valores permitidos (propiedad extendida smc:opciones): la interfaz muestra una lista.</param>
 public sealed record ParametroInfo(
-    string Nombre, string Tipo, int? Longitud, byte? Precision, byte? Escala, bool Opcional, bool Salida, string? Descripcion);
+    string Nombre, string Tipo, int? Longitud, byte? Precision, byte? Escala, bool Opcional, bool Salida, string? Descripcion,
+    IReadOnlyList<OpcionParametro>? Opciones = null);
+
+public sealed record OpcionParametro(string Valor, string Etiqueta);
 
 public sealed record ColumnaInfo(string Nombre, string Tipo, bool Nulo);
 

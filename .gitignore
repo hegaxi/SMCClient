@@ -17,3 +17,6 @@ coverage/
 *.log
 .DS_Store
 Thumbs.db
+
+# Build de React (se genera con `npm run build` o al publicar la API)
+src/SMCClient.Api/wwwroot/

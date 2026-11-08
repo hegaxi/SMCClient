@@ -12,9 +12,11 @@ BEGIN
 
     SELECT e.FuenteId, e.Entidad, e.Modo,
            (SELECT MAX(x.Fin) FROM sync.Ejecucion x WHERE x.FuenteId = e.FuenteId AND x.Entidad = e.Entidad AND x.Estado IN ('ok', 'parcial')) AS UltimaOk,
-           (SELECT TOP (1) x.Estado FROM sync.Ejecucion x WHERE x.FuenteId = e.FuenteId AND x.Entidad = e.Entidad ORDER BY x.Inicio DESC) AS UltimoEstado
+           u.Estado AS UltimoEstado, u.Mensaje AS UltimoMensaje, u.Inicio AS UltimoIntento
     INTO #e
     FROM cfg.EntidadSync e
+    OUTER APPLY (SELECT TOP (1) x.Estado, LEFT(x.Mensaje, 300) AS Mensaje, x.Inicio FROM sync.Ejecucion x
+                 WHERE x.FuenteId = e.FuenteId AND x.Entidad = e.Entidad ORDER BY x.EjecucionId DESC) u
     WHERE e.Activa = 1;
 
     SELECT f.Codigo AS Fuente,
@@ -35,10 +37,10 @@ BEGIN
 
     IF @Detalle = 0 RETURN;
 
-    SELECT f.Codigo AS Fuente, e.Entidad, e.Modo, e.UltimaOk, e.UltimoEstado, m.Valor AS MarcaAgua
+    SELECT f.Codigo AS Fuente, e.Entidad, e.Modo, e.UltimaOk, e.UltimoEstado, e.UltimoIntento, e.UltimoMensaje, m.Valor AS MarcaAgua
     FROM #e e
     JOIN cfg.Fuente f ON f.FuenteId = e.FuenteId
     LEFT JOIN sync.MarcaAgua m ON m.FuenteId = e.FuenteId AND m.Entidad = e.Entidad
-    ORDER BY f.Codigo, e.Entidad;
+    ORDER BY f.Codigo, (SELECT Orden FROM cfg.EntidadSync x WHERE x.FuenteId = e.FuenteId AND x.Entidad = e.Entidad);
 END;
 GO

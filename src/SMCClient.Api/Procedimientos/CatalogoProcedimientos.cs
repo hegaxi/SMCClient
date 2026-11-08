@@ -33,13 +33,17 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'MS_Description') AS nvarchar(3750)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:permiso') AS nvarchar(50)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:exentoSync') AS nvarchar(10)),
-               OBJECT_DEFINITION(p.object_id)
+               OBJECT_DEFINITION(p.object_id),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:resultados') AS nvarchar(3750)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:titulo') AS nvarchar(200)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:accion') AS nvarchar(10))
         FROM sys.procedures p
         WHERE p.schema_id = SCHEMA_ID('api')
         ORDER BY p.name;
 
         SELECT pa.object_id, pa.name, TYPE_NAME(pa.user_type_id), pa.max_length, pa.precision, pa.scale, pa.is_output,
-               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'MS_Description') AS nvarchar(3750))
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'MS_Description') AS nvarchar(3750)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:opciones') AS nvarchar(3750))
         FROM sys.parameters pa JOIN sys.procedures p ON p.object_id = pa.object_id
         WHERE p.schema_id = SCHEMA_ID('api') AND pa.parameter_id > 0
         ORDER BY pa.object_id, pa.parameter_id;
@@ -94,22 +98,26 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
         await using var cmd = new SqlCommand(SqlMetadatos, cn);
         await using var r = await cmd.ExecuteReaderAsync(ct);
 
-        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion)>();
+        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion, string? Resultados, string Titulo, bool Accion)>();
         while (await r.ReadAsync(ct))
         {
             procs.Add((r.GetInt32(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
                        r.IsDBNull(3) ? "admin" : r.GetString(3).Trim().ToLowerInvariant(),   // sin permiso declarado: solo administradores
                        !r.IsDBNull(4) && r.GetString(4).Trim() == "1",
-                       r.IsDBNull(5) ? "" : r.GetString(5)));
+                       r.IsDBNull(5) ? "" : r.GetString(5),
+                       r.IsDBNull(6) ? null : r.GetString(6),
+                       r.IsDBNull(7) ? r.GetString(1).Replace('_', ' ') : r.GetString(7),
+                       !r.IsDBNull(8) && r.GetString(8).Trim() == "1"));
         }
 
         await r.NextResultAsync(ct);
-        var parametros = new Dictionary<int, List<(string Nombre, string Tipo, short MaxLen, byte Prec, byte Escala, bool Salida, string? Desc)>>();
+        var parametros = new Dictionary<int, List<(string Nombre, string Tipo, short MaxLen, byte Prec, byte Escala, bool Salida, string? Desc, string? Opciones)>>();
         while (await r.ReadAsync(ct))
         {
             var id = r.GetInt32(0);
             if (!parametros.TryGetValue(id, out var lista)) parametros[id] = lista = new();
-            lista.Add((r.GetString(1).TrimStart('@'), r.GetString(2), r.GetInt16(3), r.GetByte(4), r.GetByte(5), r.GetBoolean(6), r.IsDBNull(7) ? null : r.GetString(7)));
+            lista.Add((r.GetString(1).TrimStart('@'), r.GetString(2), r.GetInt16(3), r.GetByte(4), r.GetByte(5), r.GetBoolean(6),
+                       r.IsDBNull(7) ? null : r.GetString(7), r.IsDBNull(8) ? null : r.GetString(8)));
         }
 
         await r.NextResultAsync(ct);
@@ -130,12 +138,15 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                 x.Nombre, x.Tipo,
                 EsTexto(x.Tipo) ? (x.MaxLen == -1 ? -1 : x.Tipo.StartsWith('n') ? x.MaxLen / 2 : x.MaxLen) : null,
                 EsDecimal(x.Tipo) ? x.Prec : null, EsDecimal(x.Tipo) ? x.Escala : null,
-                conDefault.Contains(x.Nombre), x.Salida, x.Desc)).ToList();
+                conDefault.Contains(x.Nombre), x.Salida, x.Desc, Opciones(x.Opciones))).ToList();
 
             resultado[p.Nombre] = new ProcedimientoInfo(
                 p.Nombre, p.Descripcion, p.Permiso, p.Exento,
                 todos.Where(x => !deUsuario.Contains(x.Nombre)).ToList(),
-                columnas.GetValueOrDefault(p.Id))
+                columnas.GetValueOrDefault(p.Id),
+                p.Resultados?.Split('|', StringSplitOptions.TrimEntries),
+                p.Titulo,
+                p.Accion)
             {
                 ParametrosDeContexto = todos.Where(x => deUsuario.Contains(x.Nombre)).ToList(),
             };
@@ -157,6 +168,13 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
             .Select(x => x.Groups[1].Value)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
     }
+
+    /// <summary>smc:opciones = "software=Scrum|service_desk=Mesa de ayuda" (la etiqueta es opcional).</summary>
+    internal static IReadOnlyList<OpcionParametro>? Opciones(string? valor) =>
+        string.IsNullOrWhiteSpace(valor) ? null : valor.Split('|', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(o => o.Split('=', 2, StringSplitOptions.TrimEntries))
+            .Select(o => new OpcionParametro(o[0], o.Length > 1 ? o[1] : o[0]))
+            .ToList();
 
     private static bool EsTexto(string tipo) => tipo is "varchar" or "nvarchar" or "char" or "nchar";
     private static bool EsDecimal(string tipo) => tipo is "decimal" or "numeric";

@@ -186,6 +186,27 @@ Se calcula al consultar, así que si el historial llega después la atribución 
 y permite filtrar por `@Origen`. Las automáticas suman 8 h por cada issue abierto, así que una persona con varios
 issues abiertos puede tener más de 8 h automáticas en un día: no deben leerse como jornada trabajada.
 
+
+### 5.7 La interfaz (`web/`)
+
+React 19 + Vite, sin bibliotecas de componentes. Se publica dentro de la API (`wwwroot`), así que en IIS es una
+sola aplicación con la misma autenticación de Windows.
+
+- **Compuerta.** `useSincronizacion` consulta `api.Sync_Estado` cada 5 s mientras los datos no estén vigentes (cada minuto después). Cualquier 503 devuelve a la pantalla de sincronización.
+- **Todo sale de los metadatos** de `GET /api/procedimientos`: menú, formularios, listas de opciones, títulos de resultados, qué es una acción. Las propiedades extendidas viven en `db/11_DatosSemilla/090_DescripcionesApi.sql`:
+
+| Propiedad | Nivel | Uso en la interfaz |
+|---|---|---|
+| `smc:titulo` | procedimiento | Nombre en el menú |
+| `MS_Description` | procedimiento / parámetro | Descripción y texto de ayuda |
+| `smc:permiso` | procedimiento | Grupo del menú (y autorización en la API) |
+| `smc:exentoSync` | procedimiento | Responde aunque los datos no estén sincronizados |
+| `smc:accion` | procedimiento | No corre sola al abrirla; pide confirmación |
+| `smc:resultados` | procedimiento | Títulos de cada conjunto de resultados |
+| `smc:opciones` | parámetro | Lista desplegable; también traduce esos valores en las tablas |
+
+- **Convenciones de presentación**: columnas `Clave` / `PadreClave` abren el detalle del issue; `TotalFilas` + `@Pagina` activan la paginación; un solo registro con más de 6 columnas se muestra como ficha en las consultas de detalle.
+
 ---
 
 ## 6. Escalabilidad

@@ -36,7 +36,8 @@ public class ProcedimientosControllerTests(ApiFixture bd) : IClassFixture<ApiFix
         Assert.Contains("Mapeo_Establecer", admin.EnumerateArray().Select(p => p.GetProperty("nombre").GetString()));
 
         var buscar = Proc(lector, "Issues_Buscar");
-        Assert.Equal("Búsqueda de historias y tickets.", buscar.GetProperty("descripcion").GetString());
+        Assert.Equal("Buscar historias y tickets", buscar.GetProperty("titulo").GetString());
+        Assert.StartsWith("Historias Scrum y tickets", buscar.GetProperty("descripcion").GetString());
         Assert.False(buscar.GetProperty("exentoSync").GetBoolean());
         var proyecto = buscar.GetProperty("parametros").EnumerateArray().Single(p => p.GetProperty("nombre").GetString() == "Proyecto");
         Assert.Equal("varchar", proyecto.GetProperty("tipo").GetString());
@@ -50,6 +51,11 @@ public class ProcedimientosControllerTests(ApiFixture bd) : IClassFixture<ApiFix
         Assert.False(desde.GetProperty("opcional").GetBoolean());
 
         Assert.True(Proc(lector, "Sync_Estado").GetProperty("exentoSync").GetBoolean());
+        Assert.True(Proc(lector, "Sync_Solicitar").GetProperty("accion").GetBoolean());
+        Assert.False(buscar.GetProperty("accion").GetBoolean());
+        Assert.Equal("Tiempo registrado", Proc(lector, "Issue_Detalle").GetProperty("titulosResultados")[2].GetString());
+        var tipo = buscar.GetProperty("parametros").EnumerateArray().Single(p => p.GetProperty("nombre").GetString() == "TipoProyecto");
+        Assert.Contains(tipo.GetProperty("opciones").EnumerateArray(), o => o.GetProperty("valor").GetString() == "service_desk" && o.GetProperty("etiqueta").GetString() == "Mesa de ayuda");
         // @SolicitadoPor lo llena el servidor: no se expone.
         Assert.DoesNotContain(Proc(lector, "Sync_Solicitar").GetProperty("parametros").EnumerateArray(), p => p.GetProperty("nombre").GetString() == "SolicitadoPor");
     }

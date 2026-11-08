@@ -1,0 +1,133 @@
+import { useMemo, useState } from 'react';
+import type { ConjuntoResultados, Fila } from '../tipos';
+import { aCsv, claveOrden, esNumero, etiqueta, formatear, opcionesDeColumna } from '../formato';
+
+interface Props {
+  conjunto: ConjuntoResultados;
+  titulo?: string | null;
+  nombreArchivo: string;
+  /** Si se indica, los valores de las columnas Clave / PadreClave abren el detalle del issue. */
+  onAbrirClave?: (clave: string) => void;
+  /** Un solo registro con muchas columnas se muestra como ficha (consultas de detalle). */
+  permitirFicha?: boolean;
+  /** Etiquetas para valores codificados ("service_desk" -> "Mesa de ayuda"). */
+  etiquetasValores?: Map<string, Map<string, string>>;
+}
+
+const COLUMNAS_CLAVE = new Set(['Clave', 'PadreClave']);
+const COLUMNAS_OCULTAS = new Set(['TotalFilas']);
+
+/** Un conjunto de resultados: ficha si es un solo registro con muchas columnas; si no, tabla ordenable. */
+export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave, permitirFicha = false, etiquetasValores }: Props) {
+  const columnas = conjunto.columnas.filter((c) => !COLUMNAS_OCULTAS.has(c.nombre));
+  const [orden, setOrden] = useState<{ columna: string; asc: boolean } | null>(null);
+
+  const filas = useMemo(() => {
+    if (!orden) return conjunto.filas;
+    const tipo = columnas.find((c) => c.nombre === orden.columna)?.tipo ?? '';
+    return [...conjunto.filas].sort((a, b) => {
+      const x = claveOrden(a[orden.columna], tipo);
+      const y = claveOrden(b[orden.columna], tipo);
+      return (x < y ? -1 : x > y ? 1 : 0) * (orden.asc ? 1 : -1);
+    });
+  }, [conjunto.filas, orden, columnas]);
+
+  const celda = (f: Fila, nombre: string, tipo: string) => {
+    const v = f[nombre];
+    const opciones = etiquetasValores ? opcionesDeColumna(nombre, etiquetasValores) : undefined;
+    const texto = typeof v === 'string' && opciones?.has(v) ? opciones.get(v)! : formatear(v, tipo);
+    if (onAbrirClave && COLUMNAS_CLAVE.has(nombre) && typeof v === 'string' && v) {
+      return (
+        <button type="button" className="enlace" onClick={() => onAbrirClave(v)} title={`Ver el detalle de ${v}`}>
+          {texto}
+        </button>
+      );
+    }
+    return texto.length > 120 ? <span title={texto}>{texto.slice(0, 117)}…</span> : texto;
+  };
+
+  const descargar = () => {
+    const url = URL.createObjectURL(new Blob([aCsv(columnas, filas)], { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${nombreArchivo}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const encabezado = (
+    <div className="encabezado-resultado">
+      {titulo && <h3>{titulo}</h3>}
+      <span className="secundario">
+        {conjunto.filas.length === 1 ? '1 registro' : `${conjunto.filas.length.toLocaleString('es-MX')} registros`}
+      </span>
+      {conjunto.filas.length > 0 && (
+        <button type="button" className="boton secundario-btn" onClick={descargar}>Descargar CSV</button>
+      )}
+    </div>
+  );
+
+  if (conjunto.filas.length === 0) {
+    return (
+      <section className="resultado">
+        {encabezado}
+        <p className="vacio">No hay registros con estos filtros.</p>
+      </section>
+    );
+  }
+
+  if (permitirFicha && conjunto.filas.length === 1 && columnas.length > 6) {
+    const f = conjunto.filas[0];
+    return (
+      <section className="resultado">
+        {encabezado}
+        <dl className="ficha">
+          {columnas.map((c) => (
+            <div key={c.nombre}>
+              <dt>{etiqueta(c.nombre)}</dt>
+              <dd>{celda(f, c.nombre, c.tipo)}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+    );
+  }
+
+  return (
+    <section className="resultado">
+      {encabezado}
+      {conjunto.truncado && (
+        <p className="alerta">Se muestran solo los primeros {conjunto.filas.length.toLocaleString('es-MX')} registros. Use filtros más específicos.</p>
+      )}
+      <div className="contenedor-tabla">
+        <table>
+          <thead>
+            <tr>
+              {columnas.map((c) => {
+                const activa = orden?.columna === c.nombre;
+                return (
+                  <th key={c.nombre} scope="col" className={esNumero(c.tipo) ? 'num' : undefined}
+                      aria-sort={activa ? (orden!.asc ? 'ascending' : 'descending') : 'none'}>
+                    <button type="button" onClick={() => setOrden({ columna: c.nombre, asc: activa ? !orden!.asc : true })}>
+                      {etiqueta(c.nombre)}
+                      <span aria-hidden="true">{activa ? (orden!.asc ? ' ▲' : ' ▼') : ''}</span>
+                    </button>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((f, i) => (
+              <tr key={i}>
+                {columnas.map((c) => (
+                  <td key={c.nombre} className={esNumero(c.tipo) ? 'num' : undefined}>{celda(f, c.nombre, c.tipo)}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}

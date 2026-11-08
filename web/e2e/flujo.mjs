@@ -1,0 +1,101 @@
+// Prueba de punta a punta en Chromium contra la API real (que sirve el build de React).
+// Uso: BASE_URL=http://127.0.0.1:5080 node e2e/flujo.mjs
+//   E2E_PENDIENTE / E2E_LISTO: comandos de shell opcionales que dejan los datos sin sincronizar / sincronizados,
+//   para verificar la pantalla de sincronización. E2E_CAPTURAS: carpeta para las capturas.
+import { execSync } from 'node:child_process';
+import { mkdirSync } from 'node:fs';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { chromium } = require('playwright');
+
+const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:5080';
+const CAPTURAS = process.env.E2E_CAPTURAS;
+if (CAPTURAS) mkdirSync(CAPTURAS, { recursive: true });
+
+const navegador = await chromium.launch();
+const pagina = await navegador.newPage({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2, locale: 'es-MX', timezoneId: 'America/Mexico_City' });
+const erroresConsola = [];
+// Las respuestas 4xx/503 de la API son esperadas (validación, sincronización); los errores de JavaScript no.
+pagina.on('console', (m) => {
+  if (m.type() === 'error' && !/Failed to load resource: the server responded with a status of (4\d\d|503)/.test(m.text())) erroresConsola.push(m.text());
+});
+pagina.on('pageerror', (e) => erroresConsola.push(String(e)));
+
+const paso = async (nombre, fn) => {
+  process.stdout.write(`- ${nombre} ... `);
+  await fn();
+  if (CAPTURAS) await pagina.screenshot({ path: `${CAPTURAS}/${nombre.replace(/[^a-z0-9]+/gi, '_').toLowerCase()}.png`, fullPage: true });
+  console.log('ok');
+};
+const titulo = (t) => pagina.getByRole('heading', { name: t, exact: true });
+
+try {
+  if (process.env.E2E_PENDIENTE) {
+    execSync(process.env.E2E_PENDIENTE, { stdio: 'inherit' });
+    await paso('Pantalla de sincronizacion', async () => {
+      await pagina.goto(BASE);
+      await titulo('Sincronizando los datos de Jira').waitFor();
+      await pagina.getByRole('button', { name: 'Sincronizar ahora' }).waitFor();
+    });
+    execSync(process.env.E2E_LISTO, { stdio: 'inherit' });
+    await paso('Se abre sola al terminar la sincronizacion', async () => {
+      await titulo('Scrum y mesa de ayuda').waitFor({ timeout: 20_000 });
+    });
+  } else {
+    await paso('Inicio', async () => {
+      await pagina.goto(BASE);
+      await titulo('Scrum y mesa de ayuda').waitFor();
+    });
+  }
+
+  await paso('Buscar historias y tickets', async () => {
+    await pagina.getByRole('link', { name: 'Buscar historias y tickets' }).click();
+    await pagina.getByRole('button', { name: 'MDA-1' }).waitFor();
+    await pagina.getByLabel('Tipo proyecto').selectOption({ label: 'Mesa de ayuda' });
+    await pagina.getByRole('button', { name: 'Consultar' }).click();
+    await pagina.waitForURL(/TipoProyecto=service_desk/);
+    await pagina.getByRole('button', { name: 'SCR-7' }).waitFor({ state: 'detached' });   // la historia Scrum sale del resultado
+    await pagina.getByRole('button', { name: 'MDA-1' }).waitFor();
+  });
+
+  await paso('Detalle de un issue', async () => {
+    await pagina.getByRole('button', { name: 'MDA-1' }).click();
+    await titulo('Detalle de un issue').waitFor();
+    await titulo('Tiempo registrado').waitFor();
+    await titulo('SLA').waitFor();
+    await pagina.getByText('Automation for Jira').first().waitFor();
+  });
+
+  await paso('Volver con el boton Atras', async () => {
+    await pagina.goBack();
+    await titulo('Buscar historias y tickets').waitFor();
+  });
+
+  await paso('Horas por persona', async () => {
+    await pagina.getByRole('link', { name: 'Horas por persona' }).click();
+    await pagina.getByLabel(/Desde/).fill('2026-10-01');
+    await pagina.getByLabel(/Hasta/).fill('2026-11-30');
+    await pagina.getByRole('button', { name: 'Consultar' }).click();
+    await pagina.getByRole('columnheader', { name: 'Horas registradas' }).waitFor();
+    await pagina.getByRole('columnheader', { name: 'Horas automáticas' }).waitFor();
+    await pagina.getByRole('cell', { name: 'Mesa de ayuda' }).first().waitFor();   // valor codificado traducido
+    await pagina.getByRole('cell', { name: '(Sin responsable)' }).waitFor();
+  });
+
+  await paso('Validacion de parametros', async () => {
+    await pagina.goto(`${BASE}/?p=Issue_Detalle`);
+    await titulo('Detalle de un issue').waitFor();
+    await pagina.getByRole('button', { name: 'Consultar' }).click();
+    await pagina.getByText('Es obligatorio.').waitFor();
+  });
+
+  if (erroresConsola.length) throw new Error(`Errores en la consola del navegador:\n${erroresConsola.join('\n')}`);
+  console.log('E2E: todo correcto');
+} catch (e) {
+  if (CAPTURAS) await pagina.screenshot({ path: `${CAPTURAS}/fallo.png`, fullPage: true });
+  console.error('\nE2E falló:', e.message);
+  process.exitCode = 1;
+} finally {
+  await navegador.close();
+}

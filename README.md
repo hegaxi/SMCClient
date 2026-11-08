@@ -8,7 +8,7 @@ tickets, historias, tiempo invertido, SLA y avance de sprints.
 | Base de datos (SQL Server 2017+, recomendado 2019+) | [`db/`](db/README.md) | Lista |
 | Worker de sincronización Jira → SQL Server (.NET 8) | `src/SMCClient.Sync`, `src/SMCClient.Worker` | Listo |
 | API con un solo controlador (ASP.NET Core 8) | `src/SMCClient.Api` | Lista |
-| Interfaz (React) | — | Pendiente |
+| Interfaz (React 19 + Vite) | `web/` | Lista |
 
 La arquitectura, cómo resiste cambios en Jira y cómo funciona la sincronización están en
 [`docs/arquitectura.md`](docs/arquitectura.md).
@@ -108,6 +108,25 @@ cuenta que en SQL Server solo tiene el rol `smc_api`. Grupos de AD en `appsettin
 `api`) y sus propiedades en `db/11_DatosSemilla/090_DescripcionesApi.sql` (`MS_Description`, `smc:permiso`,
 `smc:exentoSync`). Sin `smc:permiso` el procedimiento queda solo para administradores. La API lo detecta sola.
 
+### 4. Interfaz (React)
+
+```bash
+cd web
+npm ci
+npm run dev          # http://localhost:5173, envía /api a la API en http://localhost:5080
+```
+
+La API en desarrollo se levanta con `ASPNETCORE_URLS=http://localhost:5080 dotnet run --project src/SMCClient.Api --environment Development`.
+Para producción no hay que publicar nada aparte: `dotnet publish src/SMCClient.Api` construye la interfaz y la deja en
+`wwwroot` (requiere Node 20+ en la máquina que publica).
+
+Qué hace:
+
+- **Sincroniza antes de todo.** Mientras alguna fuente no tenga datos vigentes muestra el avance por tipo de dato y se abre sola al terminar. Si una consulta responde 503, vuelve a esa pantalla.
+- **Se arma con los metadatos de la base.** Menú (`smc:titulo`, agrupado en Consultas / Sincronización / Administración según `smc:permiso`), formularios por tipo de parámetro, listas (`smc:opciones`), títulos de cada resultado (`smc:resultados`). Un procedimiento nuevo en la base aparece en el menú sin tocar React.
+- **Consultas.** Corren solas al abrirlas si no les falta nada obligatorio; las acciones (`smc:accion`) nunca, y piden confirmación. Tablas ordenables, descarga CSV, paginación, la clave de un issue abre su detalle, los filtros quedan en la dirección (se pueden compartir y funciona "Atrás").
+- Accesible (etiquetas, errores ligados a cada campo, navegación con teclado), adaptable a pantallas chicas y con modo oscuro.
+
 ## Pruebas
 
 ```bash
@@ -115,6 +134,8 @@ cuenta que en SQL Server solo tiene el rol `smc_api`. Grupos de AD en `appsettin
 sqlcmd -S localhost -d SMCClient -U sa -C -b -I -x -i db/tests/010_prueba_integracion.sql
 SMC_TEST_SQL="Server=localhost;User Id=sa;Password=...;TrustServerCertificate=true" dotnet test
 ```
+
+Interfaz: `cd web && npm test` (componentes) y `npm run e2e` (Chromium contra la API corriendo en `BASE_URL`; ver `web/e2e/flujo.mjs`).
 
 Con `SMC_TEST_SQL` (servidor, **sin** `Database`) cada suite crea una base desechable con los scripts de `db/` en orden,
 corre sus pruebas y la borra; la de la API además crea un login que solo tiene el rol `smc_api`.
