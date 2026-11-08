@@ -26,13 +26,13 @@ END;
 GO
 /* Devuelve las claves (separadas por coma, en orden) y el total que encuentra una búsqueda. */
 CREATE OR ALTER PROCEDURE prueba.Buscar @Criterios nvarchar(max), @Claves nvarchar(400) OUTPUT, @Total int = NULL OUTPUT,
-    @OrdenarPor varchar(60) = NULL, @Descendente bit = 1, @Pagina int = 1, @TamanoPagina int = 50
+    @OrdenarPor varchar(60) = NULL, @Descendente bit = 1, @Pagina int = 1, @TamanoPagina int = 50, @Filas int = NULL OUTPUT
 AS
 BEGIN
     DECLARE @r TABLE (n int IDENTITY, Clave nvarchar(50), TotalFilas int);
     INSERT @r (Clave, TotalFilas) EXEC api.Issues_Consultar @Criterios = @Criterios, @Columnas = N'clave', @OrdenarPor = @OrdenarPor,
          @Descendente = @Descendente, @Pagina = @Pagina, @TamanoPagina = @TamanoPagina;
-    SELECT @Claves = ISNULL(STRING_AGG(Clave, N',') WITHIN GROUP (ORDER BY n), N''), @Total = ISNULL(MAX(TotalFilas), 0) FROM @r;
+    SELECT @Claves = ISNULL(STRING_AGG(CAST(Clave AS nvarchar(max)), N',') WITHIN GROUP (ORDER BY n), N''), @Total = ISNULL(MAX(TotalFilas), 0), @Filas = COUNT(*) FROM @r;
 END;
 GO
 
@@ -149,6 +149,76 @@ EXEC prueba.Afirmar @ok, N'Las fechas relativas dentro de los criterios se conse
 DECLARE @crit nvarchar(max) = JSON_VALUE(@p, '$.Criterios'), @k nvarchar(400);
 EXEC prueba.Buscar @crit, @k OUTPUT;
 SET @ok = CASE WHEN @k = N'MDA-1' THEN 1 ELSE 0 END; EXEC prueba.Afirmar @ok, N'El filtro guardado devuelve lo esperado';
+GO
+
+/* ===== Resumen en SQL (para widgets): sobre TODOS los issues, sin tope de filas ===== */
+DECLARE @ok bit;
+DECLARE @r TABLE (Grupo nvarchar(400), Valor decimal(19,4), Issues int, Grupos int, EsOtros bit, EtiquetaGrupo nvarchar(200), EtiquetaValor nvarchar(200), Posicion int);
+INSERT @r EXEC api.Issues_Resumir @AgruparPor = 'proyecto', @Agregacion = 'suma', @Valor = 'horas';
+SET @ok = CASE WHEN (SELECT Valor FROM @r WHERE Grupo = N'SCR') = 8 AND (SELECT Valor FROM @r WHERE Grupo = N'MDA') = 3
+                AND (SELECT TOP (1) EtiquetaValor FROM @r) = N'Horas invertidas' AND (SELECT TOP (1) Grupo FROM @r ORDER BY Posicion) = N'SCR' THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Suma por grupo, de mayor a menor, con las etiquetas de los campos';
+DELETE @r; INSERT @r EXEC api.Issues_Resumir @AgruparPor = 'etiquetas';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @r) = 3 AND (SELECT Issues FROM @r WHERE Grupo = N'(vacío)') = 1 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Campo de varios valores: un issue cuenta en cada valor; sin valor = (vacío)';
+DELETE @r; INSERT @r EXEC api.Issues_Resumir @AgruparPor = 'etiquetas', @Top = 2;
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @r) = 2 AND (SELECT Issues FROM @r WHERE EsOtros = 1) = 1 AND (SELECT Grupos FROM @r WHERE EsOtros = 1) = 2 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'"Otros" junta el resto contando cada issue una sola vez';
+DELETE @r; INSERT @r EXEC api.Issues_Resumir @AgruparPor = 'creado', @Agregacion = 'promedio', @Valor = 'horas';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @r) = 1 AND (SELECT Grupo FROM @r) = N'2026-10' AND (SELECT Valor FROM @r) = 5.5 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Fechas agrupadas por mes; promedio';
+DELETE @r; INSERT @r EXEC api.Issues_Resumir @Criterios = N'[{"campo":"estado","operador":"en","valores":["nada"]}]';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @r) = 1 AND (SELECT Valor FROM @r) = 0 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Sin issues: el conteo es 0 (un renglón)';
+EXEC prueba.AfirmarError N'EXEC api.Issues_Resumir @Agregacion = ''suma'', @Valor = ''estado'';', 50400, N'Solo se suman campos numéricos';
+EXEC prueba.AfirmarError N'EXEC api.Issues_Resumir @Agregacion = ''suma'';', 50400, N'Suma sin campo';
+EXEC prueba.AfirmarError N'EXEC api.Issues_Resumir @AgruparPor = ''i.Clave); DROP TABLE x --'';', 50400, N'Inyección en el campo para agrupar: rechazada';
+EXEC prueba.AfirmarError N'EXEC api.Issues_Resumir @Agregacion = ''COUNT(*)--'';', 50400, N'Inyección en el cálculo: rechazada';
+EXEC prueba.AfirmarError N'EXEC api.Issues_Resumir @Criterios = N''[{"campo":"x","operador":"en","valores":["a"]}]'';', 50400, N'Los criterios se validan igual que en la búsqueda';
+GO
+
+/* 1 200 issues de carga (en una transacción que se deshace): la página llega a 500, el resumen cuenta todos. */
+BEGIN TRANSACTION;
+DECLARE @ok bit, @k nvarchar(400), @t int, @filas int;
+WITH n AS (SELECT TOP (1200) ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) AS n FROM sys.all_columns a CROSS JOIN sys.all_columns b)
+INSERT ops.Issue (FuenteId, IssueId, Clave, ProyectoId, TipoIssueId, TipoIssue, EstadoId, CategoriaEstado, PrioridadId, Prioridad,
+                  ResponsableId, Resumen, TiempoInvertidoSeg, Creado, Actualizado)
+SELECT i.FuenteId, CONCAT('9', n.n), CONCAT('MDA-', 1000 + n.n), i.ProyectoId, i.TipoIssueId, i.TipoIssue,
+       CASE WHEN n.n % 3 = 0 THEN 10001 ELSE i.EstadoId END, CASE WHEN n.n % 3 = 0 THEN 'done' ELSE i.CategoriaEstado END,
+       i.PrioridadId, i.Prioridad, i.ResponsableId, N'Carga de prueba', 1800, i.Creado, i.Actualizado
+FROM n CROSS JOIN ops.Issue i WHERE i.Clave = 'MDA-1';
+DECLARE @crit nvarchar(200) = N'[{"campo":"resumen","operador":"igual","valor":"Carga de prueba"}]';
+EXEC prueba.Buscar @crit, @k OUTPUT, @t OUTPUT, @TamanoPagina = 500, @Filas = @filas OUTPUT;
+SET @ok = CASE WHEN @t = 1200 AND @filas = 500 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Búsqueda de 1 200 issues: página de 500 con el total real';
+DECLARE @r TABLE (Grupo nvarchar(400), Valor decimal(19,4), Issues int, Grupos int, EsOtros bit, EtiquetaGrupo nvarchar(200), EtiquetaValor nvarchar(200), Posicion int);
+INSERT @r EXEC api.Issues_Resumir @Criterios = @crit, @Agregacion = 'suma', @Valor = 'horas';
+SET @ok = CASE WHEN (SELECT Valor FROM @r) = 600 AND (SELECT Issues FROM @r) = 1200 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Resumen sin tope: 1 200 issues x 0.5 h = 600 h (no las 250 h de una página)';
+DELETE @r; INSERT @r EXEC api.Issues_Resumir @Criterios = @crit, @AgruparPor = 'categoria';
+SET @ok = CASE WHEN (SELECT Valor FROM @r WHERE Grupo = N'En curso') = 800 AND (SELECT Valor FROM @r WHERE Grupo = N'Terminado') = 400 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Conteo por grupo sobre los 1 200';
+ROLLBACK;
+GO
+
+/* ===== Widgets con una búsqueda avanzada ===== */
+DECLARE @ok bit, @sql nvarchar(max);
+DECLARE @id TABLE (Id int);
+DECLARE @f int = (SELECT FiltroId FROM dash.Filtro WHERE Nombre = N'Abiertos recientes');
+INSERT @id EXEC api.Tablero_Guardar @Nombre = N'Búsquedas', @UsuarioActual = N'buscadora';
+DECLARE @tab int = (SELECT TOP (1) Id FROM @id);
+DELETE @id; INSERT @id EXEC api.Widget_Guardar @TableroId = @tab, @Titulo = N'Por estado', @FiltroId = @f, @Tipo = 'barras',
+     @Configuracion = N'{"etiqueta":"estado","agregacion":"conteo","limite":10}', @UsuarioActual = N'buscadora';
+DELETE @id; INSERT @id EXEC api.Widget_Guardar @TableroId = @tab, @Titulo = N'Horas', @FiltroId = @f, @Tipo = 'indicador',
+     @Configuracion = N'{"agregacion":"suma","columna":"horas"}', @UsuarioActual = N'buscadora';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM dash.Widget WHERE TableroId = @tab) = 2 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Barras que cuentan por campo e indicador con suma sobre una búsqueda avanzada';
+SET @sql = CONCAT(N'EXEC api.Widget_Guardar @TableroId = ', @tab, N', @Titulo = N''x'', @FiltroId = ', @f, N', @Tipo = ''barras'', @Configuracion = N''{"etiqueta":"NoExiste","agregacion":"conteo"}'', @UsuarioActual = N''buscadora'';');
+EXEC prueba.AfirmarError @sql, 50400, N'Campo para agrupar inexistente rechazado';
+SET @sql = CONCAT(N'EXEC api.Widget_Guardar @TableroId = ', @tab, N', @Titulo = N''x'', @FiltroId = ', @f, N', @Tipo = ''indicador'', @Configuracion = N''{"agregacion":"suma","columna":"estado"}'', @UsuarioActual = N''buscadora'';');
+EXEC prueba.AfirmarError @sql, 50400, N'Suma de un campo no numérico rechazada';
+SET @sql = CONCAT(N'EXEC api.Widget_Guardar @TableroId = ', @tab, N', @Titulo = N''x'', @FiltroId = ', @f, N', @Tipo = ''barras'', @Configuracion = N''{"etiqueta":"estado"}'', @UsuarioActual = N''buscadora'';');
+EXEC prueba.AfirmarError @sql, 50400, N'Barras que suman necesitan el campo de valor';
 GO
 
 DROP PROCEDURE prueba.Buscar; DROP PROCEDURE prueba.AfirmarError; DROP PROCEDURE prueba.Afirmar; DROP SCHEMA prueba;

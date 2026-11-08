@@ -29,6 +29,7 @@ public class BuscadorTests(ApiFixture bd) : IClassFixture<ApiFixture>
         Assert.False(consultar.GetProperty("oculto").GetBoolean());
         Assert.True(procs.Single(p => p.GetProperty("nombre").GetString() == "Issues_Campos").GetProperty("oculto").GetBoolean());
         Assert.True(procs.Single(p => p.GetProperty("nombre").GetString() == "Issues_Valores").GetProperty("oculto").GetBoolean());
+        Assert.True(procs.Single(p => p.GetProperty("nombre").GetString() == "Issues_Resumir").GetProperty("oculto").GetBoolean());
     }
 
     [FactSiSql]
@@ -48,6 +49,21 @@ public class BuscadorTests(ApiFixture bd) : IClassFixture<ApiFixture>
         Assert.Contains("urgente", fila.GetProperty("Etiquetas").GetString());
         Assert.Equal(1, fila.GetProperty("TotalFilas").GetInt32());
         Assert.Equal(["Clave", "Resumen", "Etiquetas", "Estación", "TotalFilas"], fila.EnumerateObject().Select(p => p.Name));
+    }
+
+    [FactSiSql]
+    public async Task Resume_en_SQL_sobre_todos_los_issues_del_filtro()
+    {
+        var lector = bd.Cliente();
+        var porProyecto = Filas(await Ejecutar(lector, "Issues_Resumir", new { AgruparPor = "proyecto", Agregacion = "suma", Valor = "horas" }));
+        Assert.Equal(["SCR", "MDA"], porProyecto.EnumerateArray().Select(f => f.GetProperty("Grupo").GetString()));
+        Assert.Equal(8m, porProyecto[0].GetProperty("Valor").GetDecimal());
+        Assert.Equal("Horas invertidas", porProyecto[0].GetProperty("EtiquetaValor").GetString());
+
+        var abiertos = Filas(await Ejecutar(lector, "Issues_Resumir", new { Criterios = """[{"campo":"abierto","operador":"es","valor":"1"}]""" }));
+        Assert.Equal(1m, Assert.Single(abiertos.EnumerateArray()).GetProperty("Valor").GetDecimal());
+
+        await Ejecutar(lector, "Issues_Resumir", new { Agregacion = "suma", Valor = "estado" }, HttpStatusCode.BadRequest);
     }
 
     [FactSiSql]

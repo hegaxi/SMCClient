@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, ErrorApi } from '../api';
 import { etiqueta, formatear, opcionesDeColumna } from '../formato';
 import type { ConjuntoResultados, Fila, ValoresFormulario } from '../tipos';
-import { calcularBarras, calcularIndicador, formatoIndicador, leerConfig, type TipoWidget } from '../widgets';
+import { AGREGACIONES, barrasDeResumen, calcularBarras, calcularIndicador, formatoIndicador, leerConfig, parametrosResumen, PROC_RESUMEN, usaResumen, type TipoWidget } from '../widgets';
 import { BarrasHorizontales } from './BarrasHorizontales';
 import { TablaResultados } from './TablaResultados';
 
@@ -28,6 +28,8 @@ export function WidgetVista({ widget, edicion, primero, ultimo, etiquetasValores
     try { return JSON.parse(String(widget.ParametrosResueltos ?? '{}')) as Record<string, unknown>; } catch { return {}; }
   })();
   const puede = widget.PuedoEjecutar === true;
+  // Búsqueda avanzada: barras e indicadores se calculan en SQL sobre todos los issues del filtro.
+  const resumen = usaResumen(procedimiento, tipo, config);
   const [datos, setDatos] = useState<ConjuntoResultados | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [verTabla, setVerTabla] = useState(false);
@@ -35,7 +37,7 @@ export function WidgetVista({ widget, edicion, primero, ultimo, etiquetasValores
   useEffect(() => {
     if (!puede) return;
     let vigente = true;
-    api.ejecutar(procedimiento, parametros)
+    api.ejecutar(resumen ? PROC_RESUMEN : procedimiento, resumen ? parametrosResumen(parametros, tipo, config) : parametros)
       .then((r) => vigente && setDatos(r.resultados[config.resultado ?? 0] ?? { columnas: [], filas: [], truncado: false }))
       .catch((e) => {
         if (!vigente) return;
@@ -44,7 +46,7 @@ export function WidgetVista({ widget, edicion, primero, ultimo, etiquetasValores
       });
     return () => { vigente = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [procedimiento, String(widget.ParametrosResueltos), puede]);
+  }, [procedimiento, String(widget.ParametrosResueltos), String(widget.Configuracion), puede]);
 
   const texto = (columna: string) => (v: unknown) => {
     const op = etiquetasValores ? opcionesDeColumna(columna, etiquetasValores) : undefined;
@@ -55,7 +57,27 @@ export function WidgetVista({ widget, edicion, primero, ultimo, etiquetasValores
   if (!puede) cuerpo = <p className="vacio">Sin permiso para esta consulta.</p>;
   else if (error) cuerpo = <p className="alerta" role="alert">{error}</p>;
   else if (!datos) cuerpo = <div className="cargando" aria-label="Cargando" />;
-  else if (tipo === 'indicador') {
+  else if (tipo === 'indicador' && resumen) {
+    const f = datos.filas[0];
+    const nombre = AGREGACIONES.find((a) => a.valor === config.agregacion)?.etiqueta ?? '';
+    cuerpo = (
+      <div className="kpi">
+        <span className="kpi-valor">{formatoIndicador(typeof f?.Valor === 'number' ? f.Valor : null)}</span>
+        <span className="kpi-detalle secundario">{nombre} de {String(f?.EtiquetaValor ?? '').toLowerCase()} · {Number(f?.Issues ?? 0).toLocaleString('es-MX')} issues</span>
+      </div>
+    );
+  } else if (tipo === 'barras' && resumen) {
+    const barras = barrasDeResumen(datos.filas);
+    const grupo = String(datos.filas[0]?.EtiquetaGrupo ?? 'Grupo');
+    const nombreValor = config.agregacion === 'conteo' ? 'Issues' : `${AGREGACIONES.find((a) => a.valor === config.agregacion)?.etiqueta ?? 'Suma'} de ${String(datos.filas[0]?.EtiquetaValor ?? '').toLowerCase()}`;
+    cuerpo = verTabla ? (
+      <TablaResultados conjunto={{ truncado: false, columnas: [{ nombre: grupo, tipo: 'nvarchar', nulo: true }, { nombre: nombreValor, tipo: 'decimal', nulo: true }, { nombre: 'Issues', tipo: 'int', nulo: true }],
+        filas: datos.filas.map((f, i) => ({ [grupo]: barras[i].etiqueta, [nombreValor]: barras[i].valor, Issues: f.Issues })) }} nombreArchivo={String(widget.Titulo)} />
+    ) : (
+      <BarrasHorizontales barras={barras} titulo={String(widget.Titulo)} nombreValor={nombreValor}
+                          porcentaje={config.agregacion === 'conteo' || config.agregacion === 'suma' || !config.agregacion} />
+    );
+  } else if (tipo === 'indicador') {
     const valor = calcularIndicador(datos, config);
     cuerpo = (
       <div className="kpi">

@@ -231,7 +231,9 @@ Criterios sobre **cualquier** campo, columnas a elegir y ordenar, orden y pagina
 | `cfg.CampoConsulta` (semilla `11_DatosSemilla/040`) | Campos estándar: etiqueta, tipo (`texto`, `numero`, `fecha`, `lista`, `usuario`, `bit`), expresión SQL de un valor o de varios (sprints, etiquetas, componentes) y columnas predeterminadas |
 | `rpt.fn_CamposBuscador()` | Une los estándar con los **personalizados de Jira** (`meta.CampoJira` activos que se guardan, clave `cf:<id>`), con su tipo deducido del esquema de Jira y los operadores de cada tipo. Un campo que Jira agrega aparece solo al sincronizar metadatos; uno que alimenta un campo estándar (sprint, story points, tipo de solicitud) no se repite |
 | `api.Issues_Campos` / `api.Issues_Valores` | Campos y operadores; valores existentes de un campo con cuántos issues tiene cada uno (para los selectores) |
+| `rpt.Buscador_Condiciones` | Valida los criterios y arma las condiciones; lo usan la búsqueda y el resumen, así filtran siempre igual |
 | `api.Issues_Consultar` | `@Criterios` (arreglo JSON `{campo, operador, valor, hasta, valores}`), `@Columnas`, `@OrdenarPor`, `@Descendente`, `@Pagina`, `@TamanoPagina` (≤ 500) |
+| `api.Issues_Resumir` | Mismos criterios; `@AgruparPor` (cualquier campo; fechas por mes; en campos de varios valores un issue cuenta en cada valor), `@Agregacion` (`conteo`, `suma`, `promedio`, `maximo`, `minimo`), `@Valor` (numérico), `@Top` (barras contando "Otros", que junta el resto contando cada issue una vez). **Sin tope de filas** |
 
 Operadores: listas `en` / `no_en`; texto `contiene`, `no_contiene`, `igual`, `distinto`; números `igual`, `distinto`,
 `mayor`, `mayor_igual`, `menor`, `menor_igual`, `entre`; fechas `desde`, `hasta`, `entre`, `igual` (fijas o relativas
@@ -247,8 +249,13 @@ con un mensaje claro. `EXECUTE AS OWNER` porque el SQL dinámico no hereda el en
 **Interfaz.** `BuscadorIssues`: texto libre, chips para Proyecto / Tipo / Estado / Responsable y *+ Más criterios* (buscador
 de campos agrupado en Jira / personalizados); cada criterio se edita según su tipo; *Columnas* (agregar, quitar, reordenar);
 orden al hacer clic en el encabezado; CSV de hasta 500; todo vive en la dirección. *Guardar como filtro* lo deja disponible
-para los widgets (con `TamanoPagina` 500, así los conteos y barras cubren más que una página); el editor de widgets
-ejecuta el filtro una vez para conocer sus columnas.
+para los widgets.
+
+**Widgets sobre una búsqueda.** Las barras y los indicadores (suma, promedio, máximo, mínimo) no se calculan en el
+navegador con las filas recibidas, sino en SQL Server con `api.Issues_Resumir` sobre **todos** los issues del filtro: no
+quedan cortos aunque el filtro traiga miles. Se agrupa por cualquier campo (no solo por las columnas del filtro) y las
+barras pueden contar issues. El indicador "conteo" usa `TotalFilas`. Solo las tablas muestran filas (las primeras N).
+La prueba `db/tests/040` crea 1 200 issues y verifica que el resumen da 600 h donde una página de 500 daría 250 h.
 
 ---
 

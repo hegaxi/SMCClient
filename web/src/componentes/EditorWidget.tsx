@@ -2,7 +2,8 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { api, ErrorApi } from '../api';
 import { esNumero, etiqueta } from '../formato';
 import type { ColumnaInfo, Fila, ProcedimientoInfo } from '../tipos';
-import { AGREGACIONES, leerConfig, type ConfigWidget, type TipoWidget } from '../widgets';
+import { AGREGACIONES, leerConfig, PROC_BUSQUEDA, type ConfigWidget, type TipoWidget } from '../widgets';
+import { leerCampos, type CampoBuscador } from '../buscador';
 
 interface Props {
   tableroId: number;
@@ -44,6 +45,18 @@ export function EditorWidget({ tableroId, widget, filtros, procs, onGuardado, on
     return () => { vigente = false; };
   }, [procFiltro, parametrosFiltro, deMetadatos, filtroId, dinamicas?.filtroId]);
 
+  // Búsqueda avanzada: barras e indicadores se calculan en SQL; se elige cualquier campo (no solo las columnas del filtro).
+  const esBusqueda = procFiltro === PROC_BUSQUEDA;
+  const [campos, setCampos] = useState<CampoBuscador[]>([]);
+  useEffect(() => {
+    if (!esBusqueda || campos.length) return;
+    api.ejecutar('Issues_Campos').then((r) => setCampos(leerCampos(r.resultados[0]?.filas ?? []))).catch(() => setCampos([]));
+  }, [esBusqueda, campos.length]);
+  const camposGrupo = campos.filter((c) => !['texto', 'clave', 'resumen'].includes(c.clave));
+  const camposNumero = campos.filter((c) => c.tipo === 'numero');
+  const calculos = esBusqueda ? AGREGACIONES.filter((a) => a.valor !== 'primero') : AGREGACIONES;
+  const calculoBarras = config.agregacion ?? 'conteo';
+
   const columnas = (deMetadatos ?? (dinamicas?.filtroId === filtroId ? dinamicas.columnas : [])).filter((c) => c.nombre !== 'TotalFilas');
   const numericas = columnas.filter((c) => esNumero(tipoBase(c.tipo)));
   const cambiar = (c: Partial<ConfigWidget>) => setConfig((x) => ({ ...x, ...c }));
@@ -54,6 +67,8 @@ export function EditorWidget({ tableroId, widget, filtros, procs, onGuardado, on
     setOcupado(true);
     const limpio: ConfigWidget =
       tipo === 'indicador' ? { agregacion: config.agregacion ?? 'conteo', ...(config.agregacion && config.agregacion !== 'conteo' ? { columna: config.columna } : {}) }
+      : tipo === 'barras' && esBusqueda
+        ? { etiqueta: config.etiqueta, agregacion: calculoBarras, ...(calculoBarras !== 'conteo' ? { valor: config.valor } : {}), limite: config.limite ?? 10 }
       : tipo === 'barras' ? { etiqueta: config.etiqueta, valor: config.valor, limite: config.limite ?? 10 }
       : { limite: config.limite ?? 10, ...(config.columnas?.length ? { columnas: config.columnas } : {}) };
     try {
@@ -84,6 +99,16 @@ export function EditorWidget({ tableroId, widget, filtros, procs, onGuardado, on
       <select id={id} value={valor ?? ''} onChange={(e) => alCambiar(e.target.value)} required>
         <option value="">Seleccione…</option>
         {opciones.map((c) => <option key={c.nombre} value={c.nombre}>{etiqueta(c.nombre)}</option>)}
+      </select>
+    </div>
+  );
+
+  const selectorCampo = (id: string, texto: string, valor: string | undefined, lista: CampoBuscador[], alCambiar: (v: string) => void) => (
+    <div className="campo">
+      <label htmlFor={id}>{texto} <span className="obligatorio" aria-hidden="true">*</span></label>
+      <select id={id} value={valor ?? ''} onChange={(e) => alCambiar(e.target.value)} required>
+        <option value="">Seleccione…</option>
+        {lista.map((c) => <option key={c.clave} value={c.clave}>{c.etiqueta}</option>)}
       </select>
     </div>
   );
@@ -122,14 +147,28 @@ export function EditorWidget({ tableroId, widget, filtros, procs, onGuardado, on
             <div className="campo">
               <label htmlFor="w-agregacion">Cálculo</label>
               <select id="w-agregacion" value={config.agregacion ?? 'conteo'} onChange={(e) => cambiar({ agregacion: e.target.value as ConfigWidget['agregacion'] })}>
-                {AGREGACIONES.map((a) => <option key={a.valor} value={a.valor}>{a.etiqueta}</option>)}
+                {calculos.map((a) => <option key={a.valor} value={a.valor}>{a.etiqueta}</option>)}
               </select>
             </div>
-            {config.agregacion && config.agregacion !== 'conteo' &&
+            {config.agregacion && config.agregacion !== 'conteo' && esBusqueda &&
+              selectorCampo('w-columna', 'Columna', config.columna, camposNumero, (v) => cambiar({ columna: v }))}
+            {config.agregacion && config.agregacion !== 'conteo' && !esBusqueda &&
               selector('w-columna', 'Columna', config.columna, config.agregacion === 'primero' ? columnas : numericas, (v) => cambiar({ columna: v }))}
           </>
         )}
-        {tipo === 'barras' && (
+        {tipo === 'barras' && esBusqueda && (
+          <>
+            {selectorCampo('w-etiqueta', 'Agrupar por', config.etiqueta, camposGrupo, (v) => cambiar({ etiqueta: v }))}
+            <div className="campo">
+              <label htmlFor="w-calculo-barras">Cálculo</label>
+              <select id="w-calculo-barras" value={calculoBarras} onChange={(e) => cambiar({ agregacion: e.target.value as ConfigWidget['agregacion'] })}>
+                {calculos.map((a) => <option key={a.valor} value={a.valor}>{a.etiqueta}</option>)}
+              </select>
+            </div>
+            {calculoBarras !== 'conteo' && selectorCampo('w-valor', 'Valor', config.valor, camposNumero, (v) => cambiar({ valor: v }))}
+          </>
+        )}
+        {tipo === 'barras' && !esBusqueda && (
           <>
             {selector('w-etiqueta', 'Agrupar por', config.etiqueta, columnas, (v) => cambiar({ etiqueta: v }))}
             {selector('w-valor', 'Valor', config.valor, numericas, (v) => cambiar({ valor: v }))}

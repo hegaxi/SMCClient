@@ -24,8 +24,11 @@ BEGIN
     IF @Tipo NOT IN ('indicador', 'tabla', 'barras') THROW 50400, 'Tipo de widget inválido: indicador, tabla o barras.', 1;
     IF @Ancho NOT BETWEEN 1 AND 4 THROW 50400, 'El ancho va de 1 a 4 columnas.', 1;
     IF ISJSON(@Configuracion) = 0 THROW 50400, 'La configuración debe ser JSON.', 1;
-    IF @Tipo = 'barras' AND (JSON_VALUE(@Configuracion, '$.etiqueta') IS NULL OR JSON_VALUE(@Configuracion, '$.valor') IS NULL)
-        THROW 50400, 'Un widget de barras necesita la columna de etiqueta y la de valor.', 1;
+    IF @Tipo = 'barras' AND (JSON_VALUE(@Configuracion, '$.etiqueta') IS NULL
+                             OR (JSON_VALUE(@Configuracion, '$.valor') IS NULL AND ISNULL(JSON_VALUE(@Configuracion, '$.agregacion'), 'suma') <> 'conteo'))
+        THROW 50400, 'Un widget de barras necesita la columna de etiqueta y la de valor (salvo si cuenta registros).', 1;
+    IF @Tipo = 'barras' AND JSON_VALUE(@Configuracion, '$.agregacion') NOT IN ('suma', 'promedio', 'conteo', 'maximo', 'minimo')
+        THROW 50400, 'Cálculo inválido para barras: suma, promedio, conteo, maximo o minimo.', 1;
     IF @Tipo = 'indicador' AND JSON_VALUE(@Configuracion, '$.agregacion') NOT IN ('suma', 'promedio', 'conteo', 'maximo', 'minimo', 'primero')
         THROW 50400, 'Agregación inválida: suma, promedio, conteo, maximo, minimo o primero.', 1;
     IF @Tipo = 'indicador' AND ISNULL(JSON_VALUE(@Configuracion, '$.agregacion'), 'conteo') <> 'conteo' AND JSON_VALUE(@Configuracion, '$.columna') IS NULL
@@ -36,6 +39,19 @@ BEGIN
     IF @procFiltro IS NULL THROW 50404, 'El filtro no existe.', 1;
     IF NOT (@propFiltro = @UsuarioId OR (@compartido = 1 AND EXISTS (SELECT 1 FROM seg.fn_ProcedimientosPermitidos(@UsuarioId) WHERE Procedimiento = @procFiltro)))
         THROW 50403, 'No puede usar ese filtro.', 1;
+
+    -- Búsqueda avanzada: barras e indicadores se calculan en SQL (api.Issues_Resumir) con claves de campo.
+    IF @procFiltro = N'Issues_Consultar' AND @Tipo IN ('barras', 'indicador')
+    BEGIN
+        DECLARE @agrup varchar(60) = CASE WHEN @Tipo = 'barras' THEN JSON_VALUE(@Configuracion, '$.etiqueta') END,
+                @valor varchar(60) = CASE WHEN @Tipo = 'barras' THEN JSON_VALUE(@Configuracion, '$.valor') ELSE JSON_VALUE(@Configuracion, '$.columna') END,
+                @calc  varchar(10) = ISNULL(JSON_VALUE(@Configuracion, '$.agregacion'), CASE WHEN @Tipo = 'barras' THEN 'suma' ELSE 'conteo' END);
+        IF @calc = 'primero' THROW 50400, 'En una búsqueda avanzada el indicador puede contar, sumar, promediar o tomar el máximo o mínimo.', 1;
+        IF @agrup IS NOT NULL AND NOT EXISTS (SELECT 1 FROM rpt.fn_CamposBuscador() WHERE Clave = @agrup)
+            THROW 50400, 'El campo para agrupar no existe en la búsqueda avanzada.', 1;
+        IF @calc <> 'conteo' AND NOT EXISTS (SELECT 1 FROM rpt.fn_CamposBuscador() WHERE Clave = @valor AND Tipo = 'numero')
+            THROW 50400, 'El campo a calcular debe ser numérico.', 1;
+    END;
 
     IF @WidgetId IS NULL
     BEGIN

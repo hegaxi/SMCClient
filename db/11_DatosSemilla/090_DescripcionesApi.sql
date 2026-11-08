@@ -44,6 +44,7 @@ INSERT @p VALUES
  ('api.Tablero_Inicio',   N'Tablero de inicio',          N'Elige el tablero que se muestra al entrar.',                                                    'usuario', '1'),
  ('api.Issues_Consultar', N'Búsqueda avanzada',          N'Filtros desde cero sobre cualquier campo de Jira (también los personalizados), con columnas y orden a elegir.', 'lectura', '0'),
  ('api.Issues_Campos',    N'Campos de búsqueda',         N'Campos y operadores disponibles en la búsqueda avanzada.',                                      'lectura', '1'),
+ ('api.Issues_Resumir',   N'Resumen de una búsqueda',    N'Conteos, sumas o promedios de una búsqueda avanzada agrupados por un campo, sobre todos los issues.', 'lectura', '0'),
  ('api.Issues_Valores',   N'Valores de un campo',        N'Valores existentes de un campo, para elegirlos en la búsqueda avanzada.',                       'lectura', '0');
 
 DECLARE @o nvarchar(300), @t nvarchar(100), @d nvarchar(400), @pe varchar(10), @e char(1);
@@ -81,6 +82,7 @@ EXEC adm.Descripcion_Establecer 'api.Mapeo_Establecer', NULL, N'smc:accion', N'1
 
 EXEC adm.Descripcion_Establecer 'api.Issues_Campos', NULL, N'smc:oculto', N'1';
 EXEC adm.Descripcion_Establecer 'api.Issues_Valores', NULL, N'smc:oculto', N'1';
+EXEC adm.Descripcion_Establecer 'api.Issues_Resumir', NULL, N'smc:oculto', N'1';
 
 EXEC adm.Descripcion_Establecer 'api.Issue_Detalle', NULL, N'smc:resultados', N'Datos del issue|Campos personalizados|Tiempo registrado|SLA|Historial de estados';
 EXEC adm.Descripcion_Establecer 'api.Sync_Estado', NULL, N'smc:resultados', N'Resumen por fuente|Detalle por entidad';

@@ -202,6 +202,16 @@ try {
     await pagina.getByRole('checkbox', { name: 'Estación' }).waitFor();
     await pagina.getByRole('button', { name: 'Guardar widget' }).click();
     await titulo('En curso por estación').waitFor();
+
+    // Barras sobre la búsqueda: se calculan en SQL (api.Issues_Resumir) con cualquier campo, no solo las columnas.
+    await pagina.getByRole('button', { name: 'Agregar widget' }).click();
+    await pagina.getByLabel(/^Título/).fill('Issues por prioridad');
+    await pagina.getByLabel(/^Filtro/).selectOption({ label: 'En curso por estación · Búsqueda avanzada' });
+    await pagina.getByLabel('Mostrar como').selectOption('barras');
+    await pagina.getByLabel(/^Agrupar por/).selectOption({ label: 'Prioridad' });
+    await pagina.getByLabel('Cálculo').selectOption({ label: 'Número de registros' });
+    await pagina.getByRole('button', { name: 'Guardar widget' }).click();
+    await pagina.getByRole('list', { name: 'Issues por prioridad' }).getByText('High').waitFor();
     await pagina.getByRole('button', { name: 'Terminar edición' }).click();
     await pagina.getByText('26', { exact: true }).waitFor();   // 10 h registradas + 16 h automáticas
   });

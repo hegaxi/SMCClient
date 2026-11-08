@@ -65,8 +65,9 @@ dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administr
 
 ## Pruebas
 
-`tests/040_prueba_buscador.sql` verifica 40 reglas de la búsqueda avanzada (cada operador y tipo, campos de varios valores y
-personalizados, columnas, orden, paginación, guardado como filtro e intentos de inyección). Va después de `010`.
+`tests/040_prueba_buscador.sql` verifica 57 reglas de la búsqueda avanzada y su resumen (cada operador y tipo, campos de varios
+valores y personalizados, columnas, orden, paginación, guardado como filtro, resumen sin tope con 1 200 issues, widgets e
+intentos de inyección). Va después de `010`.
 
 `tests/030_prueba_tableros.sql` verifica 31 reglas de filtros y tableros (fechas relativas, permisos, compartir, propiedad).
 

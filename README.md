@@ -172,6 +172,8 @@ Qué hace:
 que aparecen solos al sincronizarse — con operadores según el tipo (es alguno de / ninguno de, contiene, mayor que, entre,
 desde / hasta con fechas fijas o relativas, está vacío…), columnas a elegir y reordenar, orden por encabezado y paginación.
 La búsqueda queda en la dirección (se comparte el enlace) y se puede **guardar como filtro** para usarla en un widget.
+En los tableros, las barras e indicadores de una búsqueda se calculan en SQL Server sobre **todos** los issues (contar, sumar,
+promediar… agrupando por cualquier campo), sin el tope de filas de una consulta.
 Detalle técnico y seguridad del SQL dinámico: [`docs/arquitectura.md` §5.9](docs/arquitectura.md).
 
 ## Pruebas
