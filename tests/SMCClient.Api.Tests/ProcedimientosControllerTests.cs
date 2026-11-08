@@ -18,11 +18,48 @@ public class ProcedimientosControllerTests(ApiFixture bd) : IClassFixture<ApiFix
     private static JsonElement Proc(JsonElement lista, string nombre) => lista.EnumerateArray().Single(p => p.GetProperty("nombre").GetString() == nombre);
 
     [FactSiSql]
-    public async Task Sin_usuario_autenticado_responde_401_y_salud_es_anonima()
+    public async Task Sin_sesion_responde_401_y_salud_es_anonima()
     {
-        Assert.Equal(HttpStatusCode.Unauthorized, (await bd.Cliente(usuario: null).GetAsync("/api/procedimientos")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await bd.Cliente(usuario: null).GetAsync("/salud")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await bd.Anonimo().GetAsync("/api/procedimientos")).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Post(bd.Anonimo(), "Issues_Buscar", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await bd.Anonimo().GetAsync("/salud")).StatusCode);
     }
+
+    [FactSiSql]
+    public async Task Las_peticiones_que_modifican_requieren_el_encabezado_anti_CSRF()
+    {
+        var sinEncabezado = bd.Cliente();
+        sinEncabezado.DefaultRequestHeaders.Remove(SMCClient.Api.Seguridad.Politicas.EncabezadoSolicitud);
+        var r = await Post(sinEncabezado, "Issues_Buscar", null);
+        Assert.Equal(HttpStatusCode.BadRequest, r.StatusCode);
+        Assert.Equal("solicitud.invalida", (await Json(r)).GetProperty("codigo").GetString());
+    }
+
+    [FactSiSql]
+    public async Task Los_permisos_los_decide_SQL_Server_y_se_aplican_de_inmediato()
+    {
+        var admin = bd.ClienteAdmin();
+        var lector = bd.Cliente();
+        Assert.DoesNotContain("Auditoria_Listar", await Nombres(lector));
+
+        Assert.Equal(HttpStatusCode.OK, (await Post(admin, "Rol_Guardar", """{"Nombre":"Auditor","Permisos":"api.Auditoria_Listar"}""")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await Post(admin, "Usuario_Guardar", """{"Login":"lector","Roles":"Consulta, Auditor"}""")).StatusCode);
+        Assert.Contains("Auditoria_Listar", await Nombres(lector));                 // sin esperar al caché
+        Assert.Equal(HttpStatusCode.OK, (await Post(lector, "Auditoria_Listar", null)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.OK, (await Post(admin, "Usuario_Guardar", """{"Login":"lector","Roles":"Consulta"}""")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Post(lector, "Auditoria_Listar", null)).StatusCode);
+
+        // Las reglas de negocio de SQL llegan al usuario: un administrador no puede quitarse la administración.
+        var r = await Post(admin, "Usuario_Guardar", """{"Login":"admin","Roles":"Consulta"}""");
+        Assert.Equal(HttpStatusCode.Conflict, r.StatusCode);
+        Assert.Contains("a sí mismo", (await Json(r)).GetProperty("title").GetString());
+        // Y la auditoría registra quién hizo el cambio (el servidor pone @UsuarioActual).
+        Assert.Equal("admin", await bd.EscalarAsync<string>("SELECT TOP (1) Usuario FROM seg.Auditoria WHERE Accion = 'usuario.guardar' AND Objeto = 'lector' ORDER BY AuditoriaId DESC"));
+    }
+
+    private static async Task<List<string?>> Nombres(HttpClient c) =>
+        (await Json(await c.GetAsync("/api/procedimientos"))).EnumerateArray().Select(p => p.GetProperty("nombre").GetString()).ToList();
 
     [FactSiSql]
     public async Task Lista_los_procedimientos_con_sus_metadatos_segun_el_permiso_del_usuario()
@@ -52,6 +89,7 @@ public class ProcedimientosControllerTests(ApiFixture bd) : IClassFixture<ApiFix
 
         Assert.True(Proc(lector, "Sync_Estado").GetProperty("exentoSync").GetBoolean());
         Assert.True(Proc(lector, "Sync_Solicitar").GetProperty("accion").GetBoolean());
+        Assert.DoesNotContain(Proc(admin, "Usuario_Guardar").GetProperty("parametros").EnumerateArray(), p => p.GetProperty("nombre").GetString() == "UsuarioActual");
         Assert.False(buscar.GetProperty("accion").GetBoolean());
         Assert.Equal("Tiempo registrado", Proc(lector, "Issue_Detalle").GetProperty("titulosResultados")[2].GetString());
         var tipo = buscar.GetProperty("parametros").EnumerateArray().Single(p => p.GetProperty("nombre").GetString() == "TipoProyecto");
@@ -149,8 +187,8 @@ public class ProcedimientosControllerTests(ApiFixture bd) : IClassFixture<ApiFix
     [FactSiSql]
     public async Task El_usuario_de_la_solicitud_lo_pone_el_servidor()
     {
-        Assert.Equal(HttpStatusCode.OK, (await Post(bd.Cliente("DOMINIO\\ana"), "Sync_Solicitar", """{"Fuente":"prueba"}""")).StatusCode);
-        Assert.Equal("DOMINIO\\ana", await bd.EscalarAsync<string>("SELECT TOP (1) SolicitadoPor FROM sync.Solicitud WHERE Modo = 'incremental' ORDER BY SolicitudId DESC"));
+        Assert.Equal(HttpStatusCode.OK, (await Post(bd.Cliente("ana"), "Sync_Solicitar", """{"Fuente":"prueba"}""")).StatusCode);
+        Assert.Equal("ana", await bd.EscalarAsync<string>("SELECT TOP (1) SolicitadoPor FROM sync.Solicitud WHERE Modo = 'incremental' ORDER BY SolicitudId DESC"));
         Assert.Equal(HttpStatusCode.BadRequest, (await Post(bd.Cliente(), "Sync_Solicitar", """{"SolicitadoPor":"otra persona"}""")).StatusCode);
     }
 

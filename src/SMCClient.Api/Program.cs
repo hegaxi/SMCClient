@@ -7,6 +7,10 @@ using SMCClient.Sync;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Instalación: crea el primer administrador (o recupera el acceso) sin levantar el sitio.
+if (args.Length > 0 && args[0] == "crear-administrador")
+    return await ComandoCrearAdministrador.EjecutarAsync(args[1..], builder.Configuration);
+
 builder.Services.Configure<ApiOptions>(builder.Configuration.GetSection(ApiOptions.Seccion));
 builder.Services.AddSingleton(sp => new ConexionSql(
     sp.GetRequiredService<IConfiguration>().GetConnectionString("SMCClient")
@@ -33,12 +37,15 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 app.UseDefaultFiles();
-app.UseStaticFiles();          // aquí se publicará el build de React (wwwroot)
+app.UseStaticFiles();          // build de React (wwwroot): la pantalla de inicio de sesión es pública
+app.UseProteccionSolicitudes();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 app.MapHealthChecks("/salud").AllowAnonymous();
 
 app.Run();
+return 0;
 
 public partial class Program;

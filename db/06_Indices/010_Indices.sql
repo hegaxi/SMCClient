@@ -31,4 +31,6 @@ IF INDEXPROPERTY(OBJECT_ID('sync.Solicitud'), 'IX_sync_Solicitud_Pendiente', 'In
     CREATE INDEX IX_sync_Solicitud_Pendiente ON sync.Solicitud (Fecha) WHERE Estado = 'pendiente';
 IF INDEXPROPERTY(OBJECT_ID('sync.Evento'), 'IX_sync_Evento_Abiertos', 'IndexId') IS NULL
     CREATE INDEX IX_sync_Evento_Abiertos ON sync.Evento (Fecha DESC) INCLUDE (Nivel, Codigo, FuenteId) WHERE Atendido = 0;
+IF INDEXPROPERTY(OBJECT_ID('seg.Auditoria'), 'IX_seg_Auditoria_Fecha', 'IndexId') IS NULL
+    CREATE INDEX IX_seg_Auditoria_Fecha ON seg.Auditoria (Fecha DESC) INCLUDE (Usuario, Accion);
 GO

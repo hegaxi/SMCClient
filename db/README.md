@@ -9,7 +9,7 @@ carpeta, por el número del archivo.
 | Orden | Carpeta | Qué contiene | ¿Se repite en cada despliegue? |
 |---|---|---|---|
 | 00 | `00_Preparacion` | Validación de versión y bitácora `adm.ScriptEjecutado` | Sí |
-| 01 | `01_Esquemas` | `cfg`, `meta`, `raw`, `sync`, `ops`, `rpt`, `api` | Sí (solo crea si falta) |
+| 01 | `01_Esquemas` | `cfg`, `meta`, `raw`, `sync`, `ops`, `rpt`, `seg`, `api` | Sí (solo crea si falta) |
 | 02 | `02_Tipos` | Tipos tabla (TVP) para enviar lotes desde el worker | Sí (solo crea si falta) |
 | 03 | `03_Tablas` | Una tabla por archivo, con su llave primaria, en su forma **más reciente** | Sí (solo crea si falta) |
 | 04 | `04_Migraciones` | Cambios a tablas que ya existen en producción | **No: una sola vez por base** |
@@ -17,7 +17,7 @@ carpeta, por el número del archivo.
 | 06 | `06_Indices` | Índices no agrupados | Sí (solo crea si falta) |
 | 07 | `07_Funciones` | Funciones (`CREATE OR ALTER`) | Sí |
 | 08 | `08_Vistas` | Vistas `rpt.*` (`CREATE OR ALTER`) | Sí |
-| 09 | `09_Procedimientos` | `adm.*` (010), `sync.*` (100-499), `api.*` (500+) | Sí |
+| 09 | `09_Procedimientos` | `adm.*` (010), `sync.*` (100-399), `seg.*` (400-499), `api.*` (500+) | Sí |
 | 10 | `10_Seguridad` | Roles `smc_api` y `smc_sync` y sus permisos | Sí |
 | 11 | `11_DatosSemilla` | Parámetros, reglas de roles de campo, metadatos de la API | Sí (solo inserta lo que falta) |
 
@@ -48,6 +48,7 @@ Después del primer despliegue se configura la instancia de Jira. Lo propio de c
 
 ```bash
 sqlcmd -S . -d SMCClient -E -i instancias/smco.sql   # registra smco y excluye TS25, TSM26, TSSM26
+dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administrador" --cadena "<conexión de administración>"
 ```
 
 ## Reglas para agregar objetos
@@ -64,6 +65,9 @@ sqlcmd -S . -d SMCClient -E -i instancias/smco.sql   # registra smco y excluye T
 
 ## Pruebas
 
+`tests/020_prueba_seguridad.sql` verifica 33 reglas de seguridad: contraseñas, bloqueo, cambio obligatorio, sello de
+sesión, roles, permisos por categoría y por procedimiento, reglas de administración y auditoría.
+
 `tests/010_prueba_integracion.sql` simula al worker con datos ficticios (con la forma real de Jira Cloud) y
 verifica 62 condiciones: carga inicial, documento malo en cuarentena, campo eliminado, renombrado, recreado con
 otro ID, campo nuevo con backfill, catálogo incompleto, candado entre workers y procedimientos `api.*`.
@@ -72,6 +76,7 @@ Se corre sobre una base **recién desplegada**:
 
 ```bash
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/010_prueba_integracion.sql
+sqlcmd -S localhost -d SMCClient -b -I -x -i tests/020_prueba_seguridad.sql
 ```
 
 ## Contrato con el worker (qué documento JSON va en cada entidad)

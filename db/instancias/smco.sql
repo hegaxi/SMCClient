@@ -7,4 +7,8 @@ EXEC sync.Fuente_Registrar @Codigo = 'smco', @Tipo = 'jira-cloud', @UrlBase = N'
 EXEC sync.Proyecto_Excluir @Fuente = 'smco', @Clave = 'TS25',   @Motivo = N'Pruebas-SIAMCO25';
 EXEC sync.Proyecto_Excluir @Fuente = 'smco', @Clave = 'TSM26',  @Motivo = N'PRUEBAS-SIAMCO26';
 EXEC sync.Proyecto_Excluir @Fuente = 'smco', @Clave = 'TSSM26', @Motivo = N'SCRUM PRUEBAS SIAMCO 26';
+
+-- Primer administrador: se crea con la API, que pide la contraseña en la consola (la contraseña no pasa por SQL):
+--   dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administrador"
+-- Después, los demás usuarios se administran desde la aplicación (Administración).
 GO

@@ -67,3 +67,11 @@ export interface Problema {
 
 /** Valores del formulario tal como los escribe el usuario (texto o casilla). */
 export type ValoresFormulario = Record<string, string>;
+
+export interface Sesion {
+  usuario: string;
+  nombre: string;
+  roles: string | null;
+  esAdministrador: boolean;
+  debeCambiarContrasena: boolean;
+}

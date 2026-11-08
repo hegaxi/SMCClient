@@ -19,6 +19,7 @@ export function simularFetch(rutas: Record<string, (cuerpo: unknown) => { estado
     const r = rutas[clave];
     if (!r) return new Response(JSON.stringify({ title: `sin ruta ${clave}` }), { status: 404 });
     const { estado = 200, json } = r(cuerpo);
+    if (estado === 204) return new Response(null, { status: 204 });
     return new Response(JSON.stringify(json), { status: estado, headers: { 'Content-Type': 'application/json' } });
   });
   vi.stubGlobal('fetch', fn);

@@ -1,5 +1,6 @@
 // Prueba de punta a punta en Chromium contra la API real (que sirve el build de React).
-// Uso: BASE_URL=http://127.0.0.1:5080 node e2e/flujo.mjs
+// Uso: BASE_URL=http://127.0.0.1:5080 E2E_USUARIO=admin E2E_CONTRASENA=... node e2e/flujo.mjs
+//   E2E_USUARIO / E2E_CONTRASENA: un administrador existente (p. ej. creado con "crear-administrador").
 //   E2E_PENDIENTE / E2E_LISTO: comandos de shell opcionales que dejan los datos sin sincronizar / sincronizados,
 //   para verificar la pantalla de sincronización. E2E_CAPTURAS: carpeta para las capturas.
 import { execSync } from 'node:child_process';
@@ -10,6 +11,9 @@ const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:5080';
+const USUARIO = process.env.E2E_USUARIO ?? 'admin';
+const CONTRASENA = process.env.E2E_CONTRASENA ?? '';
+const NUEVO = `maria${Date.now() % 100000}`;
 const CAPTURAS = process.env.E2E_CAPTURAS;
 if (CAPTURAS) mkdirSync(CAPTURAS, { recursive: true });
 
@@ -21,6 +25,7 @@ pagina.on('console', (m) => {
   if (m.type() === 'error' && !/Failed to load resource: the server responded with a status of (4\d\d|503)/.test(m.text())) erroresConsola.push(m.text());
 });
 pagina.on('pageerror', (e) => erroresConsola.push(String(e)));
+pagina.on('dialog', (d) => d.accept());   // confirmaciones de las acciones
 
 const paso = async (nombre, fn) => {
   process.stdout.write(`- ${nombre} ... `);
@@ -30,11 +35,25 @@ const paso = async (nombre, fn) => {
 };
 const titulo = (t) => pagina.getByRole('heading', { name: t, exact: true });
 
+const iniciarSesion = async (usuario, contrasena) => {
+  await pagina.getByRole('heading', { name: 'SMCClient', exact: true }).waitFor();   // pantalla de inicio de sesión visible
+  await pagina.getByLabel('Usuario').fill(usuario);
+  await pagina.getByLabel('Contraseña').fill(contrasena);
+  await pagina.getByRole('button', { name: 'Iniciar sesión' }).click();
+};
+
 try {
+  await paso('Inicio de sesion', async () => {
+    await pagina.goto(BASE);
+    await pagina.getByRole('button', { name: 'Iniciar sesión' }).waitFor();
+    await iniciarSesion(USUARIO, 'contraseña-equivocada');
+    await pagina.getByRole('alert').filter({ hasText: 'Usuario o contraseña incorrectos' }).waitFor();
+  });
+
   if (process.env.E2E_PENDIENTE) {
     execSync(process.env.E2E_PENDIENTE, { stdio: 'inherit' });
     await paso('Pantalla de sincronizacion', async () => {
-      await pagina.goto(BASE);
+      await iniciarSesion(USUARIO, CONTRASENA);
       await titulo('Sincronizando los datos de Jira').waitFor();
       await pagina.getByRole('button', { name: 'Sincronizar ahora' }).waitFor();
     });
@@ -44,7 +63,7 @@ try {
     });
   } else {
     await paso('Inicio', async () => {
-      await pagina.goto(BASE);
+      await iniciarSesion(USUARIO, CONTRASENA);
       await titulo('Scrum y mesa de ayuda').waitFor();
     });
   }
@@ -84,10 +103,51 @@ try {
   });
 
   await paso('Validacion de parametros', async () => {
-    await pagina.goto(`${BASE}/?p=Issue_Detalle`);
+    await pagina.goto(`${BASE}/?p=Issue_Detalle`);   // la sesión sigue tras recargar
     await titulo('Detalle de un issue').waitFor();
     await pagina.getByRole('button', { name: 'Consultar' }).click();
     await pagina.getByText('Es obligatorio.').waitFor();
+  });
+
+  // ----- Administración de usuarios desde la aplicación (reglas en SQL Server) -----
+  let temporal = '';
+  await paso('Administrador da de alta un usuario', async () => {
+    await pagina.getByRole('link', { name: 'Guardar usuario' }).click();
+    await pagina.getByLabel(/^Login/).fill(NUEVO);
+    await pagina.getByLabel(/^Nombre/).fill('María López');
+    await pagina.getByLabel(/^Roles/).fill('Consulta');
+    await pagina.getByRole('button', { name: 'Ejecutar' }).click();
+    await pagina.getByRole('cell', { name: NUEVO }).waitFor();
+  });
+
+  await paso('Administrador asigna una contrasena temporal', async () => {
+    await pagina.getByRole('link', { name: 'Restablecer contraseña' }).click();
+    await pagina.getByLabel(/^Usuario/).fill(NUEVO);
+    temporal = await pagina.getByLabel(/^Contraseña temporal/).inputValue();
+    await pagina.getByRole('button', { name: 'Restablecer' }).click();
+    await pagina.getByRole('status').filter({ hasText: 'deberá cambiarla al entrar' }).waitFor();
+  });
+
+  await paso('El usuario entra y debe cambiar su contrasena', async () => {
+    await pagina.getByRole('button', { name: 'Salir' }).click();
+    await iniciarSesion(NUEVO, temporal);
+    await titulo('Establezca su contraseña').waitFor();
+    await pagina.getByLabel('Contraseña temporal', { exact: true }).fill(temporal);
+    await pagina.getByLabel('Contraseña nueva', { exact: true }).fill('corta');
+    await pagina.getByLabel('Repita la contraseña nueva').fill('corta');
+    await pagina.getByRole('button', { name: 'Guardar contraseña' }).click();
+    await pagina.getByText('al menos 10 caracteres').waitFor();   // regla de SQL Server
+    await pagina.getByLabel('Contraseña nueva', { exact: true }).fill('Mi-Clave-Nueva-2026');
+    await pagina.getByLabel('Repita la contraseña nueva').fill('Mi-Clave-Nueva-2026');
+    await pagina.getByRole('button', { name: 'Guardar contraseña' }).click();
+    await titulo('Scrum y mesa de ayuda').waitFor();
+  });
+
+  await paso('El usuario consulta y no ve la administracion', async () => {
+    await pagina.getByText('María López').waitFor();
+    if (await pagina.getByRole('heading', { name: 'Administración' }).count()) throw new Error('Un usuario de Consulta ve Administración.');
+    await pagina.getByRole('link', { name: 'Buscar historias y tickets' }).click();
+    await pagina.getByRole('button', { name: 'MDA-1' }).waitFor();
   });
 
   if (erroresConsola.length) throw new Error(`Errores en la consola del navegador:\n${erroresConsola.join('\n')}`);

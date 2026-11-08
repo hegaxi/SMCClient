@@ -26,6 +26,9 @@ const estado = (vigentes: boolean) => ({
   },
 });
 
+const sesionLector = { json: { usuario: 'lector', nombre: 'Lector Uno', roles: 'Consulta', esAdministrador: false, debeCambiarContrasena: false } };
+const sesionAdmin = { json: { usuario: 'admin', nombre: 'Admin', roles: 'Administrador', esAdministrador: true, debeCambiarContrasena: false } };
+
 const issues = {
   json: {
     resultados: [{
@@ -40,6 +43,7 @@ describe('App', () => {
   it('muestra la pantalla de sincronización hasta que los datos están vigentes', async () => {
     let vigentes = false;
     simularFetch({
+      'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
       'POST /api/procedimientos/Sync_Estado': () => estado(vigentes),
     });
@@ -56,6 +60,7 @@ describe('App', () => {
 
   it('abre una consulta, la ejecuta y guarda los filtros en la dirección; la clave abre el detalle', async () => {
     const peticiones = simularFetch({
+      'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
       'POST /api/procedimientos/Sync_Estado': () => estado(true),
       'POST /api/procedimientos/Issues_Buscar': () => issues,
@@ -78,6 +83,7 @@ describe('App', () => {
 
   it('una acción no se ejecuta sola al abrirla', async () => {
     const peticiones = simularFetch({
+      'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
       'POST /api/procedimientos/Sync_Estado': () => estado(true),
     });
@@ -90,6 +96,7 @@ describe('App', () => {
   it('si una consulta responde 503 vuelve a la pantalla de sincronización', async () => {
     let vigentes = true;
     simularFetch({
+      'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
       'POST /api/procedimientos/Sync_Estado': () => estado(vigentes),
       'POST /api/procedimientos/Issues_Buscar': () => {
@@ -104,6 +111,7 @@ describe('App', () => {
 
   it('muestra los errores de validación de la API', async () => {
     simularFetch({
+      'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
       'POST /api/procedimientos/Sync_Estado': () => estado(true),
       'POST /api/procedimientos/Issue_Detalle': () => ({ estado: 400, json: { title: 'Hay parámetros faltantes o desconocidos.', errors: { Clave: ['Es obligatorio.'] } } }),
@@ -113,5 +121,89 @@ describe('App', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Consultar' }));
     expect(await screen.findByText('Es obligatorio.')).toBeInTheDocument();
     expect(screen.getByRole('alert')).toHaveTextContent('Hay parámetros faltantes o desconocidos.');
+  });
+});
+
+describe('Sesión', () => {
+  it('pide iniciar sesión, envía el encabezado anti-CSRF y entra', async () => {
+    const peticiones = simularFetch({
+      'GET /api/sesion': () => ({ estado: 401, json: { codigo: 'sesion.requerida' } }),
+      'POST /api/sesion/iniciar': (c) => ((c as { contrasena: string }).contrasena === 'correcta-123'
+        ? sesionLector
+        : { estado: 401, json: { title: 'Usuario o contraseña incorrectos, o la cuenta está bloqueada temporalmente por demasiados intentos.' } }),
+      'GET /api/procedimientos': () => ({ json: procs }),
+      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+    });
+    render(<App />);
+    await userEvent.type(await screen.findByLabelText('Usuario'), 'lector');
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'mala-123');
+    await userEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Usuario o contraseña incorrectos');
+    expect(screen.getByLabelText('Contraseña')).toHaveValue('');
+
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'correcta-123');
+    await userEvent.click(screen.getByRole('button', { name: 'Iniciar sesión' }));
+    expect(await screen.findByText('Lector Uno')).toBeInTheDocument();
+    expect(peticiones.filter((p) => p.url === '/api/sesion/iniciar').at(-1)?.cuerpo).toEqual({ usuario: 'lector', contrasena: 'correcta-123' });
+    const llamada = (fetch as unknown as { mock: { calls: [string, RequestInit][] } }).mock.calls.find(([u]) => u === '/api/sesion/iniciar')!;
+    expect((llamada[1].headers as Record<string, string>)['X-SMC-Solicitud']).toBe('1');
+  });
+
+  it('si debe cambiar su contraseña no deja pasar hasta cambiarla', async () => {
+    let debeCambiar = true;
+    const peticiones = simularFetch({
+      'GET /api/sesion': () => ({ json: { ...sesionLector.json, debeCambiarContrasena: debeCambiar } }),
+      'POST /api/sesion/cambiar-contrasena': () => { debeCambiar = false; return { estado: 204, json: null }; },
+      'GET /api/procedimientos': () => ({ json: procs }),
+      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+    });
+    render(<App />);
+    expect(await screen.findByRole('heading', { name: 'Establezca su contraseña' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cancelar' })).not.toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('Contraseña temporal'), 'temporal-123');
+    await userEvent.type(screen.getByLabelText('Contraseña nueva'), 'Nueva-Clave-1');
+    await userEvent.type(screen.getByLabelText('Repita la contraseña nueva'), 'Otra-Cosa-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar contraseña' }));
+    expect(screen.getByText('No coincide con la contraseña nueva.')).toBeInTheDocument();
+    expect(peticiones.some((p) => p.url.endsWith('cambiar-contrasena'))).toBe(false);
+
+    await userEvent.clear(screen.getByLabelText('Repita la contraseña nueva'));
+    await userEvent.type(screen.getByLabelText('Repita la contraseña nueva'), 'Nueva-Clave-1');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar contraseña' }));
+    expect(await screen.findByRole('heading', { name: 'Scrum y mesa de ayuda' })).toBeInTheDocument();
+  });
+
+  it('cuando la sesión termina (401) vuelve al inicio de sesión con un aviso', async () => {
+    simularFetch({
+      'GET /api/sesion': () => sesionLector,
+      'GET /api/procedimientos': () => ({ json: procs }),
+      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+      'POST /api/procedimientos/Issues_Buscar': () => ({ estado: 401, json: { codigo: 'sesion.invalida' } }),
+    });
+    render(<App />);
+    await userEvent.click(await screen.findByRole('link', { name: 'Buscar historias y tickets' }));
+    expect(await screen.findByText('Su sesión terminó. Inicie sesión de nuevo.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument();
+  });
+
+  it('el administrador ve Restablecer contraseña; Salir cierra la sesión', async () => {
+    const peticiones = simularFetch({
+      'GET /api/sesion': () => sesionAdmin,
+      'GET /api/procedimientos': () => ({ json: [...procs, procedimiento({ nombre: 'Usuarios_Listar', permiso: 'admin', exentoSync: true, titulo: 'Usuarios' })] }),
+      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+      'POST /api/procedimientos/Usuarios_Listar': () => ({ json: { resultados: [] } }),
+      'POST /api/sesion/restablecer-contrasena': () => ({ estado: 204, json: null }),
+      'POST /api/sesion/cerrar': () => ({ estado: 204, json: null }),
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<App />);
+    await userEvent.click(await screen.findByRole('link', { name: 'Restablecer contraseña' }));
+    await userEvent.type(screen.getByLabelText(/Usuario/), 'lector');
+    await userEvent.click(screen.getByRole('button', { name: 'Restablecer' }));
+    expect(await screen.findByRole('status')).toHaveTextContent('deberá cambiarla al entrar');
+    expect((peticiones.find((p) => p.url.endsWith('restablecer-contrasena'))?.cuerpo as { usuario: string }).usuario).toBe('lector');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Salir' }));
+    expect(await screen.findByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument();
   });
 });

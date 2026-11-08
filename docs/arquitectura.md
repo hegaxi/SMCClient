@@ -153,7 +153,7 @@ En smco están excluidos `TS25`, `TSM26` y `TSSM26` (`db/instancias/smco.sql`).
 
 ```
 1. Catálogo (en memoria)      ¿existe api.{nombre}?                         no → 404
-2. Autorización               smc:permiso lectura/admin vs. grupos de AD     no → 403
+2. Autorización               seg.Permisos_Usuario (roles en SQL Server)     sin sesión → 401, sin permiso → 403
 3. Compuerta de sincronización api.Sync_Estado (caché de 5 s)               pendiente → 503 + Retry-After
                               (se salta si smc:exentoSync = 1)
 4. Validación                 cada valor JSON al tipo exacto del parámetro   error → 400 con detalle por parámetro
@@ -166,7 +166,7 @@ En smco están excluidos `TS25`, `TSM26` y `TSSM26` (`db/instancias/smco.sql`).
 - **Nada de SQL dinámico.** El nombre que se ejecuta sale del catálogo, nunca del texto del cliente; los valores viajan como parámetros tipados.
 - **Parámetros de contexto.** Los listados en `Api:ParametrosDeUsuario` (hoy `@SolicitadoPor`) los llena el servidor con el usuario autenticado; no se exponen ni se aceptan del cliente.
 - **Permisos mínimos.** La cuenta de la API solo tiene el rol `smc_api` (`EXECUTE` y `VIEW DEFINITION` sobre `api`); las pruebas corren con un login así.
-- **Autenticación.** Windows (Negotiate / IIS) en intranet; grupos de AD para lectura y administración, leídos de la configuración en cada evaluación. Modo `Desarrollo` sin autenticación, que la API rechaza fuera del ambiente Development.
+- **Autenticación y autorización.** Usuarios y contraseñas en SQL Server con cookie de sesión (ver §8); los permisos los decide `seg.Permisos_Usuario` en cada petición (caché de 30 s que se descarta después de cualquier acción). Modo `Desarrollo` sin inicio de sesión, que la API rechaza fuera del ambiente Development.
 - **Worker opcional dentro de la API** con `Api:HospedarWorker = true` (por omisión corre como servicio aparte).
 
 
@@ -234,11 +234,20 @@ Ver [`db/README.md`](../db/README.md). Resumen: `00_Preparacion` → `01_Esquema
 
 ## 8. Seguridad
 
-- Token de API de Jira en un almacén de secretos (Windows Credential Manager, Azure Key Vault o variables protegidas del pool de IIS), nunca en `appsettings.json` ni en la base.
-- Usuario técnico de Jira **solo lectura**, con acceso a los proyectos que se van a reportar.
-- Roles de base: `smc_api` (solo `EXECUTE` en `api`) y `smc_sync` (worker). No se guarda el correo de los clientes.
+**Usuarios, contraseñas, roles y permisos viven en SQL Server** (esquema `seg`) y se administran desde la aplicación.
+La lógica de negocio de seguridad está en procedimientos; .NET solo hace lo que no puede hacer la base:
 
----
+| .NET (transporte y criptografía) | SQL Server (reglas) |
+|---|---|
+| Calcula el hash PBKDF2-SHA256 (600 000 iteraciones, sal aleatoria) y lo compara en tiempo constante; la contraseña en claro nunca llega a la base | Decide si el inicio de sesión procede: usuario activo, no bloqueado; cuenta intentos y bloquea (`seg.Login_Resultado`) |
+| Emite la cookie de sesión (`HttpOnly`, `SameSite=Strict`, `Secure`) con el usuario y su sello | Valida el sello en cada petición: si cambió la contraseña o lo desactivaron, la sesión deja de valer (`seg.Permisos_Usuario`) |
+| Exige el encabezado `X-SMC-Solicitud` en peticiones que modifican (CSRF) y limita intentos por IP | Longitud mínima, cambio obligatorio, quién puede restablecer a quién (`seg.Contrasena_Establecer`) |
+| Pone `@UsuarioActual` / `@SolicitadoPor` con el usuario de la sesión (el cliente no puede enviarlos) | Qué procedimientos puede ejecutar cada usuario según sus roles; reglas de administración y auditoría (`api.Usuario_Guardar`, `api.Rol_Guardar`...) |
+
+- **Roles**: `Administrador` (categorías `admin` + `lectura`) y `Consulta` (`lectura`) vienen de fábrica; se pueden crear más con permisos por categoría o por procedimiento (`api.Sla_EnRiesgo`). Un procedimiento nuevo con `smc:permiso = lectura` queda disponible para todos los roles con esa categoría.
+- **Primer administrador**: `dotnet SMCClient.Api.dll crear-administrador` con una conexión de administración; `seg.Instalacion_CrearAdministrador` no está concedido al rol `smc_api`, así que la aplicación web no puede crear administradores por esa vía.
+- **Cuentas de SQL**: la API usa una cuenta con el rol `smc_api` (solo `EXECUTE` sobre `api` y sobre los cuatro procedimientos de sesión de `seg`); el worker, `smc_sync`.
+- Token de Jira en un almacén de secretos o variables de entorno, nunca en `appsettings.json`; usuario técnico de Jira de solo lectura.
 
 ## 9. Decisiones pendientes
 

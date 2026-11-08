@@ -17,6 +17,9 @@ INSERT @fk VALUES
  ('FK_ops_IssueCampoValor_Issue', 'ALTER TABLE ops.IssueCampoValor ADD CONSTRAINT FK_ops_IssueCampoValor_Issue FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;'),
  ('FK_ops_IssueCambio_Issue',  'ALTER TABLE ops.IssueCambio ADD CONSTRAINT FK_ops_IssueCambio_Issue  FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;'),
  ('FK_ops_IssueSprint_Issue',  'ALTER TABLE ops.IssueSprint ADD CONSTRAINT FK_ops_IssueSprint_Issue  FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;'),
+ ('FK_seg_UsuarioRol_Usuario', 'ALTER TABLE seg.UsuarioRol ADD CONSTRAINT FK_seg_UsuarioRol_Usuario FOREIGN KEY (UsuarioId) REFERENCES seg.Usuario (UsuarioId) ON DELETE CASCADE;'),
+ ('FK_seg_UsuarioRol_Rol',     'ALTER TABLE seg.UsuarioRol ADD CONSTRAINT FK_seg_UsuarioRol_Rol     FOREIGN KEY (RolId) REFERENCES seg.Rol (RolId);'),
+ ('FK_seg_RolPermiso_Rol',     'ALTER TABLE seg.RolPermiso ADD CONSTRAINT FK_seg_RolPermiso_Rol     FOREIGN KEY (RolId) REFERENCES seg.Rol (RolId) ON DELETE CASCADE;'),
  ('FK_ops_IssueSla_Issue',     'ALTER TABLE ops.IssueSla    ADD CONSTRAINT FK_ops_IssueSla_Issue     FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;');
 
 DECLARE @n sysname, @s nvarchar(max);

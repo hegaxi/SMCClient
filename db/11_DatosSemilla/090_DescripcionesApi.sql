@@ -1,7 +1,8 @@
 /* Metadatos que lee el controlador único para construir la interfaz y autorizar:
    smc:titulo      nombre corto para el menú
    MS_Description  descripción que ve el usuario
-   smc:permiso     lectura | admin (el controlador exige el rol de aplicación correspondiente)
+   smc:permiso     usuario (cualquier usuario activo) | lectura | admin. Quién tiene cada categoría lo deciden
+                   los roles en seg.RolPermiso (ver seg.Permisos_Usuario)
    smc:exentoSync  1 = se puede ejecutar aunque los datos no estén sincronizados
    smc:accion      1 = modifica algo (la interfaz nunca lo ejecuta solo al abrirlo; pide confirmar)
    smc:resultados  títulos de cada conjunto de resultados, separados por '|'
@@ -21,7 +22,14 @@ INSERT @p VALUES
  ('api.Avisos_Listar',    N'Avisos',                     N'Cambios detectados en Jira (campos nuevos o eliminados) y errores de sincronización.',          'admin',   '1'),
  ('api.Aviso_Atender',    N'Marcar aviso como atendido', N'Marca un aviso como atendido.',                                                                 'admin',   '1'),
  ('api.Mapeos_Listar',    N'Mapeo de campos',            N'Qué campo de Jira alimenta cada dato de los reportes (estado, story points, sprint...).',       'admin',   '1'),
- ('api.Mapeo_Establecer', N'Asignar campo a un dato',    N'Asigna manualmente el campo de Jira de un dato; vacío lo devuelve a automático.',              'admin',   '1');
+ ('api.Mapeo_Establecer', N'Asignar campo a un dato',    N'Asigna manualmente el campo de Jira de un dato; vacío lo devuelve a automático.',              'admin',   '1'),
+ ('api.Mi_Usuario',       N'Mi usuario',                 N'Su usuario y sus roles.',                                                                       'usuario', '1'),
+ ('api.Usuarios_Listar',  N'Usuarios',                   N'Usuarios de la aplicación y sus roles.',                                                        'admin',   '1'),
+ ('api.Usuario_Guardar',  N'Guardar usuario',            N'Da de alta o modifica un usuario y le asigna roles. La contraseña se asigna en Restablecer contraseña.',                         'admin',   '1'),
+ ('api.Roles_Listar',     N'Roles',                      N'Roles y sus permisos.',                                                                         'admin',   '1'),
+ ('api.Rol_Guardar',      N'Guardar rol',                N'Crea o modifica un rol y sus permisos.',                                                        'admin',   '1'),
+ ('api.Rol_Eliminar',     N'Eliminar rol',               N'Elimina un rol sin usuarios asignados.',                                                        'admin',   '1'),
+ ('api.Auditoria_Listar', N'Auditoría',                  N'Quién hizo qué en la administración y cuándo.',                                                 'admin',   '1');
 
 DECLARE @o nvarchar(300), @t nvarchar(100), @d nvarchar(400), @pe varchar(10), @e char(1);
 DECLARE c CURSOR LOCAL FAST_FORWARD FOR SELECT Objeto, Titulo, Descripcion, Permiso, Exento FROM @p;
@@ -38,6 +46,13 @@ CLOSE c; DEALLOCATE c;
 
 -- Títulos de cada conjunto de resultados (la interfaz los usa como encabezados).
 EXEC adm.Descripcion_Establecer 'api.Sync_Solicitar', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.Rol_Eliminar', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Login', N'MS_Description', N'Nombre de usuario para iniciar sesión (p. ej. mbravo)';
+EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Roles', N'MS_Description', N'Separados por coma, p. ej. Consulta o Administrador';
+EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Activo', N'MS_Description', N'No = no puede entrar (se conserva su historial)';
+EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', '@Permisos', N'MS_Description', N'Separados por coma: lectura (todas las consultas), admin (administración) o api.Nombre (un procedimiento)';
 EXEC adm.Descripcion_Establecer 'api.Aviso_Atender', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Mapeo_Establecer', NULL, N'smc:accion', N'1';
 

@@ -1,5 +1,6 @@
 using System.Text.Json;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Mvc;
 using SMCClient.Api.Procedimientos;
 using SMCClient.Api.Seguridad;
@@ -14,27 +15,26 @@ namespace SMCClient.Api.Controllers;
 ///   GET  /api/procedimientos/{nombre}   metadatos de uno
 ///   POST /api/procedimientos/{nombre}   lo ejecuta; cuerpo: {"Proyecto":"SMC26","Pagina":1}
 /// Antes de ejecutar, si los datos de Jira no están sincronizados responde 503 (salvo procedimientos smc:exentoSync = 1).
+/// Qué puede ejecutar cada usuario lo decide SQL Server (seg.Permisos_Usuario).
 /// </summary>
 [ApiController]
 [Route("api/procedimientos")]
-[Authorize(Policy = Politicas.Lectura)]
 [Produces("application/json")]
 public sealed class ProcedimientosController(
     ICatalogoProcedimientos catalogo,
     IEjecutorProcedimientos ejecutor,
     ICompuertaSincronizacion compuerta,
-    IAuthorizationService autorizacion) : ControllerBase
+    ServicioPermisos permisos) : ControllerBase
 {
     private const int SegundosReintento = 15;
 
     [HttpGet]
     public async Task<ActionResult<IEnumerable<ProcedimientoInfo>>> Listar(CancellationToken ct)
     {
+        var (permitidos, error) = await PermisosAsync(ct);
+        if (error is not null) return error;
         var procs = await catalogo.ObtenerAsync(ct);
-        var visibles = new List<ProcedimientoInfo>();
-        foreach (var p in procs.Values.OrderBy(p => p.Nombre, StringComparer.OrdinalIgnoreCase))
-            if (await PuedeEjecutarAsync(p)) visibles.Add(p);
-        return visibles;
+        return procs.Values.Where(p => permitidos!.Contains(p.Nombre)).OrderBy(p => p.Nombre, StringComparer.OrdinalIgnoreCase).ToList();
     }
 
     [HttpGet("{nombre}")]
@@ -74,7 +74,9 @@ public sealed class ProcedimientosController(
 
         try
         {
-            return await ejecutor.EjecutarAsync(proc, cuerpo, User.Identity?.Name ?? "desconocido", ct);
+            var resultado = await ejecutor.EjecutarAsync(proc, cuerpo, User.Identity!.Name!, ct);
+            if (proc.Accion) permisos.Invalidar();   // p. ej. cambió los roles de alguien
+            return resultado;
         }
         catch (ErrorProcedimientoException ex)
         {
@@ -82,19 +84,35 @@ public sealed class ProcedimientosController(
         }
     }
 
+    /// <summary>Procedimientos permitidos según SQL Server, o el error de sesión correspondiente.</summary>
+    private async Task<(IReadOnlySet<string>? Permitidos, ActionResult? Error)> PermisosAsync(CancellationToken ct)
+    {
+        var p = await permisos.ObtenerAsync(User, ct);
+        if (!p.Valido)
+        {
+            if (User.Identity?.AuthenticationType == CookieAuthenticationDefaults.AuthenticationScheme)
+                await HttpContext.SignOutAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            return (null, Problema(StatusCodes.Status401Unauthorized, "sesion.invalida", "Su sesión terminó. Inicie sesión de nuevo."));
+        }
+        if (p.DebeCambiar)
+            return (null, Problema(StatusCodes.Status403Forbidden, "contrasena.debe_cambiar", "Debe cambiar su contraseña antes de continuar."));
+        if (p.Procedimientos.Count == 0)
+            return (null, Problema(StatusCodes.Status403Forbidden, "usuario.sin_acceso", "Su usuario no tiene permisos. Pida a un administrador que le asigne un rol."));
+        return (p.Procedimientos, null);
+    }
+
     private async Task<(ProcedimientoInfo? Proc, ActionResult? Error)> ResolverAsync(string nombre, CancellationToken ct)
     {
+        var (permitidos, error) = await PermisosAsync(ct);
+        if (error is not null) return (null, error);
         var procs = await catalogo.ObtenerAsync(ct);
         var clave = nombre.StartsWith("api.", StringComparison.OrdinalIgnoreCase) ? nombre[4..] : nombre;
         if (!procs.TryGetValue(clave, out var proc))
             return (null, Problema(StatusCodes.Status404NotFound, "procedimiento.no_existe", $"No existe el procedimiento '{nombre}'."));
-        if (!await PuedeEjecutarAsync(proc))
+        if (!permitidos!.Contains(proc.Nombre))
             return (null, Problema(StatusCodes.Status403Forbidden, "procedimiento.sin_permiso", "No tiene permiso para este procedimiento."));
         return (proc, null);
     }
-
-    private async Task<bool> PuedeEjecutarAsync(ProcedimientoInfo p) =>
-        (await autorizacion.AuthorizeAsync(User, Politicas.DePermiso(p.Permiso))).Succeeded;
 
     private async Task<JsonElement?> LeerCuerpoAsync(CancellationToken ct)
     {
@@ -106,14 +124,7 @@ public sealed class ProcedimientosController(
         return doc.RootElement.Clone();
     }
 
-    private ObjectResult Problema(int estado, string codigo, string titulo, IDictionary<string, string[]>? errores = null,
-                                  IDictionary<string, object?>? extensiones = null)
-    {
-        ProblemDetails pd = errores is { Count: > 0 } ? new ValidationProblemDetails(errores) : new ProblemDetails();
-        pd.Status = estado;
-        pd.Title = titulo;
-        pd.Extensions["codigo"] = codigo;
-        if (extensiones is not null) foreach (var (k, v) in extensiones) pd.Extensions[k] = v;
-        return new ObjectResult(pd) { StatusCode = estado, ContentTypes = { "application/problem+json" } };
-    }
+    private static ObjectResult Problema(int estado, string codigo, string titulo, IDictionary<string, string[]>? errores = null,
+                                         IDictionary<string, object?>? extensiones = null) =>
+        Problemas.Crear(estado, codigo, titulo, errores, extensiones);
 }

@@ -21,7 +21,10 @@ public sealed class ApiOptions
     /// Parámetros que llena el servidor con el usuario autenticado y que el cliente no puede enviar
     /// (p. ej. @SolicitadoPor de api.Sync_Solicitar). Evita que alguien se haga pasar por otro.
     /// </summary>
-    public List<string> ParametrosDeUsuario { get; set; } = new() { "SolicitadoPor" };
+    public List<string> ParametrosDeUsuario { get; set; } = new() { "SolicitadoPor", "UsuarioActual" };
+
+    /// <summary>Segundos que se reutilizan los permisos de un usuario (se descartan después de cualquier acción).</summary>
+    public int SegundosCachePermisos { get; set; } = 30;
 
     /// <summary>Hospeda también el worker de sincronización dentro de la API (si no, corre como servicio aparte).</summary>
     public bool HospedarWorker { get; set; }

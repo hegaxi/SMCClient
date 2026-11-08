@@ -83,3 +83,13 @@ describe('TablaResultados', () => {
     expect(screen.getByText('No hay registros con estos filtros.')).toBeInTheDocument();
   });
 });
+
+describe('generarTemporal', () => {
+  it('genera contraseñas temporales largas y distintas', async () => {
+    const { generarTemporal } = await import('../componentes/RestablecerContrasena');
+    const a = generarTemporal();
+    expect(a).toMatch(/^[a-z]{4}-[a-z]{4}-[a-z]{4}-\d{2}$/);
+    expect(a.length).toBeGreaterThanOrEqual(16);
+    expect(generarTemporal()).not.toBe(a);
+  });
+});

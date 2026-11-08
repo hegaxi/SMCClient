@@ -5,6 +5,12 @@ IF DATABASE_PRINCIPAL_ID('smc_api') IS NULL CREATE ROLE smc_api AUTHORIZATION db
 IF DATABASE_PRINCIPAL_ID('smc_sync') IS NULL CREATE ROLE smc_sync AUTHORIZATION dbo;
 GO
 GRANT EXECUTE ON SCHEMA::api TO smc_api;
+-- Sesión y autorización: la API pregunta a la base; las reglas se deciden en SQL Server.
+-- (seg.Instalacion_CrearAdministrador NO se concede: solo con una conexión de administrador.)
+GRANT EXECUTE ON OBJECT::seg.Permisos_Usuario TO smc_api;
+GRANT EXECUTE ON OBJECT::seg.Login_Credencial TO smc_api;
+GRANT EXECUTE ON OBJECT::seg.Login_Resultado TO smc_api;
+GRANT EXECUTE ON OBJECT::seg.Contrasena_Establecer TO smc_api;
 -- El controlador lee los metadatos de los procedimientos (sys.parameters, propiedades extendidas).
 GRANT VIEW DEFINITION ON SCHEMA::api TO smc_api;
 

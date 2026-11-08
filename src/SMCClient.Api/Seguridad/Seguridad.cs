@@ -1,8 +1,9 @@
 using System.Security.Claims;
 using System.Text.Encodings.Web;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Negotiate;
-using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace SMCClient.Api.Seguridad;
@@ -12,46 +13,26 @@ public sealed class SeguridadOptions
 {
     public const string Seccion = "Seguridad";
 
-    /// <summary>Windows (intranet: IIS / Kerberos-NTLM) o Desarrollo (sin autenticación; solo en ambiente Development).</summary>
-    public string Autenticacion { get; set; } = "Windows";
+    /// <summary>Formulario (usuarios y contraseñas en SQL Server) o Desarrollo (sin inicio de sesión; solo en Development).</summary>
+    public string Autenticacion { get; set; } = "Formulario";
 
-    /// <summary>Grupos de AD que pueden consultar. Vacío = cualquier usuario autenticado del dominio.</summary>
-    public List<string> GruposLectura { get; set; } = new();
+    /// <summary>Usuario con el que se entra en modo Desarrollo (debe existir en seg.Usuario).</summary>
+    public string UsuarioDesarrollo { get; set; } = "desarrollo";
 
-    /// <summary>Grupos de AD que pueden ejecutar procedimientos de administración (smc:permiso = admin).</summary>
-    public List<string> GruposAdmin { get; set; } = new();
+    /// <summary>Horas de inactividad tras las que la sesión expira.</summary>
+    public int HorasSesion { get; set; } = 8;
+
+    /// <summary>Intentos de inicio de sesión por minuto desde una misma IP (además del bloqueo por cuenta en SQL).</summary>
+    public int IntentosPorMinutoPorIp { get; set; } = 10;
 }
 
 public static class Politicas
 {
-    public const string Lectura = "lectura";
-    public const string Admin = "admin";
-
-    /// <summary>Política que corresponde a la propiedad extendida smc:permiso. Un valor desconocido se trata como admin.</summary>
-    public static string DePermiso(string permiso) => permiso == Lectura ? Lectura : Admin;
+    public const string LimiteInicioSesion = "inicio-sesion";
+    public const string EncabezadoSolicitud = "X-SMC-Solicitud";
 }
 
-/// <summary>Lectura o administración. Los grupos se leen de la configuración al evaluar (se pueden cambiar sin reiniciar).</summary>
-public sealed class GrupoRequirement(bool admin) : IAuthorizationRequirement
-{
-    public bool Admin { get; } = admin;
-}
-
-public sealed class GrupoHandler(IOptionsMonitor<SeguridadOptions> seguridad) : AuthorizationHandler<GrupoRequirement>
-{
-    protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, GrupoRequirement req)
-    {
-        if (context.User.Identity?.IsAuthenticated != true) return Task.CompletedTask;
-        var op = seguridad.CurrentValue;
-        var permitido = req.Admin
-            ? op.GruposAdmin.Any(context.User.IsInRole)
-            : op.GruposLectura.Count == 0 || op.GruposLectura.Concat(op.GruposAdmin).Any(context.User.IsInRole);
-        if (permitido) context.Succeed(req);
-        return Task.CompletedTask;
-    }
-}
-
-/// <summary>Modo Desarrollo: todos entran como "desarrollo" con todos los grupos configurados.</summary>
+/// <summary>Modo Desarrollo: todos entran como Seguridad:UsuarioDesarrollo (sin sello; no cierra sesiones).</summary>
 public sealed class DesarrolloAuthHandler(IOptionsMonitor<AuthenticationSchemeOptions> o, ILoggerFactory l, UrlEncoder e, IOptions<SeguridadOptions> seguridad)
     : AuthenticationHandler<AuthenticationSchemeOptions>(o, l, e)
 {
@@ -59,9 +40,7 @@ public sealed class DesarrolloAuthHandler(IOptionsMonitor<AuthenticationSchemeOp
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var claims = new List<Claim> { new(ClaimTypes.Name, "desarrollo") };
-        claims.AddRange(seguridad.Value.GruposLectura.Concat(seguridad.Value.GruposAdmin).Select(g => new Claim(ClaimTypes.Role, g)));
-        var identidad = new ClaimsIdentity(claims, Esquema);
+        var identidad = new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, seguridad.Value.UsuarioDesarrollo) }, Esquema);
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identidad), Esquema)));
     }
 }
@@ -83,17 +62,51 @@ public static class SeguridadExtensions
         }
         else
         {
-            // En IIS habilite "Autenticación de Windows" y deshabilite "Anónima" en el sitio.
-            services.AddAuthentication(NegotiateDefaults.AuthenticationScheme).AddNegotiate();
+            services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme).AddCookie(c =>
+            {
+                c.Cookie.Name = "smc_sesion";
+                c.Cookie.HttpOnly = true;                                   // JavaScript no la puede leer
+                c.Cookie.SameSite = SameSiteMode.Strict;                    // no viaja en peticiones de otros sitios
+                c.Cookie.SecurePolicy = ambiente.IsDevelopment() ? CookieSecurePolicy.SameAsRequest : CookieSecurePolicy.Always;
+                c.ExpireTimeSpan = TimeSpan.FromHours(op.HorasSesion);
+                c.SlidingExpiration = true;
+                // Es una API: sin redirecciones a páginas de inicio de sesión.
+                c.Events.OnRedirectToLogin = x => { x.Response.StatusCode = StatusCodes.Status401Unauthorized; return Task.CompletedTask; };
+                c.Events.OnRedirectToAccessDenied = x => { x.Response.StatusCode = StatusCodes.Status403Forbidden; return Task.CompletedTask; };
+            });
         }
 
-        services.AddSingleton<IAuthorizationHandler, GrupoHandler>();
-        services.AddAuthorization(a =>
+        services.AddAuthorization(a => a.FallbackPolicy = new Microsoft.AspNetCore.Authorization.AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+        services.AddMemoryCache();
+        services.AddSingleton<RepositorioSesion>();
+        services.AddSingleton<ServicioPermisos>();
+        services.AddRateLimiter(r =>
         {
-            a.AddPolicy(Politicas.Lectura, p => p.RequireAuthenticatedUser().AddRequirements(new GrupoRequirement(admin: false)));
-            a.AddPolicy(Politicas.Admin, p => p.RequireAuthenticatedUser().AddRequirements(new GrupoRequirement(admin: true)));
-            a.FallbackPolicy = a.GetPolicy(Politicas.Lectura);
+            r.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            r.AddPolicy(Politicas.LimiteInicioSesion, http =>
+            {
+                var limite = http.RequestServices.GetRequiredService<IOptionsMonitor<SeguridadOptions>>().CurrentValue.IntentosPorMinutoPorIp;
+                return RateLimitPartition.GetFixedWindowLimiter(
+                    $"{http.Connection.RemoteIpAddress?.ToString() ?? "desconocida"}:{limite}",
+                    _ => new FixedWindowRateLimiterOptions { PermitLimit = limite, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 });
+            });
         });
         return services;
     }
+
+    /// <summary>
+    /// Protección CSRF: toda petición que modifica (POST/PUT/DELETE) a /api debe traer el encabezado X-SMC-Solicitud.
+    /// Un sitio ajeno no puede agregar encabezados propios sin permiso CORS (que la API no concede).
+    /// </summary>
+    public static IApplicationBuilder UseProteccionSolicitudes(this IApplicationBuilder app) => app.Use(async (http, siguiente) =>
+    {
+        if (!HttpMethods.IsGet(http.Request.Method) && !HttpMethods.IsHead(http.Request.Method) &&
+            http.Request.Path.StartsWithSegments("/api") && !http.Request.Headers.ContainsKey(Politicas.EncabezadoSolicitud))
+        {
+            http.Response.StatusCode = StatusCodes.Status400BadRequest;
+            await http.Response.WriteAsJsonAsync(new { title = "Falta el encabezado X-SMC-Solicitud.", status = 400, codigo = "solicitud.invalida" });
+            return;
+        }
+        await siguiente();
+    });
 }

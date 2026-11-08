@@ -73,7 +73,7 @@ Las frecuencias por entidad, los endpoints de Jira y los proyectos excluidos est
 
 ```powershell
 cd src/SMCClient.Api
-dotnet run --environment Development      # sin autenticación (solo en Development), http://localhost:5xxx
+dotnet run --environment Development      # http://localhost:5xxx (pide iniciar sesión)
 ```
 
 | Método | Ruta | Qué hace |
@@ -89,24 +89,49 @@ Respuestas de error (`application/problem+json`, con `codigo`):
 |---|---|---|
 | 400 | `parametro.invalido` | Parámetro faltante, desconocido, de otro tipo o demasiado largo (detalle en `errors`) |
 | 400 / 404 / 409… | `sql.5NNNN` | `THROW` de negocio del procedimiento. Si los tres últimos dígitos son un 4xx se usa ese estado (`THROW 50404` → 404) |
-| 403 | `procedimiento.sin_permiso` | El procedimiento es `smc:permiso = admin` y el usuario no está en `Seguridad:GruposAdmin` |
+| 401 | `sesion.requerida` / `sesion.invalida` | Sin sesión, o la sesión se cerró (cambio de contraseña, usuario desactivado) |
+| 403 | `procedimiento.sin_permiso` / `contrasena.debe_cambiar` | Sus roles no incluyen ese procedimiento / debe cambiar su contraseña primero |
 | 404 | `procedimiento.no_existe` | No es un procedimiento del esquema `api` |
 | 503 | `sync.pendiente` | Los datos de Jira aún no están sincronizados (encabezado `Retry-After`); no aplica a los procedimientos `smc:exentoSync = 1` |
 | 504 | `sql.timeout` | La consulta excedió `Api:TimeoutSqlSegundos` |
 
-**Publicación en IIS** (intranet): `dotnet publish src/SMCClient.Api -c Release -o C:\SMCClient\api`, sitio con el
-Hosting Bundle de .NET 8, **Autenticación de Windows habilitada y Anónima deshabilitada**. El pool corre con una
-cuenta que en SQL Server solo tiene el rol `smc_api`. Grupos de AD en `appsettings.json`:
+**Usuarios y permisos (en SQL Server).** No se usa Active Directory: los usuarios, sus contraseñas y sus roles viven
+en la base (esquema `seg`) y se administran desde la aplicación (Administración). La contraseña nunca llega en claro a
+SQL Server: la API calcula su hash (PBKDF2-SHA256, 600 000 iteraciones) y la base aplica las reglas:
 
-```json
-"Seguridad": { "Autenticacion": "Windows", "GruposLectura": [], "GruposAdmin": [ "DOMINIO\\SMC-Administradores" ] }
+| Regla (en SQL Server) | Dónde |
+|---|---|
+| Longitud mínima (`cfg.Parametro ContrasenaLongitudMinima`, 10) | `seg.Contrasena_Establecer` |
+| Bloqueo tras 5 intentos fallidos durante 15 min (`IntentosFallidosMaximos`, `MinutosBloqueo`) | `seg.Login_Resultado` |
+| Cambio obligatorio después de que un administrador la restablece | `seg.Contrasena_Establecer`, `seg.Permisos_Usuario` |
+| Solo un administrador restablece la contraseña de otro; para la propia se pide la actual | `seg.Contrasena_Establecer` |
+| Cambiar la contraseña o desactivar a alguien cierra sus demás sesiones (sello de seguridad) | `seg.Contrasena_Establecer`, `api.Usuario_Guardar` |
+| Nadie se quita a sí mismo la administración; siempre queda un administrador activo | `api.Usuario_Guardar`, `api.Rol_Guardar` |
+| Qué puede ejecutar cada usuario (por categoría `lectura` / `admin` o por procedimiento `api.X`) | `seg.Permisos_Usuario` |
+| Todo queda en `seg.Auditoria` (sin datos de contraseñas) | `seg.Auditoria_Registrar` |
+
+Primer administrador, después de desplegar la base (pide la contraseña en la consola; usa una conexión con permisos de
+administración porque la API no puede crear administradores):
+
+```powershell
+dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administrador" --cadena "Server=.;Database=SMCClient;Integrated Security=true;TrustServerCertificate=true"
 ```
 
-`GruposLectura` vacío = cualquier usuario del dominio puede consultar. Los grupos se pueden cambiar sin reiniciar.
+Sirve también para recuperar el acceso si todos los administradores olvidan su contraseña.
 
-**Agregar una consulta nueva** no requiere tocar la API: se crea el procedimiento en `db/09_Procedimientos` (esquema
-`api`) y sus propiedades en `db/11_DatosSemilla/090_DescripcionesApi.sql` (`MS_Description`, `smc:permiso`,
-`smc:exentoSync`). Sin `smc:permiso` el procedimiento queda solo para administradores. La API lo detecta sola.
+Endpoints de sesión (`/api/sesion`): `GET` (sesión actual), `POST iniciar`, `POST cerrar`, `POST cambiar-contrasena`,
+`POST restablecer-contrasena` (administradores). La cookie es `HttpOnly`, `SameSite=Strict` y `Secure` fuera de desarrollo;
+toda petición que modifica debe traer el encabezado `X-SMC-Solicitud` (protección CSRF) y el inicio de sesión tiene
+límite de intentos por IP.
+
+**Publicación en IIS**: `dotnet publish src/SMCClient.Api -c Release -o C:\SMCClient\api`, sitio con el Hosting Bundle de
+.NET 8 y **HTTPS obligatorio** (la cookie de sesión solo viaja por HTTPS). Autenticación **Anónima** habilitada en IIS
+(la aplicación maneja su propio inicio de sesión). El pool corre con una cuenta que en SQL Server solo tiene el rol `smc_api`.
+
+**Agregar una consulta nueva** no requiere tocar la API ni React: se crea el procedimiento en `db/09_Procedimientos`
+(esquema `api`) y sus propiedades en `db/11_DatosSemilla/090_DescripcionesApi.sql` (`smc:titulo`, `MS_Description`,
+`smc:permiso`...). Con `smc:permiso = lectura` lo ven de inmediato todos los roles con la categoría `lectura`; sin
+`smc:permiso` queda solo para administradores.
 
 ### 4. Interfaz (React)
 
@@ -122,6 +147,7 @@ Para producción no hay que publicar nada aparte: `dotnet publish src/SMCClient.
 
 Qué hace:
 
+- **Inicio de sesión** con usuario y contraseña de la base; cambio obligatorio de contraseña tras un restablecimiento; "Cambiar contraseña" y "Salir" en el encabezado; los administradores ven "Restablecer contraseña".
 - **Sincroniza antes de todo.** Mientras alguna fuente no tenga datos vigentes muestra el avance por tipo de dato y se abre sola al terminar. Si una consulta responde 503, vuelve a esa pantalla.
 - **Se arma con los metadatos de la base.** Menú (`smc:titulo`, agrupado en Consultas / Sincronización / Administración según `smc:permiso`), formularios por tipo de parámetro, listas (`smc:opciones`), títulos de cada resultado (`smc:resultados`). Un procedimiento nuevo en la base aparece en el menú sin tocar React.
 - **Consultas.** Corren solas al abrirlas si no les falta nada obligatorio; las acciones (`smc:accion`) nunca, y piden confirmación. Tablas ordenables, descarga CSV, paginación, la clave de un issue abre su detalle, los filtros quedan en la dirección (se pueden compartir y funciona "Atrás").
