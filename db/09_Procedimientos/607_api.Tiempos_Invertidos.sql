@@ -147,9 +147,11 @@ BEGIN
     DECLARE @nombre1 nvarchar(30) = CASE @d1 WHEN 'persona' THEN N'Persona' WHEN 'proyecto' THEN N'Proyecto' WHEN 'epica' THEN N'Épica' WHEN 'tarea' THEN N'Tarea' WHEN 'issue' THEN N'Ticket' WHEN 'tipo' THEN N'Tipo' WHEN 'estado' THEN N'Estado' END,
             @nombre2 nvarchar(30) = CASE @d2 WHEN 'persona' THEN N'Persona' WHEN 'proyecto' THEN N'Proyecto' WHEN 'epica' THEN N'Épica' WHEN 'tarea' THEN N'Tarea' WHEN 'issue' THEN N'Ticket' WHEN 'tipo' THEN N'Tipo' WHEN 'estado' THEN N'Estado' END,
             @nombre3 nvarchar(30) = CASE @d3 WHEN 'persona' THEN N'Persona' WHEN 'proyecto' THEN N'Proyecto' WHEN 'epica' THEN N'Épica' WHEN 'tarea' THEN N'Tarea' WHEN 'issue' THEN N'Ticket' WHEN 'tipo' THEN N'Tipo' WHEN 'estado' THEN N'Estado' END;
+    -- Sin tiempo en el periodo: el Total dice entre qué fechas sí hay registros (p. ej. un proyecto que ya cerró).
     INSERT #n VALUES (N'#total', NULL, 0, N'Total',  NULL,
-                      CONCAT(N'Total en ', CASE WHEN @Unidad = 'dias' THEN CONCAT(N'días de ', FORMAT(@HorasPorDia, '0.#'), N' h') ELSE N'horas' END,
-                             N' · ', CONVERT(nvarchar(10), @Desde, 103), N' al ', CONVERT(nvarchar(10), @Hasta, 103)), '');
+                      CASE WHEN NOT EXISTS (SELECT 1 FROM #d) THEN rpt.fn_AvisoSinTiempo(@Proyecto, @Persona)
+                           ELSE CONCAT(N'Total en ', CASE WHEN @Unidad = 'dias' THEN CONCAT(N'días de ', FORMAT(@HorasPorDia, '0.#'), N' h') ELSE N'horas' END,
+                                       N' · ', CONVERT(nvarchar(10), @Desde, 103), N' al ', CONVERT(nvarchar(10), @Hasta, 103)) END, '');
     IF @d1 IS NOT NULL
     BEGIN
         SELECT R1, MIN(C1) AS C, MIN(T1) AS T, MIN(O1) AS O INTO #k1 FROM #r GROUP BY R1;

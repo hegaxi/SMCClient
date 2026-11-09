@@ -182,6 +182,16 @@ INSERT @t EXEC api.Tiempos_Invertidos @Desde = '2026-01-01', @Hasta = '2026-01-3
                                       @Categoria = 'ninguna', @Grupo = 'ninguna', @Unidad = 'dias';
 SET @ok = CASE WHEN (SELECT COUNT(*) FROM @t) = 1 AND (SELECT Total FROM @t) = 0.75 THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Tiempos invertidos en días de 8 h: 6 h = 0.75 días; sin agrupaciones solo queda el total';
+DELETE @t;
+INSERT @t EXEC api.Tiempos_Invertidos @Desde = '2026-03-01', @Hasta = '2026-03-31', @Proyecto = 'FAS';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @t) = 1
+                AND (SELECT Elemento FROM @t) = N'Sin tiempo en este periodo. FAS tiene registros del 05/01/2026 al 14/01/2026' THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Sin tiempo en el periodo: el Total dice entre qué fechas sí hay registros del proyecto';
+DECLARE @hp TABLE (Nodo nvarchar(300), PadreNodo nvarchar(300), Nivel int, NivelNombre nvarchar(20), Clave varchar(50), Elemento nvarchar(400), Tipo nvarchar(255),
+                   Estado nvarchar(255), Reg decimal(12,2), Aut decimal(12,2), Tot decimal(12,2), Propias decimal(12,2), Issues int);
+INSERT @hp EXEC api.Horas_PorPersonaArbol @Desde = '2026-03-01', @Hasta = '2026-03-31', @Proyecto = 'FAS';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @hp) = 1 AND (SELECT Elemento FROM @hp) LIKE N'Sin tiempo en este periodo. FAS tiene registros del 05/01/2026%' THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Horas por persona sin tiempo en el periodo: solo el Total, con el aviso';
 DECLARE @s TABLE (Nodo nvarchar(60), PadreNodo nvarchar(60), Nivel int, NivelNombre nvarchar(30), Clave varchar(50), Elemento nvarchar(400),
                   Total decimal(12,2), Sem1 decimal(12,2), Sem2 decimal(12,2), Sem3 decimal(12,2));
 INSERT @s EXEC api.Tiempos_Invertidos @Desde = '2026-01-05', @Hasta = '2026-01-21', @Proyecto = 'FAS', @Periodo = 'semana',

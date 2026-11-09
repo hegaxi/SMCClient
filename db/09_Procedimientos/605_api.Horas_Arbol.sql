@@ -46,6 +46,11 @@ BEGIN
       AND (@Persona IS NULL OR w.AtribuidoA LIKE N'%' + @Persona + N'%')
     GROUP BY w.FuenteId, w.IssueId;
 
+    -- Sin tiempo en el periodo: el Total dice entre qué fechas sí hay registros (p. ej. un proyecto que ya cerró).
+    DECLARE @aviso nvarchar(400) =
+        CASE WHEN (@Desde IS NOT NULL OR @Hasta IS NOT NULL) AND NOT EXISTS (SELECT 1 FROM #h WHERE ISNULL(SegReg, 0) + ISNULL(SegAut, 0) > 0)
+             THEN rpt.fn_AvisoSinTiempo(@Proyecto, @Persona) END;
+
     -- Árbol: raíces = issues cuyo padre no está en el mismo proyecto. Las épicas cuelgan de su proyecto; lo demás, de
     -- "(Sin épica)" de su proyecto.
     WITH arbol AS (
@@ -120,9 +125,9 @@ BEGIN
     FROM (
         -- Total
         SELECT N'#total' AS Nodo, CAST(NULL AS nvarchar(60)) AS PadreNodo, 0 AS Nivel, CAST(NULL AS varchar(50)) AS Clave,
-               CAST(CONCAT(CASE WHEN @Proyecto IS NULL THEN N'Total' ELSE N'Total del proyecto' END,
+               CAST(ISNULL(@aviso, CONCAT(CASE WHEN @Proyecto IS NULL THEN N'Total' ELSE N'Total del proyecto' END,
                     CASE WHEN @Desde IS NULL AND @Hasta IS NULL THEN N' (todo el historial)'
-                         ELSE CONCAT(N' del ', ISNULL(CONVERT(nvarchar(10), @Desde, 103), N'inicio'), N' al ', CONVERT(nvarchar(10), ISNULL(@Hasta, CAST(SYSDATETIME() AS date)), 103)) END)
+                         ELSE CONCAT(N' del ', ISNULL(CONVERT(nvarchar(10), @Desde, 103), N'inicio'), N' al ', CONVERT(nvarchar(10), ISNULL(@Hasta, CAST(SYSDATETIME() AS date)), 103)) END))
                     AS nvarchar(400)) AS Elemento,
                CAST(NULL AS nvarchar(255)) AS Tipo, CAST(NULL AS nvarchar(100)) AS Estado, CAST(NULL AS nvarchar(255)) AS Responsable,
                SUM(SegReg) AS SegReg, SUM(SegAut) AS SegAut, SUM(SegCop) AS SegCop, CAST(NULL AS bigint) AS SegPropio,
