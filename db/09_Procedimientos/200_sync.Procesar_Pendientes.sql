@@ -24,6 +24,7 @@ BEGIN
 
     DECLARE @f int, @ent varchar(40), @proc sysname, @cierre sysname, @n int, @tomar int, @err nvarchar(2000), @nProcesados int = 0;
     DECLARE @inicio datetimeoffset(3) = SYSDATETIMEOFFSET();   -- para saber qué documentos se integraron en esta pasada
+    DECLARE @desdeDer datetimeoffset(3);
 
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR
         SELECT e.FuenteId, e.Entidad, e.Procedimiento, e.ProcedimientoCierre
@@ -98,14 +99,22 @@ BEGIN
             END CATCH;
         END;
 
-        -- Datos derivados (atribución de worklogs, horas y épica por issue) de los issues tocados en esta pasada.
+        -- Datos derivados (atribución de worklogs, horas y épica por issue) de los issues tocados en esta pasada y, si
+        -- una pasada anterior falló, también de los suyos (sync.DerivadoPendiente).
+        SET @desdeDer = @inicio;
+        SELECT @desdeDer = CASE WHEN p.Desde < @inicio THEN p.Desde ELSE @inicio END
+        FROM sync.DerivadoPendiente p WHERE p.FuenteId = @f AND p.Entidad = @ent;
         BEGIN TRY
-            EXEC sync.Derivados_Actualizar @FuenteId = @f, @Entidad = @ent, @Desde = @inicio;
+            EXEC sync.Derivados_Actualizar @FuenteId = @f, @Entidad = @ent, @Desde = @desdeDer;
+            DELETE sync.DerivadoPendiente WHERE FuenteId = @f AND Entidad = @ent;
         END TRY
         BEGIN CATCH
             IF @@TRANCOUNT > 0 ROLLBACK;
             SET @err = LEFT(CONCAT(ERROR_PROCEDURE(), N': ', ERROR_MESSAGE()), 2000);
             EXEC sync.Evento_Registrar @f, @EjecucionId, 'error', 'derivados.error', @err;
+            UPDATE sync.DerivadoPendiente SET Intentos = Intentos + 1, UltimoError = @err WHERE FuenteId = @f AND Entidad = @ent;
+            IF @@ROWCOUNT = 0
+                INSERT sync.DerivadoPendiente (FuenteId, Entidad, Desde, UltimoError) VALUES (@f, @ent, @desdeDer, @err);
         END CATCH;
 
         FETCH c INTO @f, @ent, @proc, @cierre;
