@@ -1,4 +1,4 @@
-/* Elimina una consulta personalizada (solo administradores). Los filtros guardados que la usen dejan de funcionar. */
+/* Elimina una consulta personalizada (quien tiene la opción "Eliminar consulta personalizada"). Los filtros guardados que la usen dejan de funcionar. */
 CREATE OR ALTER PROCEDURE api.ConsultaPersonalizada_Eliminar
     @ConsultaId    int,
     @UsuarioActual nvarchar(200)

@@ -1,4 +1,4 @@
-/* Consultas personalizadas que puede ver el usuario (los administradores ven todas, con quién están compartidas). */
+/* Consultas personalizadas que puede ver el usuario (quien puede publicar consultas ve todas, con quién están compartidas). */
 CREATE OR ALTER PROCEDURE api.ConsultasPersonalizadas_Listar
     @UsuarioActual nvarchar(200)
 AS

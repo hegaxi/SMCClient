@@ -10,7 +10,8 @@ interface Props {
   onCancelar: () => void;
 }
 
-/** Publica la búsqueda actual como consulta personalizada y la comparte con usuarios, roles o clientes (solo administradores). */
+/** Publica la búsqueda actual como consulta personalizada y la comparte con usuarios, roles o clientes
+ * (quien tiene la opción "Publicar consulta personalizada"). */
 export function PublicarConsulta({ parametros, consultaId, onPublicada, onCancelar }: Props) {
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');

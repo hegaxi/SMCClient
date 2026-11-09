@@ -1,5 +1,5 @@
 /* Publica (o modifica) una consulta personalizada a partir de una búsqueda avanzada y la comparte con usuarios o roles:
-   @CompartirCon = "ana, cliente1, rol:Cliente". Solo administradores. Los criterios, columnas y orden se validan con las
+   @CompartirCon = "ana, cliente1, rol:Cliente". Solo quien tiene la opción "Publicar consulta personalizada". Los criterios, columnas y orden se validan con las
    mismas reglas de api.Issues_Consultar. */
 CREATE OR ALTER PROCEDURE api.ConsultaPersonalizada_Guardar
     @ConsultaId    int = NULL,

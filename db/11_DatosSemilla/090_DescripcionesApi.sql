@@ -25,7 +25,7 @@ INSERT @p VALUES
  ('api.Sprint_Avance',    N'Avance de sprints',          N'Issues, story points y horas registradas dentro de cada sprint (incluye subtareas).',          'lectura', '0'),
  ('api.Epicas_Avance',    N'Avance de épicas',           N'Tareas terminadas, story points, estimación y horas de cada épica (con sus tareas y subtareas).', 'lectura', '0'),
  ('api.Estimacion_VsReal', N'Estimado vs. real',          N'Horas estimadas contra las registradas por personas (con subtareas), desviación, % consumido y tareas sin estimar.', 'lectura', '0'),
- ('api.ConsultasPersonalizadas_Listar', N'Consultas personalizadas', N'Consultas publicadas por un administrador que usted puede ver.',                         'usuario', '0'),
+ ('api.ConsultasPersonalizadas_Listar', N'Consultas personalizadas', N'Consultas personalizadas compartidas con usted o con su rol.',                         'usuario', '0'),
  ('api.ConsultaPersonalizada_Obtener',  N'Consulta personalizada',   N'Definición de una consulta personalizada.',                                              'usuario', '0'),
  ('api.ConsultaPersonalizada_Ejecutar', N'Ejecutar consulta personalizada', N'Resultados de una consulta personalizada (los clientes ven solo los tickets de su organización).', 'usuario', '0'),
  ('api.ConsultaPersonalizada_Guardar',  N'Publicar consulta personalizada', N'Publica una búsqueda avanzada como consulta personalizada y la comparte con usuarios o roles.', 'admin', '1'),

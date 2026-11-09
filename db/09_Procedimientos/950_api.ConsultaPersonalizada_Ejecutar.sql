@@ -1,4 +1,4 @@
-/* Ejecuta una consulta personalizada con los criterios y columnas que definió el administrador (el usuario solo elige
+/* Ejecuta una consulta personalizada con los criterios y columnas que definió quien la publicó (el usuario solo elige
    página y orden). Si el usuario es externo (cliente), se agrega un criterio que la limita a los tickets de SUS
    organizaciones de mesa de ayuda; sin organización asignada no ve tickets. La seguridad de la consulta (lista blanca,
    valores leídos del JSON) es la de api.Issues_Consultar. */

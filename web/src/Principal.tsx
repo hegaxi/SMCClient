@@ -84,7 +84,7 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   }, [tienenTableros]);
   useEffect(() => { cargarTableros(); }, [cargarTableros]);
 
-  // Consultas personalizadas que puede ver (publicadas por un administrador; los clientes solo tienen éstas).
+  // Consultas personalizadas que puede ver (compartidas con el usuario o su rol; los clientes solo tienen éstas).
   const tienenPersonalizadas = tiene('ConsultasPersonalizadas_Listar');
   const cargarPersonalizadas = useCallback(() => {
     if (tienenPersonalizadas) api.ejecutar('ConsultasPersonalizadas_Listar').then((r) => setPersonalizadas(r.resultados[0]?.filas ?? [])).catch(() => setPersonalizadas([]));

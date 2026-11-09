@@ -137,7 +137,7 @@ export function ConsultaPersonalizadaVista({ consultaId, onNavegar, puedeVerDeta
         <div className="metadatos secundario">
           {def.SoloMiOrganizacion === true && <p>Se muestran solo los tickets de su organización.</p>}
           {def.PuedoEditar === true && (
-            <p>Compartida con: {def.CompartidaCon ? String(def.CompartidaCon) : 'nadie (solo administradores)'}</p>
+            <p>Compartida con: {def.CompartidaCon ? String(def.CompartidaCon) : 'nadie (solo quienes pueden publicar consultas)'}</p>
           )}
         </div>
       )}

@@ -339,7 +339,7 @@ La prueba `db/tests/040` crea 1 200 issues y verifica que el resumen da 600 h do
 
 ### 5.10 Consultas personalizadas y clientes externos
 
-- **Consulta personalizada** (`dash.Consulta`): una búsqueda avanzada con nombre que **un administrador publica** desde la
+- **Consulta personalizada** (`dash.Consulta`): una búsqueda avanzada con nombre que **publica quien tiene la opción *Publicar consulta personalizada*** (de fábrica, la administración) desde la
   búsqueda (*Publicar como consulta personalizada*) y comparte con usuarios o roles (`dash.ConsultaAcceso`, "ana, rol:Cliente").
   Quien tiene acceso la ve en el menú (*Consultas personalizadas*) y en la pantalla de inicio; solo elige orden y página: los
   criterios y columnas los define el administrador. Se validan con las mismas reglas de la búsqueda (lista blanca).

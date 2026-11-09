@@ -134,7 +134,7 @@ SET @sql = N'EXEC api.ConsultaPersonalizada_Guardar @Nombre = N''x'', @Criterios
 EXEC prueba.AfirmarError @sql, 50400, N'Criterios inválidos rechazados (mismas reglas que la búsqueda)';
 SET @sql = N'EXEC api.ConsultaPersonalizada_Guardar @Nombre = N''Tickets de mesa de ayuda'', @UsuarioActual = N''' + @admin + N''';';
 EXEC prueba.AfirmarError @sql, 50409, N'Nombre repetido';
-EXEC prueba.AfirmarError N'EXEC api.ConsultaPersonalizada_Guardar @Nombre = N''x'', @UsuarioActual = N''interno70'';', 50403, N'Solo un administrador publica consultas';
+EXEC prueba.AfirmarError N'EXEC api.ConsultaPersonalizada_Guardar @Nombre = N''x'', @UsuarioActual = N''interno70'';', 50403, N'Sin la opción de publicar no se publican consultas';
 SET @sql = N'EXEC api.ConsultaPersonalizada_Guardar @Nombre = N''x'', @CompartirCon = N''nadie'', @UsuarioActual = N''' + @admin + N''';';
 EXEC prueba.AfirmarError @sql, 50400, N'Compartir con un usuario inexistente rechazado';
 
