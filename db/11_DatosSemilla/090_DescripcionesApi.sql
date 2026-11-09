@@ -18,9 +18,20 @@ INSERT @p VALUES
  ('api.Sprint_Avance',    N'Avance de sprints',          N'Issues, story points y horas registradas dentro de cada sprint (incluye subtareas).',          'lectura', '0'),
  ('api.Epicas_Avance',    N'Avance de épicas',           N'Tareas terminadas, story points, estimación y horas de cada épica (con sus tareas y subtareas).', 'lectura', '0'),
  ('api.Estimacion_VsReal', N'Estimado vs. real',          N'Horas estimadas contra las registradas por personas (con subtareas), desviación, % consumido y tareas sin estimar.', 'lectura', '0'),
+ ('api.ConsultasPersonalizadas_Listar', N'Consultas personalizadas', N'Consultas publicadas por un administrador que usted puede ver.',                         'usuario', '0'),
+ ('api.ConsultaPersonalizada_Obtener',  N'Consulta personalizada',   N'Definición de una consulta personalizada.',                                              'usuario', '0'),
+ ('api.ConsultaPersonalizada_Ejecutar', N'Ejecutar consulta personalizada', N'Resultados de una consulta personalizada (los clientes ven solo los tickets de su organización).', 'usuario', '0'),
+ ('api.ConsultaPersonalizada_Guardar',  N'Publicar consulta personalizada', N'Publica una búsqueda avanzada como consulta personalizada y la comparte con usuarios o roles.', 'admin', '1'),
+ ('api.ConsultaPersonalizada_Eliminar', N'Eliminar consulta personalizada', N'Elimina una consulta personalizada.',                                              'admin',   '1'),
+ ('api.Usuario_Organizaciones_Guardar', N'Organizaciones de un cliente', N'Organizaciones de mesa de ayuda de un usuario externo: solo verá los tickets de esas organizaciones.', 'admin', '1'),
+ ('api.Usuarios_Externos_Listar',       N'Clientes (usuarios externos)', N'Usuarios externos, sus organizaciones y las consultas personalizadas que ven.',       'admin',   '0'),
+ ('api.Organizaciones_Listar',          N'Organizaciones de mesa de ayuda', N'Organizaciones que aparecen en los tickets, con su número de tickets.',          'admin',   '0'),
+ ('api.Sync_Frecuencias_Listar',        N'Configuración de la sincronización', N'Cada cuántos minutos se sincroniza cada tipo de dato y el margen para avisar de datos atrasados.', 'admin', '1'),
+ ('api.Sync_Frecuencia_Guardar',        N'Cambiar frecuencia de sincronización', N'Cada cuántos minutos se pide a Jira un tipo de dato de una fuente.',        'admin',   '1'),
+ ('api.Sync_Antiguedad_Guardar',        N'Cambiar margen de datos atrasados', N'Minutos de tolerancia, además de la frecuencia, antes de avisar que los datos están atrasados.', 'admin', '1'),
  ('api.Horas_PorSprint',  N'Horas por sprint',           N'Tiempo reportado en Scrum: horas por sprint y persona, registradas y automáticas (incluye subtareas).', 'lectura', '0'),
  ('api.Proyectos_Listar', N'Proyectos',                  N'Proyectos Scrum y de mesa de ayuda que se sincronizan.',                                        'lectura', '0'),
- ('api.Sync_Estado',      N'Estado de la sincronización', N'Cuándo se sincronizó cada fuente y cada tipo de dato.',                                        'lectura', '1'),
+ ('api.Sync_Estado',      N'Estado de la sincronización', N'Cuándo se sincronizó cada fuente y cada tipo de dato.',                                        'usuario', '1'),
  ('api.Sync_Solicitar',   N'Sincronizar ahora',          N'Pide una sincronización inmediata con Jira.',                                                   'lectura', '1'),
  ('api.Campos_Listar',    N'Campos de Jira',             N'Catálogo de campos de Jira y el rol que cumplen en los reportes.',                              'lectura', '1'),
  ('api.Avisos_Listar',    N'Avisos',                     N'Cambios detectados en Jira (campos nuevos o eliminados) y errores de sincronización.',          'admin',   '1'),
@@ -87,7 +98,7 @@ EXEC adm.Descripcion_Establecer 'api.Issues_Campos', NULL, N'smc:oculto', N'1';
 EXEC adm.Descripcion_Establecer 'api.Issues_Valores', NULL, N'smc:oculto', N'1';
 EXEC adm.Descripcion_Establecer 'api.Issues_Resumir', NULL, N'smc:oculto', N'1';
 
-EXEC adm.Descripcion_Establecer 'api.Issue_Detalle', NULL, N'smc:resultados', N'Datos del issue|Campos personalizados|Tiempo registrado|SLA|Historial de estados';
+EXEC adm.Descripcion_Establecer 'api.Issue_Detalle', NULL, N'smc:resultados', N'Datos del issue|Campos personalizados|Tiempo registrado|SLA|Historial de estados|Comentarios';
 EXEC adm.Descripcion_Establecer 'api.Sync_Estado', NULL, N'smc:resultados', N'Resumen por fuente|Detalle por entidad';
 
 -- Valores permitidos (la interfaz muestra una lista): valor=Etiqueta|...
@@ -118,4 +129,25 @@ EXEC adm.Descripcion_Establecer 'api.Sla_EnRiesgo', '@Horas', N'MS_Description',
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Desde', N'MS_Description', N'Fecha inicial (inclusive)';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Hasta', N'MS_Description', N'Fecha final (inclusive)';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Origen', N'MS_Description', N'Vacío = ambas';
+
+-- Consultas personalizadas, clientes y configuración de la sincronización.
+EXEC adm.Descripcion_Establecer 'api.ConsultaPersonalizada_Guardar', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.ConsultaPersonalizada_Eliminar', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.Usuario_Organizaciones_Guardar', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.Sync_Frecuencia_Guardar', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.Sync_Antiguedad_Guardar', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.ConsultasPersonalizadas_Listar', NULL, N'smc:oculto', N'1';
+EXEC adm.Descripcion_Establecer 'api.ConsultaPersonalizada_Obtener', NULL, N'smc:oculto', N'1';
+EXEC adm.Descripcion_Establecer 'api.ConsultaPersonalizada_Ejecutar', NULL, N'smc:oculto', N'1';
+EXEC adm.Descripcion_Establecer 'api.ConsultaPersonalizada_Guardar', NULL, N'smc:oculto', N'1';
+EXEC adm.Descripcion_Establecer 'api.ConsultaPersonalizada_Obtener', NULL, N'smc:resultados', N'Consulta|Campos';
+EXEC adm.Descripcion_Establecer 'api.ConsultaPersonalizada_Eliminar', '@ConsultaId', N'MS_Description', N'Número de la consulta (aparece en Consultas personalizadas).';
+EXEC adm.Descripcion_Establecer 'api.Usuario_Organizaciones_Guardar', '@Login', N'MS_Description', N'Usuario externo (cliente).';
+EXEC adm.Descripcion_Establecer 'api.Usuario_Organizaciones_Guardar', '@Organizaciones', N'MS_Description', N'Nombres exactos separados por | (vea Organizaciones de mesa de ayuda). Vacío = no ve tickets.';
+EXEC adm.Descripcion_Establecer 'api.Sync_Frecuencia_Guardar', '@Entidad', N'smc:opciones', N'issue=Issues|worklog=Tiempo registrado|worklog_eliminado=Tiempo eliminado|changelog=Historial|comentario=Comentarios|sla=SLA|campo=Campos|estado=Estados|proyecto=Proyectos';
+EXEC adm.Descripcion_Establecer 'api.Sync_Frecuencia_Guardar', '@FrecuenciaMin', N'MS_Description', N'Minutos entre sincronizaciones (1 a 10 080). El worker lo toma en su siguiente ciclo.';
+EXEC adm.Descripcion_Establecer 'api.Sync_Frecuencia_Guardar', '@Fuente', N'MS_Description', N'Código de la instancia de Jira (p. ej. smco).';
+EXEC adm.Descripcion_Establecer 'api.Sync_Antiguedad_Guardar', '@Fuente', N'MS_Description', N'Código de la instancia de Jira (p. ej. smco).';
+EXEC adm.Descripcion_Establecer 'api.Sync_Antiguedad_Guardar', '@MaxAntiguedadMin', N'MS_Description', N'Margen en minutos: un dato está atrasado si lleva más que su frecuencia más este margen (5 a 10 080).';
+EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', '@EsExterno', N'MS_Description', N'Sí = rol de clientes: solo consultas personalizadas, con los tickets de su organización.';
 GO

@@ -20,6 +20,8 @@ IF INDEXPROPERTY(OBJECT_ID('ops.IssueCampoValor'), 'IX_ops_IssueCampoValor_Campo
 -- Historial de un campo de un issue (atribución de horas automáticas por responsable).
 IF INDEXPROPERTY(OBJECT_ID('ops.IssueCambio'), 'IX_ops_IssueCambio_Campo', 'IndexId') IS NULL
     CREATE INDEX IX_ops_IssueCambio_Campo ON ops.IssueCambio (IssueSk, CampoId, Fecha) INCLUDE (Desde, Hacia, HistoriaId, Orden);
+IF INDEXPROPERTY(OBJECT_ID('ops.Comentario'), 'IX_ops_Comentario_Issue', 'IndexId') IS NULL
+    CREATE INDEX IX_ops_Comentario_Issue ON ops.Comentario (FuenteId, IssueId) INCLUDE (Creado, AutorId, Publico, Eliminado);
 IF INDEXPROPERTY(OBJECT_ID('ops.IssueResumen'), 'IX_ops_IssueResumen_Epica', 'IndexId') IS NULL
     CREATE INDEX IX_ops_IssueResumen_Epica ON ops.IssueResumen (FuenteId, EpicaIssueId);
 IF INDEXPROPERTY(OBJECT_ID('ops.IssueCambio'), 'IX_ops_IssueCambio_Issue', 'IndexId') IS NULL

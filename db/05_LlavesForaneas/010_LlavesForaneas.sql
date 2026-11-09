@@ -3,6 +3,10 @@
    el catálogo de su estado o proyecto; una FK rechazaría el issue y frenaría la sincronización. */
 DECLARE @fk TABLE (Nombre sysname, Sql nvarchar(max));
 INSERT @fk VALUES
+ ('FK_ops_Comentario_Fuente', 'ALTER TABLE ops.Comentario ADD CONSTRAINT FK_ops_Comentario_Fuente FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
+ ('FK_seg_UsuarioOrganizacion_Usuario', 'ALTER TABLE seg.UsuarioOrganizacion ADD CONSTRAINT FK_seg_UsuarioOrganizacion_Usuario FOREIGN KEY (UsuarioId) REFERENCES seg.Usuario (UsuarioId) ON DELETE CASCADE;'),
+ ('FK_dash_Consulta_Propietario', 'ALTER TABLE dash.Consulta ADD CONSTRAINT FK_dash_Consulta_Propietario FOREIGN KEY (PropietarioId) REFERENCES seg.Usuario (UsuarioId);'),
+ ('FK_dash_ConsultaAcceso_Consulta', 'ALTER TABLE dash.ConsultaAcceso ADD CONSTRAINT FK_dash_ConsultaAcceso_Consulta FOREIGN KEY (ConsultaId) REFERENCES dash.Consulta (ConsultaId) ON DELETE CASCADE;'),
  ('FK_sync_IssuePendiente_Fuente', 'ALTER TABLE sync.IssuePendiente ADD CONSTRAINT FK_sync_IssuePendiente_Fuente FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
  ('FK_cfg_EntidadSync_Fuente', 'ALTER TABLE cfg.EntidadSync ADD CONSTRAINT FK_cfg_EntidadSync_Fuente FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
  ('FK_cfg_MapeoCampo_Fuente',  'ALTER TABLE cfg.MapeoCampo  ADD CONSTRAINT FK_cfg_MapeoCampo_Fuente  FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),

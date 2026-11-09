@@ -293,3 +293,7 @@ tbody tr:hover { background: var(--fondo); }
   margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: var(--radio);
   border: 1px solid var(--aviso); border-left-width: 4px; background: var(--superficie); color: var(--texto);
 }
+
+/* Consultas personalizadas: criterios de solo lectura */
+.consulta-personalizada .chips { list-style: none; padding: 0; margin: 0 0 0.75rem; }
+.consulta-personalizada .chip { cursor: default; }

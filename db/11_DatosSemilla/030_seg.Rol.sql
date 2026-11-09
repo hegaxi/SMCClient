@@ -12,4 +12,10 @@ FROM seg.Rol r
 JOIN (VALUES (N'Administrador', N'admin'), (N'Administrador', N'lectura'), (N'Consulta', N'lectura')) p (Rol, Permiso) ON p.Rol = r.Nombre
 WHERE NOT EXISTS (SELECT 1 FROM seg.RolPermiso x WHERE x.RolId = r.RolId)   -- solo roles recién creados
   AND r.EsSistema = 1;
+
+-- Rol externo para clientes: sin permisos propios; solo ven las consultas personalizadas compartidas con ellos (o con el
+-- rol), limitadas a los tickets de sus organizaciones. El administrador puede renombrarlo o crear otros (api.Rol_Guardar).
+IF NOT EXISTS (SELECT 1 FROM seg.Rol WHERE EsExterno = 1) AND NOT EXISTS (SELECT 1 FROM seg.Rol WHERE Nombre = N'Cliente')
+    INSERT seg.Rol (Nombre, Descripcion, EsSistema, EsExterno)
+    VALUES (N'Cliente', N'Clientes externos: solo las consultas personalizadas compartidas, con los tickets de su organización.', 0, 1);
 GO

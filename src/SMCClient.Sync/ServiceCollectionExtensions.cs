@@ -68,6 +68,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IExtractor, WorklogExtractor>();
         services.AddSingleton<IExtractor, WorklogEliminadoExtractor>();
         services.AddSingleton<IExtractor, SlaExtractor>();
+        services.AddSingleton<IExtractor, ComentarioExtractor>();
         services.AddSingleton<Sincronizador>();
         if (hospedarWorker) services.AddHostedService<SyncWorker>();
         return services;

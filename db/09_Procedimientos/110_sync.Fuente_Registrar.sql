@@ -24,7 +24,8 @@ BEGIN
         ('changelog',         50, 'dependiente', 15, N'/rest/api/3/changelog/bulkfetch',                    100, N'sync.Procesar_Changelog',           NULL,                     NULL),
         ('worklog',           60, 'incremental', 15, N'/rest/api/3/worklog/updated',                        1000, N'sync.Procesar_Worklogs',           NULL,                     N'{"lista":"/rest/api/3/worklog/list"}'),
         ('worklog_eliminado', 70, 'incremental', 15, N'/rest/api/3/worklog/deleted',                        1000, N'sync.Procesar_WorklogsEliminados', NULL,                     NULL),
-        ('sla',               80, 'dependiente', 15, N'/rest/servicedeskapi/request/{issueIdOrKey}/sla',    50,  N'sync.Procesar_Sla',                 NULL,                     N'{"soloTipoProyecto":"service_desk"}')
+        ('sla',               80, 'dependiente', 15, N'/rest/servicedeskapi/request/{issueIdOrKey}/sla',    50,  N'sync.Procesar_Sla',                 NULL,                     N'{"soloTipoProyecto":"service_desk"}'),
+        ('comentario',        90, 'dependiente', 15, N'/rest/api/2/issue/{issueIdOrKey}/comment',           50,  N'sync.Procesar_Comentarios',         NULL,                     NULL)
     ) t (Entidad, Orden, Modo, FrecuenciaMin, Endpoint, TamanoLote, Procedimiento, Cierre, Parametros)
     WHERE NOT EXISTS (SELECT 1 FROM cfg.EntidadSync e WHERE e.FuenteId = @FuenteId AND e.Entidad = t.Entidad);
     COMMIT;

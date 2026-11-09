@@ -1,7 +1,7 @@
 /* Detalle de un issue: 1) datos canónicos, 2) TODOS los campos extra (formato largo, la interfaz los
    convierte en columnas), 3) worklogs (también los de sus descendientes: subtareas de una tarea; tareas y subtareas
    de una épica; en Scrum las personas registran en las subtareas),
-   4) SLA, 5) historial de estados. */
+   4) SLA, 5) historial de estados, 6) comentarios (en mesa de ayuda, si los ve el cliente o son notas internas). */
 CREATE OR ALTER PROCEDURE api.Issue_Detalle
     @Clave varchar(50)
 AS
@@ -49,5 +49,11 @@ BEGIN
     FROM rpt.vSla WHERE IssueSk = @IssueSk ORDER BY Sla, Ciclo;
 
     SELECT Fecha, EstadoDesde, EstadoHacia, MinutosEnEstado FROM rpt.vTransicionEstado WHERE IssueSk = @IssueSk ORDER BY Fecha;
+    SELECT c.Creado AS Fecha, COALESCE(u.Nombre, c.AutorId) AS Autor,
+           CASE c.Publico WHEN 1 THEN N'Público' WHEN 0 THEN N'Interno' END AS Visibilidad, c.Cuerpo AS Comentario
+    FROM ops.Issue i JOIN ops.Comentario c ON c.FuenteId = i.FuenteId AND c.IssueId = i.IssueId AND c.Eliminado = 0
+    LEFT JOIN ops.Usuario u ON u.FuenteId = c.FuenteId AND u.AccountId = c.AutorId
+    WHERE i.IssueSk = @IssueSk
+    ORDER BY c.Creado;
 END;
 GO

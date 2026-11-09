@@ -6,7 +6,8 @@
 CREATE OR ALTER PROCEDURE api.Rol_Guardar
     @Nombre        nvarchar(100),
     @Descripcion   nvarchar(400) = NULL,
-    @Permisos      nvarchar(2000),
+    @Permisos      nvarchar(2000) = N'',
+    @EsExterno     bit = NULL,       -- 1 = rol de clientes: solo consultas personalizadas, limitadas a su organización
     @UsuarioActual nvarchar(200)
 AS
 BEGIN
@@ -15,7 +16,8 @@ BEGIN
     IF @Nombre = N'' THROW 50400, 'El nombre del rol es obligatorio.', 1;
 
     DECLARE @p TABLE (Permiso nvarchar(200) PRIMARY KEY);
-    INSERT @p SELECT DISTINCT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Permisos, ',') WHERE LTRIM(RTRIM(value)) <> N'';
+    INSERT @p SELECT DISTINCT LTRIM(RTRIM(value)) FROM STRING_SPLIT(ISNULL(@Permisos, N''), ',') WHERE LTRIM(RTRIM(value)) <> N'';
+    IF @EsExterno = 1 AND EXISTS (SELECT 1 FROM @p WHERE Permiso = N'admin') THROW 50400, 'Un rol externo (clientes) no puede tener el permiso admin.', 1;
 
     DECLARE @msg nvarchar(1000) = (SELECT STRING_AGG(x.Permiso, N', ') FROM @p x
                                    WHERE x.Permiso NOT IN (N'lectura', N'admin')
@@ -33,9 +35,9 @@ BEGIN
                                     FROM seg.Rol r WHERE r.Nombre = @Nombre FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
     BEGIN TRAN;
     IF EXISTS (SELECT 1 FROM seg.Rol WHERE Nombre = @Nombre)
-        UPDATE seg.Rol SET Descripcion = COALESCE(@Descripcion, Descripcion) WHERE Nombre = @Nombre;
+        UPDATE seg.Rol SET Descripcion = COALESCE(@Descripcion, Descripcion), EsExterno = COALESCE(@EsExterno, EsExterno) WHERE Nombre = @Nombre;
     ELSE
-        INSERT seg.Rol (Nombre, Descripcion) VALUES (@Nombre, @Descripcion);
+        INSERT seg.Rol (Nombre, Descripcion, EsExterno) VALUES (@Nombre, @Descripcion, ISNULL(@EsExterno, 0));
 
     DECLARE @RolId int = (SELECT RolId FROM seg.Rol WHERE Nombre = @Nombre);
     DELETE seg.RolPermiso WHERE RolId = @RolId;

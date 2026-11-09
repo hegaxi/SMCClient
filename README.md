@@ -179,6 +179,15 @@ avance, story points, estimación y horas; *Horas por persona* se puede filtrar 
 y el criterio *Épica*.
 Detalle: [`docs/arquitectura.md` §5.6.1 y §5.6.2](docs/arquitectura.md).
 
+### 8. Consultas personalizadas, clientes y comentarios
+
+- **Consultas personalizadas**: un administrador arma una búsqueda avanzada y la publica con nombre (*Publicar como consulta
+  personalizada*), compartida con usuarios o roles. Aparece en el menú de quien tiene acceso.
+- **Clientes**: se les da el rol *Cliente* (externo) y su organización de mesa de ayuda (*Organizaciones de un cliente*). Solo
+  ven las consultas que se les compartieron, con los tickets de su organización; nada de los reportes internos.
+- **Comentarios**: se sincronizan (públicos e internos) y se ven en el detalle y en la búsqueda.
+- **Frecuencia de sincronización**: el administrador la cambia por tipo de dato en *Cambiar frecuencia de sincronización*.
+
 ### 7. Búsqueda avanzada (como el navegador de issues de Jira)
 
 *Consultas → Búsqueda avanzada*: texto libre, criterios sobre **cualquier** campo — también los personalizados de Jira,

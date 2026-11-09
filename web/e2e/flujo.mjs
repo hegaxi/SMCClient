@@ -190,6 +190,22 @@ try {
     await pagina.getByText('Filtro «En curso por estación» guardado').waitFor();
   });
 
+  await paso('Publicar la busqueda como consulta personalizada', async () => {
+    await pagina.getByRole('button', { name: 'Publicar como consulta personalizada' }).click();
+    await pagina.getByLabel(/^Nombre/).fill('Mesa: en curso por estación');
+    await pagina.getByLabel('Descripción', { exact: true }).fill('Tickets en curso de la estación sur');
+    await pagina.getByLabel('Compartir con').fill('rol:Consulta');
+    await pagina.getByRole('button', { name: 'Publicar', exact: true }).click();
+    await titulo('Mesa: en curso por estación').waitFor();
+    await pagina.getByText('Compartida con: rol:Consulta').waitFor();
+    await pagina.getByRole('button', { name: 'MDA-1' }).waitFor();
+  });
+
+  await paso('Configuracion de la sincronizacion', async () => {
+    await pagina.getByRole('link', { name: 'Configuración de la sincronización' }).click();
+    await pagina.getByRole('cell', { name: 'comentario' }).first().waitFor();
+  });
+
   // ----- Filtros y tableros -----
   await paso('Guardar un filtro con fecha relativa', async () => {
     await pagina.getByRole('link', { name: 'Horas por persona' }).click();
@@ -291,8 +307,17 @@ try {
   await paso('El usuario consulta y no ve la administracion', async () => {
     await pagina.getByText('María López').waitFor();
     if (await pagina.getByRole('heading', { name: 'Administración' }).count()) throw new Error('Un usuario de Consulta ve Administración.');
+    if (await pagina.getByRole('link', { name: 'Mover widget' }).count()) throw new Error('El menú muestra procedimientos internos de tableros.');
+    await pagina.getByRole('link', { name: 'Estado de la sincronización' }).waitFor();
     await pagina.getByRole('link', { name: 'Buscar historias y tickets' }).click();
     await pagina.getByRole('button', { name: 'MDA-1' }).waitFor();
+  });
+
+  await paso('El usuario abre la consulta personalizada compartida con su rol', async () => {
+    await pagina.getByRole('link', { name: 'Mesa: en curso por estación' }).click();
+    await titulo('Mesa: en curso por estación').waitFor();
+    await pagina.getByRole('button', { name: 'MDA-1' }).waitFor();
+    if (await pagina.getByRole('button', { name: 'Editar en búsqueda avanzada' }).count()) throw new Error('Un usuario de Consulta puede editar la consulta.');
   });
 
   await paso('El usuario ve el tablero compartido y lo usa de inicio', async () => {

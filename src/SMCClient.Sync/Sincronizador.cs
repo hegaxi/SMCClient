@@ -65,8 +65,10 @@ public sealed class Sincronizador
             {
                 if (e.Modo == "dependiente")
                 {
-                    // Historial y SLA: los issues pendientes viven en la base (sync.IssuePendiente), no en memoria.
-                    // Si una corrida anterior falló o el worker se cayó, aquí se retoman.
+                    // Historial, SLA y comentarios: los issues pendientes viven en la base (sync.IssuePendiente), no en
+                    // memoria. Si una corrida anterior falló o el worker se cayó, aquí se retoman. Respetan la frecuencia
+                    // que configura el administrador (api.Sync_Frecuencia_Guardar).
+                    if (!forzar && !Vencida(e)) continue;
                     await EjecutarPendientesAsync(cfg, e, jira, ct);
                     continue;
                 }

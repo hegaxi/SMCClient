@@ -117,4 +117,24 @@ public class ExtractoresTests
         Assert.Equal("""{"values":[{"id":"86","name":"Time to resolution"}]}""", docs.Single().Json);
         Assert.Equal(0, jira.Contar("/request/2/"));
     }
+
+    [Fact]
+    public async Task Comentarios_junta_todas_las_paginas_por_issue_y_omite_los_borrados()
+    {
+        var jira = new FakeJira()
+            .Get("/rest/api/2/issue/1/comment", url => url.Contains("startAt=0")
+                ? """{"startAt":0,"maxResults":1,"total":2,"comments":[{"id":"c1","body":"uno","jsdPublic":true}]}"""
+                : """{"startAt":1,"maxResults":1,"total":2,"comments":[{"id":"c2","body":"dos","jsdPublic":false}]}""")
+            .Estado(HttpMethod.Get, "/rest/api/2/issue/2/comment", System.Net.HttpStatusCode.NotFound);
+        var issues = new IssuesCambiados();
+        issues.Agregar(new IssueCambiado("1", "MDA-1", "service_desk"));
+        issues.Agregar(new IssueCambiado("2", "MDA-2", "service_desk"));
+
+        var docs = await Todo(new ComentarioExtractor(), Contexto(jira, "comentario", "/rest/api/2/issue/{issueIdOrKey}/comment", issues: issues));
+
+        var doc = Assert.Single(docs);
+        Assert.Equal("1", doc.IdExterno);
+        Assert.Equal("""{"issueId":"1","comments":[{"id":"c1","body":"uno","jsdPublic":true},{"id":"c2","body":"dos","jsdPublic":false}]}""", doc.Json);
+        Assert.Equal(2, jira.Contar("/rest/api/2/issue/1/comment"));
+    }
 }

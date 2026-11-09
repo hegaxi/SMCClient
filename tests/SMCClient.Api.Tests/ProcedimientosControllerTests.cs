@@ -116,7 +116,7 @@ public class ProcedimientosControllerTests(ApiFixture bd) : IClassFixture<ApiFix
         Assert.Equal(HttpStatusCode.BadRequest, origen.StatusCode);
 
         var detalle = await Json(await Post(bd.Cliente(), "Issue_Detalle", """{"Clave":"MDA-1"}"""));
-        Assert.Equal(5, detalle.GetProperty("resultados").GetArrayLength());   // issue, campos, worklogs, SLA, historial
+        Assert.Equal(6, detalle.GetProperty("resultados").GetArrayLength());   // issue, campos, worklogs, SLA, historial, comentarios
     }
 
     [TheorySiSql]

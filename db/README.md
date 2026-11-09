@@ -65,6 +65,9 @@ dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administr
 
 ## Pruebas
 
+`tests/070_prueba_consultas_clientes.sql` verifica 29 reglas de comentarios, consultas personalizadas, clientes externos
+limitados a su organización y configuración de la sincronización.
+
 `tests/060_prueba_pendientes_sync.sql` verifica 14 reglas de robustez de la sincronización (la compuerta solo bloquea antes de
 la primera carga, historial y SLA pendientes persistidos y reintentados, carga inicial sin límite de fecha, padres faltantes).
 
@@ -94,6 +97,7 @@ sqlcmd -S localhost -d SMCClient -b -I -x -i tests/030_prueba_tableros.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/040_prueba_buscador.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/050_prueba_tiempos_scrum.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/060_prueba_pendientes_sync.sql
+sqlcmd -S localhost -d SMCClient -b -I -x -i tests/070_prueba_consultas_clientes.sql
 ```
 
 ## Contrato con el worker (qué documento JSON va en cada entidad)

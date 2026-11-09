@@ -5,6 +5,7 @@ import { useSincronizacion } from './sincronizacion';
 import type { Fila, ProcedimientoInfo, Sesion, ValoresFormulario } from './tipos';
 import { BuscadorIssues } from './componentes/BuscadorIssues';
 import { CambiarContrasena } from './componentes/CambiarContrasena';
+import { ConsultaPersonalizadaVista } from './componentes/ConsultaPersonalizadaVista';
 import { EditorTablero } from './componentes/EditorTablero';
 import { MisFiltros } from './componentes/MisFiltros';
 import { TableroVista } from './componentes/TableroVista';
@@ -20,6 +21,7 @@ const VISTA_TABLERO = '_tablero';
 const VISTA_TABLERO_NUEVO = '_tablero_nuevo';
 const VISTA_TABLERO_EDITAR = '_tablero_editar';
 const VISTA_FILTROS = '_filtros';
+const VISTA_CONSULTA = '_consulta';
 
 interface Seleccion {
   nombre: string | null;
@@ -57,6 +59,7 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   const [vista, setVista] = useState(0); // fuerza a recrear la vista al navegar
 
   const [tableros, setTableros] = useState<Fila[]>([]);
+  const [personalizadas, setPersonalizadas] = useState<Fila[]>([]);
 
   useEffect(() => {
     api.listar().then(setProcs).catch((e) => setErrorCarga(e instanceof ErrorApi ? e.message : 'No se pudo cargar la aplicación.'));
@@ -67,6 +70,13 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
     if (tienenTableros) api.ejecutar('Tableros_Listar').then((r) => setTableros(r.resultados[0]?.filas ?? [])).catch(() => setTableros([]));
   }, [tienenTableros]);
   useEffect(() => { cargarTableros(); }, [cargarTableros]);
+
+  // Consultas personalizadas que puede ver (publicadas por un administrador; los clientes solo tienen éstas).
+  const tienenPersonalizadas = procs?.some((p) => p.nombre === 'ConsultasPersonalizadas_Listar') ?? false;
+  const cargarPersonalizadas = useCallback(() => {
+    if (tienenPersonalizadas) api.ejecutar('ConsultasPersonalizadas_Listar').then((r) => setPersonalizadas(r.resultados[0]?.filas ?? [])).catch(() => setPersonalizadas([]));
+  }, [tienenPersonalizadas]);
+  useEffect(() => { cargarPersonalizadas(); }, [cargarPersonalizadas]);
 
   useEffect(() => {
     const alVolver = () => {
@@ -87,11 +97,17 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   }, []);
 
   const grupos = useMemo(() => {
-    const lista = [...(procs ?? [])].filter((p) => p.permiso !== 'usuario' && !p.oculto).sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
+    const todos = procs ?? [];
+    // Usuario interno: tiene alguna consulta de lectura (los clientes externos solo tienen las de "usuario").
+    const interno = todos.some((p) => p.permiso === 'lectura');
+    const lista = [...todos]
+      // De los de permiso "usuario" solo el estado de la sincronización va al menú (tableros y filtros tienen sus pantallas).
+      .filter((p) => !p.oculto && (p.permiso !== 'usuario' || (interno && p.nombre.startsWith('Sync_'))))
+      .sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
     return [
       { titulo: 'Consultas', procs: lista.filter((p) => p.permiso === 'lectura' && !p.exentoSync) },
-      { titulo: 'Sincronización', procs: lista.filter((p) => p.permiso === 'lectura' && p.exentoSync) },
-      { titulo: 'Administración', procs: lista.filter((p) => p.permiso !== 'lectura') },
+      { titulo: 'Sincronización', procs: lista.filter((p) => (p.permiso === 'lectura' || p.permiso === 'usuario') && p.exentoSync) },
+      { titulo: 'Administración', procs: lista.filter((p) => p.permiso !== 'lectura' && p.permiso !== 'usuario') },
     ].filter((g) => g.procs.length > 0);
   }, [procs]);
 
@@ -151,6 +167,12 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
       <EditorTablero key={`${seleccion.nombre}-${vista}`} tablero={tableros.find((t) => String(t.TableroId) === seleccion.valores.t)}
                      onGuardado={(id) => { cargarTableros(); abrirTablero(id); }} onCancelar={() => window.history.back()} />
     );
+  else if (seleccion.nombre === VISTA_CONSULTA && seleccion.valores.c)
+    contenido = (
+      <ConsultaPersonalizadaVista key={`${seleccion.valores.c}-${vista}`} consultaId={Number(seleccion.valores.c)} onNavegar={(n, v) => navegar(n, v)}
+                                  puedeVerDetalle={procs.some((p) => p.nombre === 'Issue_Detalle')} onSyncPendiente={sync.marcarPendiente}
+                                  onEliminada={() => { cargarPersonalizadas(); navegar(null); }} />
+    );
   else if (seleccion.nombre === VISTA_FILTROS) contenido = <MisFiltros onAbrir={(n, v) => navegar(n, v)} />;
   else if (seleccion.nombre === VISTA_CONTRASENA) contenido = <CambiarContrasena obligatorio={false} onListo={() => navegar(null)} onCancelar={() => navegar(null)} />;
   else if (seleccion.nombre === VISTA_RESTABLECER && sesion.esAdministrador) contenido = <RestablecerContrasena />;
@@ -159,7 +181,9 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
       <BuscadorIssues key={`${proc.nombre}-${vista}`} proc={proc} valoresUrl={seleccion.valores} onNavegar={navegar}
                       puedeVerDetalle={procs.some((p) => p.nombre === 'Issue_Detalle')}
                       puedeGuardarFiltro={procs.some((p) => p.nombre === 'Filtro_Guardar')}
-                      onSyncPendiente={sync.marcarPendiente} />
+                      onSyncPendiente={sync.marcarPendiente}
+                      puedePublicar={procs.some((p) => p.nombre === 'ConsultaPersonalizada_Guardar')}
+                      onPublicada={(id) => { cargarPersonalizadas(); navegar(VISTA_CONSULTA, { c: String(id) }); }} />
     );
   else if (proc)
     contenido = (
@@ -175,7 +199,8 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
       />
     );
   else if (tableroInicio) contenido = tableroVista(Number(tableroInicio.TableroId));
-  else contenido = <Inicio consultas={grupos.find((g) => g.titulo === 'Consultas')?.procs ?? []} onAbrir={(n) => navegar(n)} />;
+  else contenido = <Inicio consultas={grupos.find((g) => g.titulo === 'Consultas')?.procs ?? []} onAbrir={(n) => navegar(n)}
+                           personalizadas={personalizadas} onAbrirPersonalizada={(id) => navegar(VISTA_CONSULTA, { c: String(id) })} />;
 
   const enlace = (nombre: string, titulo: string, descripcion?: string | null, valores: ValoresFormulario = {}) => {
     const actual = seleccion.nombre === nombre && Object.entries(valores).every(([k, v]) => seleccion.valores[k] === v);
@@ -211,6 +236,12 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
             </ul>
           </section>
         )}
+        {personalizadas.length > 0 && (
+          <section>
+            <h2>Consultas personalizadas</h2>
+            <ul>{personalizadas.map((c) => enlace(VISTA_CONSULTA, String(c.Nombre), c.Descripcion ? String(c.Descripcion) : null, { c: String(c.ConsultaId) }))}</ul>
+          </section>
+        )}
         {grupos.map((g) => (
           <section key={g.titulo}>
             <h2>{g.titulo}</h2>
@@ -220,7 +251,9 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
             </ul>
           </section>
         ))}
-        <button type="button" className="boton secundario-btn sync-menu" onClick={() => void sync.solicitar()}>Sincronizar ahora</button>
+        {procs.some((p) => p.nombre === 'Sync_Solicitar') && (
+          <button type="button" className="boton secundario-btn sync-menu" onClick={() => void sync.solicitar()}>Sincronizar ahora</button>
+        )}
       </nav>
       <main className="contenido">
         {atrasadas.length > 0 && (

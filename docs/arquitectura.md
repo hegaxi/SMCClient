@@ -116,7 +116,13 @@ Las entidades `changelog` y `sla` son **dependientes**: se piden solo para los i
   salvo para los procedimientos marcados con la propiedad extendida `smc:exentoSync = 1` (estado, avisos, catálogo).
 - **`DatosVigentes` = la fuente ya completó su primera carga** (todas sus entidades no dependientes terminaron bien al menos una vez).
   Después, si Jira o el worker fallan, la aplicación **no se bloquea**: sigue respondiendo con lo que ya tiene y `DatosAtrasados = 1`
-  (última sincronización correcta más vieja que `cfg.Fuente.MaxAntiguedadMin`) hace que la interfaz muestre un aviso con el atraso.
+  hace que la interfaz muestre un aviso con el atraso. Un tipo de dato está atrasado cuando lleva sin sincronizarse más que **su
+  frecuencia más el margen** `cfg.Fuente.MaxAntiguedadMin` (30 min por omisión): un catálogo que se pide cada hora no se marca
+  atrasado a los 31 minutos.
+- **Configuración por el administrador**: *Configuración de la sincronización* muestra cada tipo de dato con su frecuencia;
+  *Cambiar frecuencia de sincronización* (`api.Sync_Frecuencia_Guardar`, 1 a 10 080 min) y *Cambiar margen de datos atrasados*
+  (`api.Sync_Antiguedad_Guardar`). Queda en la auditoría y el worker lo toma en su siguiente ciclo (también historial, SLA y
+  comentarios respetan su frecuencia).
   Antes cualquier atraso de 30 min dejaba sin servicio a todos (hallazgo del diagnóstico de arquitectura).
 - React consulta `api.Sync_Estado` cada pocos segundos y muestra la pantalla de sincronización hasta que los datos estén vigentes.
 
@@ -216,6 +222,14 @@ trae lo propio, así que no refleja el trabajo de sus subtareas. Por eso:
 
 El tiempo registrado fuera de las fechas de cualquier sprint (antes de empezar o después de cerrar) no se asigna a
 ningún sprint; sigue apareciendo en *Horas por persona* y en las horas del issue.
+
+### 5.6.1.1 Comentarios
+
+Entidad `comentario` (dependiente, con la cola `sync.IssuePendiente`): `GET /rest/api/2/issue/{id}/comment` (v2: el cuerpo llega
+como texto, no como documento ADF), todas las páginas en un documento por issue. `ops.Comentario` guarda autor, texto, fechas y,
+en mesa de ayuda, si es **público para el cliente o nota interna** (`jsdPublic`); los que ya no vienen se borraron en Jira. Se ven
+en el detalle del issue y en la búsqueda (número de comentarios, último comentario, texto, quién comentó). La semilla `096`
+agrega la entidad a las fuentes existentes y encola los comentarios de los issues que ya estaban.
 
 ### 5.6.2 Estimaciones (estimado vs. real)
 
@@ -321,6 +335,23 @@ navegador con las filas recibidas, sino en SQL Server con `api.Issues_Resumir` s
 quedan cortos aunque el filtro traiga miles. Se agrupa por cualquier campo (no solo por las columnas del filtro) y las
 barras pueden contar issues. El indicador "conteo" usa `TotalFilas`. Solo las tablas muestran filas (las primeras N).
 La prueba `db/tests/040` crea 1 200 issues y verifica que el resumen da 600 h donde una página de 500 daría 250 h.
+
+### 5.10 Consultas personalizadas y clientes externos
+
+- **Consulta personalizada** (`dash.Consulta`): una búsqueda avanzada con nombre que **un administrador publica** desde la
+  búsqueda (*Publicar como consulta personalizada*) y comparte con usuarios o roles (`dash.ConsultaAcceso`, "ana, rol:Cliente").
+  Quien tiene acceso la ve en el menú (*Consultas personalizadas*) y en la pantalla de inicio; solo elige orden y página: los
+  criterios y columnas los define el administrador. Se validan con las mismas reglas de la búsqueda (lista blanca).
+- **Clientes**: un rol **externo** (`seg.Rol.EsExterno`; se crea el rol *Cliente*). Un usuario externo:
+  - solo ejecuta procedimientos de permiso `usuario` (sus consultas personalizadas, sus tableros, su contraseña), **aunque
+    alguno de sus roles tenga más permisos** (`seg.fn_ProcedimientosPermitidos`): un error de configuración no le abre los
+    reportes internos;
+  - solo ve los tickets de **sus organizaciones de mesa de ayuda** (`seg.UsuarioOrganizacion`, *Organizaciones de un cliente*):
+    `api.ConsultaPersonalizada_Ejecutar` agrega ese criterio en SQL Server. Sin organización asignada no ve tickets;
+  - no ve el detalle del issue (comentarios internos, campos) ni el detalle interno de la sincronización.
+- El campo *Organización (cliente)* sale del campo Organizations de JSM, resuelto por rol (`cfg.RolCampo` `organizacion`).
+  *Organizaciones de mesa de ayuda* lista los nombres exactos y *Clientes (usuarios externos)* muestra cada cliente con sus
+  organizaciones y consultas.
 
 ---
 

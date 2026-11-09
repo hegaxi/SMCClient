@@ -7,6 +7,7 @@ import {
 import { aCsv, esNumero, formatear } from '../formato';
 import type { ConjuntoResultados, ProcedimientoInfo, ValoresFormulario } from '../tipos';
 import { FECHAS_RELATIVAS, GuardarFiltro } from './GuardarFiltro';
+import { PublicarConsulta } from './PublicarConsulta';
 
 interface Props {
   proc: ProcedimientoInfo;
@@ -15,9 +16,12 @@ interface Props {
   puedeVerDetalle: boolean;
   puedeGuardarFiltro: boolean;
   onSyncPendiente: () => void;
+  /** Administradores: publicar la búsqueda como consulta personalizada. */
+  puedePublicar?: boolean;
+  onPublicada?: (consultaId: number) => void;
 }
 
-type Panel = 'campos' | 'columnas' | 'guardar' | null;
+type Panel = 'campos' | 'columnas' | 'guardar' | 'publicar' | null;
 interface Edicion { indice: number | null; borrador: Criterio }
 
 const mensaje = (e: unknown, otro: string) => (e instanceof ErrorApi ? e.message : otro);
@@ -27,7 +31,9 @@ const mensaje = (e: unknown, otro: string) => (e instanceof ErrorApi ? e.message
  * personalizados), columnas a elegir y ordenar, orden y paginación en el servidor. Todo vive en la dirección, así que
  * se puede compartir el enlace o guardarlo como filtro para un tablero.
  */
-export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, puedeGuardarFiltro, onSyncPendiente }: Props) {
+export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, puedeGuardarFiltro, onSyncPendiente, puedePublicar = false, onPublicada }: Props) {
+  // Al editar una consulta personalizada, su número viaja en la dirección junto con la búsqueda.
+  const consultaId = Number(valoresUrl.ConsultaId) || undefined;
   const [campos, setCampos] = useState<CampoBuscador[] | null>(null);
   const [estado, setEstado] = useState<EstadoBusqueda>(() => deParametros(valoresUrl));
   const [resultado, setResultado] = useState<ConjuntoResultados | null>(null);
@@ -56,7 +62,7 @@ export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, p
   useEffect(() => {
     if (!campos) return;
     const p = aParametros(estado, campos);
-    onNavegar(proc.nombre, p, true);
+    onNavegar(proc.nombre, consultaId ? { ...p, ConsultaId: String(consultaId) } : p, true);
     const n = ++consulta.current;
     setCargando(true);
     setError(null);
@@ -69,7 +75,7 @@ export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, p
         setResultado(null);
       })
       .finally(() => n === consulta.current && setCargando(false));
-  }, [campos, estado, proc.nombre, onNavegar, onSyncPendiente]);
+  }, [campos, estado, proc.nombre, onNavegar, onSyncPendiente, consultaId]);
 
   const cambiar = (c: Partial<EstadoBusqueda>) => setEstado((e) => ({ ...e, pagina: 1, ...c }));
 
@@ -199,6 +205,11 @@ export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, p
             Columnas
           </button>
           {total > 0 && <button type="button" className="boton secundario-btn" onClick={() => void descargar()} title="Hasta 500 issues">Descargar CSV</button>}
+          {puedePublicar && (
+            <button type="button" className="boton secundario-btn" onClick={() => { setEdicion(null); setPanel(panel === 'publicar' ? null : 'publicar'); }}>
+              {consultaId ? 'Actualizar consulta personalizada' : 'Publicar como consulta personalizada'}
+            </button>
+          )}
           {puedeGuardarFiltro && (
             <button type="button" className="boton secundario-btn" onClick={() => { setEdicion(null); setPanel(panel === 'guardar' ? null : 'guardar'); }}>
               Guardar como filtro
@@ -210,6 +221,11 @@ export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, p
       {panel === 'columnas' && (
         <EditorColumnas campos={campos} columnas={columnasEfectivas(estado, campos)} personalizadas={estado.columnas.length > 0}
                         onCambio={(cols) => setEstado((e) => ({ ...e, columnas: cols }))} onCerrar={() => setPanel(null)} />
+      )}
+      {panel === 'publicar' && (
+        <PublicarConsulta parametros={aParametros({ ...estado, pagina: 1 }, campos)} consultaId={consultaId}
+                          onPublicada={(id, n) => { setPanel(null); setAviso(`Consulta «${n}» publicada.`); onPublicada?.(id); }}
+                          onCancelar={() => setPanel(null)} />
       )}
       {panel === 'guardar' && (
         <GuardarFiltro proc={proc}

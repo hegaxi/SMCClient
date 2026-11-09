@@ -36,6 +36,7 @@ public class SincronizadorIntegracionTests(BaseDatosPrueba bd) : IClassFixture<B
         Assert.Equal(2, await Escalar<int>("SELECT COUNT(*) FROM ops.IssueSla s JOIN ops.Issue i ON i.IssueSk = s.IssueSk JOIN cfg.Fuente f ON f.FuenteId = i.FuenteId WHERE f.Codigo = @f", fuente));
         Assert.Equal(1, await Escalar<int>("SELECT COUNT(*) FROM ops.IssueCambio c JOIN cfg.Fuente f ON f.FuenteId = c.FuenteId WHERE f.Codigo = @f", fuente));
         Assert.Equal(5m, await Escalar<decimal>("SELECT StoryPoints FROM ops.Issue i JOIN cfg.Fuente f ON f.FuenteId = i.FuenteId WHERE f.Codigo = @f AND i.Clave = 'SCR-7'", fuente));
+        Assert.Equal(1, await Escalar<int>("SELECT COUNT(*) FROM ops.Comentario c JOIN cfg.Fuente f ON f.FuenteId = c.FuenteId WHERE f.Codigo = @f AND c.IssueId = '5001' AND c.Publico = 1", fuente));
         Assert.True(await DatosVigentes(fuente));
         Assert.Contains(jira.Peticiones, p => p.Url.StartsWith("/rest/api/3/search/jql") && p.Url.Contains("project not in (\"TST\")"));
         Assert.Equal(0, jira.Contar("/rest/servicedeskapi/request/5002/"));   // SCR-7 es Scrum: no se piden SLA
@@ -113,7 +114,7 @@ public class SincronizadorIntegracionTests(BaseDatosPrueba bd) : IClassFixture<B
         var fallas = 1;
         var jira = JiraSimulado(j => j.Responder((r, url) => r.Method == HttpMethod.Post && url.StartsWith("/rest/api/3/changelog/bulkfetch") && fallas-- > 0,
             (_, _) => new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError) { Content = new System.Net.Http.StringContent("{}") }));
-        var sincronizador = Crear(fuente, jira);
+        var sincronizador = Crear(fuente, jira, minutosReintento: 0);   // reintenta en el siguiente ciclo
 
         // 1. Jira falla al pedir el historial: los issues siguen pendientes en la base (antes se perdían).
         await sincronizador.SincronizarFuenteAsync(fuente, forzar: false, CancellationToken.None);
@@ -174,17 +175,18 @@ public class SincronizadorIntegracionTests(BaseDatosPrueba bd) : IClassFixture<B
         Assert.Equal(0, await Escalar<int>("SELECT COUNT(*) FROM sync.IssuePendiente p JOIN cfg.Fuente f ON f.FuenteId = p.FuenteId WHERE f.Codigo = @f AND p.Entidad = 'padre'", fuente));
     }
 
-    private Sincronizador Crear(string fuente, FakeJira jira)
+    private Sincronizador Crear(string fuente, FakeJira jira, int minutosReintento = 5)
     {
         var opciones = Options.Create(new SmcSyncOptions
         {
             Propietario = "prueba-integracion",
+            MinutosReintentoTrasError = minutosReintento,
             Fuentes = { new FuenteJiraOptions { Codigo = fuente, UrlBase = "https://jira.prueba", Token = "x" } },
         });
         IExtractor[] extractores =
         {
             new CampoExtractor(), new EstadoExtractor(), new ProyectoExtractor(), new IssueExtractor(), new ChangelogExtractor(),
-            new WorklogExtractor(), new WorklogEliminadoExtractor(), new SlaExtractor(),
+            new WorklogExtractor(), new WorklogEliminadoExtractor(), new SlaExtractor(), new ComentarioExtractor(),
         };
         return new Sincronizador(new SyncRepositorio(Cadena, 120), new FabricaFija(jira), extractores, opciones, TimeProvider.System,
                                  NullLogger<Sincronizador>.Instance);
@@ -245,7 +247,16 @@ public class SincronizadorIntegracionTests(BaseDatosPrueba bd) : IClassFixture<B
               {"id":"87","name":"Time to first response","completedCycles":[{"startTime":{"epochMillis":1793600000000},"stopTime":{"epochMillis":1793601000000},"breached":false,
               "goalDuration":{"millis":14400000},"elapsedTime":{"millis":1000000},"remainingTime":{"millis":13400000}}]}],"isLastPage":true}
             """)
-        .Get("/rest/servicedeskapi/request/5005/sla", """{"values":[],"isLastPage":true}""");
+        .Get("/rest/servicedeskapi/request/5005/sla", """{"values":[],"isLastPage":true}""")
+        // Comentarios (v2: cuerpo en texto). MDA-1 tiene uno público; los demás ninguno.
+        .Responder((r, url) => r.Method == HttpMethod.Get && url.StartsWith("/rest/api/2/issue/") && url.Contains("/comment"),
+            (_, url) => new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new System.Net.Http.StringContent(url.Contains("/issue/5001/") ? """
+                    {"startAt":0,"maxResults":100,"total":1,"comments":[{"id":"9001","author":{"accountId":"a1","displayName":"Agente","accountType":"atlassian"},
+                      "body":"Ya quedó, favor de confirmar.","jsdPublic":true,"created":"2026-11-02T09:40:00.000-0600","updated":"2026-11-02T09:40:00.000-0600"}]}
+                    """ : """{"startAt":0,"maxResults":100,"total":0,"comments":[]}""", System.Text.Encoding.UTF8, "application/json"),
+            });
 
     private async Task<bool> DatosVigentes(string fuente)
     {
