@@ -47,14 +47,19 @@ BEGIN
            OR ISNULL(w.AtribuidoAId, '') <> ISNULL(x.AtribuidoAId, ''));
 
     /* Copias. Automation for Jira (en smco) replica cada worklog que una persona registra en una subtarea hacia su
-       tarea, su épica y el ticket de la OC en la mesa de servicio: mismo tiempo, creadas al mismo minuto. Un worklog
-       automático es COPIA si:
-         - hay un worklog de una persona en OTRO issue con el mismo tiempo, creado hasta 2 h antes o después (es su
-           original; si hay varios, el más cercano), o
-         - hay otro worklog automático en otro issue con el mismo tiempo creado hasta 2 min antes o después (copias
-           hermanas de un original que después se editó o se borró).
-       Las copias no se suman en los reportes (el trabajo ya está en el original). Los registrados por personas nunca
-       son copia. En smco, 712 de 714 worklogs automáticos resultaron copias. */
+       tarea, su épica y el ticket de la OC en la mesa de servicio. La copia se crea 1 a 10 s después del original, con
+       la misma hora de inicio (sin milisegundos) y el mismo tiempo; si la persona edita después su worklog, la copia
+       NO se actualiza (conserva el tiempo y el inicio de entonces). Un worklog automático es COPIA si:
+         - hay un worklog de una persona en OTRO issue creado entre 10 min antes y 2 min después que la copia, con la
+           misma hora de inicio (al segundo) o el mismo tiempo. Es su original. Si hay varios se prefiere, en orden: el
+           de un issue que cuelga de la copia (subtarea, tarea), el del mismo inicio, el del mismo tiempo, el de la
+           persona a la que se atribuye la copia y el creado más cerca. El original puede estar borrado: si la persona
+           borró su worklog, la copia tampoco cuenta. O bien
+         - hay otro worklog automático en otro issue con el mismo inicio y tiempo, creado hasta 2 min antes o después
+           (copias hermanas de un original que ya no está en la base).
+       Las copias no se suman en los reportes (el trabajo ya está en el original, con su tiempo actual). Los
+       registrados por personas nunca son copia. Un automático sin original ni hermanas se cuenta como automático
+       (Origen = 'automatico') y se ve aparte en los reportes. En smco: 712 de 715 automáticos son copias. */
     SELECT w.WorklogId,
            CAST(CASE WHEN w.EsAutomatico = 1 AND (o.WorklogId IS NOT NULL OR h.Hay IS NOT NULL) THEN 1 ELSE 0 END AS bit) AS EsCopia,
            CASE WHEN w.EsAutomatico = 1 THEN o.WorklogId END AS CopiaDe
@@ -62,16 +67,26 @@ BEGIN
     FROM ops.Worklog w
     OUTER APPLY (
         SELECT TOP (1) m.WorklogId FROM ops.Worklog m
-        WHERE w.EsAutomatico = 1 AND m.FuenteId = w.FuenteId AND m.Segundos = w.Segundos
-          AND m.Creado BETWEEN DATEADD(hour, -2, w.Creado) AND DATEADD(hour, 2, w.Creado)
-          AND m.IssueId <> w.IssueId AND m.Eliminado = 0 AND m.EsAutomatico = 0
-        ORDER BY ABS(DATEDIFF(second, m.Creado, w.Creado)), m.WorklogId
+        LEFT JOIN ops.Issue mi ON mi.FuenteId = m.FuenteId AND mi.IssueId = m.IssueId
+        LEFT JOIN ops.Issue p1 ON p1.FuenteId = mi.FuenteId AND p1.IssueId = mi.PadreId
+        LEFT JOIN ops.Issue p2 ON p2.FuenteId = p1.FuenteId AND p2.IssueId = p1.PadreId
+        CROSS APPLY (SELECT CASE WHEN DATEDIFF(second, m.Inicio, w.Inicio) = 0 THEN 1 ELSE 0 END AS MismoInicio) x
+        WHERE w.EsAutomatico = 1 AND m.FuenteId = w.FuenteId
+          AND m.Creado BETWEEN DATEADD(minute, -10, w.Creado) AND DATEADD(minute, 2, w.Creado)
+          AND m.IssueId <> w.IssueId AND m.EsAutomatico = 0
+          AND (x.MismoInicio = 1 OR m.Segundos = w.Segundos)
+        ORDER BY CASE WHEN w.IssueId IN (mi.PadreId, p1.PadreId, p2.PadreId) THEN 0 ELSE 1 END,
+                 1 - x.MismoInicio,
+                 CASE WHEN m.Segundos = w.Segundos THEN 0 ELSE 1 END,
+                 CASE WHEN m.AutorId = w.AtribuidoAId THEN 0 ELSE 1 END,
+                 ABS(DATEDIFF(second, m.Creado, w.Creado)), m.WorklogId
     ) o
     OUTER APPLY (
         SELECT TOP (1) 1 AS Hay FROM ops.Worklog m
         WHERE w.EsAutomatico = 1 AND o.WorklogId IS NULL AND m.FuenteId = w.FuenteId AND m.Segundos = w.Segundos
+          AND DATEDIFF(second, m.Inicio, w.Inicio) = 0
           AND m.Creado BETWEEN DATEADD(minute, -2, w.Creado) AND DATEADD(minute, 2, w.Creado)
-          AND m.IssueId <> w.IssueId AND m.Eliminado = 0 AND m.EsAutomatico = 1
+          AND m.IssueId <> w.IssueId AND m.EsAutomatico = 1
     ) h
     WHERE w.FuenteId = @FuenteId
       AND (@Todo = 1 OR w.IssueId IN (SELECT IdExterno FROM @Issues));

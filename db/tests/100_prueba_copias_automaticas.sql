@@ -5,6 +5,8 @@
      - qué automáticos se marcan como copia (con su original, o como "hermanas" si el original se editó) y cuáles no;
      - el resumen por issue (registradas, automáticas sin copias, copiadas aparte);
      - Horas por persona (árbol y tabla) y Horas por proyecto sin las copias.
+     - casos borde (proyecto CPZ): original editado con una sola copia, coincidencia de tiempo sin relación y
+       original borrado.
    Datos propios en una fuente "copias" (se borran al final). Ejecutar sobre una base desplegada. */
 SET NOCOUNT ON;
 GO
@@ -24,7 +26,8 @@ INSERT @r EXEC sync.Fuente_Registrar @Codigo = 'copias', @UrlBase = N'https://co
 DECLARE @f int = (SELECT FuenteId FROM cfg.Fuente WHERE Codigo = 'copias');
 INSERT ops.Proyecto (FuenteId, ProyectoId, Clave, Nombre, TipoProyecto) VALUES
  (@f, '9101', 'CPY', N'Scrum copias', 'software'),
- (@f, '9102', 'MDC', N'Mesa copias', 'service_desk');
+ (@f, '9102', 'MDC', N'Mesa copias', 'service_desk'),
+ (@f, '9103', 'CPZ', N'Casos borde de copias', 'software');
 INSERT ops.Estado (FuenteId, EstadoId, Nombre, Categoria) VALUES (@f, '3', N'In Progress', 'indeterminate');
 INSERT ops.Usuario (FuenteId, AccountId, Nombre, TipoCuenta, Activo) VALUES
  (@f, 'cp-ana',  N'Ana Copias',  'atlassian', 1),
@@ -35,7 +38,11 @@ INSERT ops.Issue (FuenteId, IssueId, Clave, ProyectoId, TipoIssue, EstadoId, Cat
  (@f, '202', 'CPY-2', '9101', N'Task',     '3', 'indeterminate', 0,  0, '201', 'cp-beto', '2026-02-01T10:00:00-06:00', N'Desarrollo'),
  (@f, '203', 'CPY-3', '9101', N'Sub-task', '3', 'indeterminate', 1, -1, '202', 'cp-ana',  '2026-02-01T10:00:00-06:00', N'Subtarea de Ana'),
  (@f, '204', 'CPY-4', '9101', N'Task',     '3', 'indeterminate', 0,  0, NULL,  'cp-beto', '2026-02-01T10:00:00-06:00', N'Tarea con tiempo automático real'),
- (@f, '301', 'MDC-1', '9102', N'OC',       '3', 'indeterminate', 0,  0, NULL,  'cp-beto', '2026-02-01T10:00:00-06:00', N'OC en la mesa de servicio');
+ (@f, '301', 'MDC-1', '9102', N'OC',       '3', 'indeterminate', 0,  0, NULL,  'cp-beto', '2026-02-01T10:00:00-06:00', N'OC en la mesa de servicio'),
+ (@f, '402', 'CPZ-2', '9103', N'Task',     '3', 'indeterminate', 0,  0, NULL,  'cp-beto', '2026-02-01T10:00:00-06:00', N'Tarea'),
+ (@f, '403', 'CPZ-3', '9103', N'Sub-task', '3', 'indeterminate', 1, -1, '402', 'cp-ana',  '2026-02-01T10:00:00-06:00', N'Subtarea de Ana'),
+ (@f, '404', 'CPZ-4', '9103', N'Task',     '3', 'indeterminate', 0,  0, NULL,  'cp-beto', '2026-02-01T10:00:00-06:00', N'Tarea de Beto'),
+ (@f, '405', 'CPZ-5', '9103', N'Task',     '3', 'indeterminate', 0,  0, NULL,  'cp-ana',  '2026-02-01T10:00:00-06:00', N'Tarea sin relación');
 
 INSERT ops.Worklog (FuenteId, WorklogId, IssueId, AutorId, Inicio, Segundos, Creado) VALUES
  -- Ana registra 8 h en su subtarea; la automatización lo copia a la tarea, la épica y la OC.
@@ -48,7 +55,17 @@ INSERT ops.Worklog (FuenteId, WorklogId, IssueId, AutorId, Inicio, Segundos, Cre
  (@f, 'cp-c4', '202', 'cp-auto', '2026-03-03T09:00:00-06:00', 14400, '2026-03-03T10:00:20-06:00'),
  (@f, 'cp-c5', '201', 'cp-auto', '2026-03-03T09:00:00-06:00', 14400, '2026-03-03T10:00:30-06:00'),
  -- Tiempo automático que NO es copia de nada: sí cuenta.
- (@f, 'cp-a1', '204', 'cp-auto', '2026-03-05T12:00:00-06:00', 7200,  '2026-03-05T12:00:00-06:00');
+ (@f, 'cp-a1', '204', 'cp-auto', '2026-03-05T12:00:00-06:00', 7200,  '2026-03-05T12:00:00-06:00'),
+ -- CPZ: Ana registró 8 h y después las corrigió a 4; solo hubo UNA copia (8 h). Se reconoce por el inicio y la creación.
+ (@f, 'cp-m3', '403', 'cp-ana',  '2026-04-01T09:00:00.412-06:00', 14400, '2026-04-01T10:00:00-06:00'),
+ (@f, 'cp-c6', '402', 'cp-auto', '2026-04-01T09:00:00-06:00', 28800, '2026-04-01T10:00:05-06:00'),
+ -- CPZ: Beto registra 8 h; 40 min después hay un automático de 8 h en una tarea sin relación: NO es copia (antes, ±2 h, sí).
+ (@f, 'cp-m4', '404', 'cp-beto', '2026-04-02T08:00:00-06:00', 28800, '2026-04-02T12:00:00-06:00'),
+ (@f, 'cp-a2', '405', 'cp-auto', '2026-04-02T13:00:00-06:00', 28800, '2026-04-02T12:40:00-06:00');
+INSERT ops.Worklog (FuenteId, WorklogId, IssueId, AutorId, Inicio, Segundos, Creado, Eliminado) VALUES
+ -- CPZ: Ana borró su worklog de 2 h; la copia quedó: tampoco cuenta.
+ (@f, 'cp-m5', '403', 'cp-ana',  '2026-04-03T09:00:00-06:00', 7200,  '2026-04-03T10:00:00-06:00', 1),
+ (@f, 'cp-c7', '402', 'cp-auto', '2026-04-03T09:00:00-06:00', 7200,  '2026-04-03T10:00:04-06:00', 0);
 
 DECLARE @vacio sync.IdTipo;
 EXEC sync.Worklog_Atribuir @FuenteId = @f, @Issues = @vacio, @Todo = 1;
@@ -60,9 +77,21 @@ DECLARE @ok bit, @f int = (SELECT FuenteId FROM cfg.Fuente WHERE Codigo = 'copia
 SET @ok = CASE WHEN (SELECT COUNT(*) FROM ops.Worklog WHERE FuenteId = @f AND WorklogId IN ('cp-c1', 'cp-c2', 'cp-c3') AND EsCopia = 1 AND CopiaDeWorklogId = 'cp-m1') = 3
                THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Las copias en la tarea, la épica y la OC se marcan como copia del worklog de la subtarea';
-SET @ok = CASE WHEN (SELECT COUNT(*) FROM ops.Worklog WHERE FuenteId = @f AND WorklogId IN ('cp-c4', 'cp-c5') AND EsCopia = 1 AND CopiaDeWorklogId IS NULL) = 2
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM ops.Worklog WHERE FuenteId = @f AND WorklogId IN ('cp-c4', 'cp-c5') AND EsCopia = 1 AND CopiaDeWorklogId = 'cp-m2') = 2
                THEN 1 ELSE 0 END;
-EXEC prueba.Afirmar @ok, N'Copias hermanas de un original editado (ya no coincide el tiempo): también son copia';
+EXEC prueba.Afirmar @ok, N'Copias de un original editado (ya no coincide el tiempo): se reconocen por la hora de inicio';
+SET @ok = CASE WHEN EXISTS (SELECT 1 FROM ops.Worklog WHERE FuenteId = @f AND WorklogId = 'cp-c6' AND EsCopia = 1 AND CopiaDeWorklogId = 'cp-m3') THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Una sola copia de un original editado (8 h → 4 h): es copia; no se suman 4 + 8';
+SET @ok = CASE WHEN EXISTS (SELECT 1 FROM ops.Worklog WHERE FuenteId = @f AND WorklogId = 'cp-a2' AND EsCopia = 0) THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Mismo tiempo que el worklog de otra persona creado 40 min antes, otro inicio: no es copia';
+SET @ok = CASE WHEN EXISTS (SELECT 1 FROM ops.Worklog WHERE FuenteId = @f AND WorklogId = 'cp-c7' AND EsCopia = 1 AND CopiaDeWorklogId = 'cp-m5') THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Copia de un worklog que la persona borró: es copia (no cuenta)';
+DECLARE @hz TABLE (Nodo nvarchar(60), PadreNodo nvarchar(60), Nivel int, NivelNombre nvarchar(20), Clave varchar(50), Elemento nvarchar(400), Tipo nvarchar(255),
+                   Estado nvarchar(255), Responsable nvarchar(255), Reg decimal(12,2), Aut decimal(12,2), Cop decimal(12,2), Propias decimal(12,2),
+                   Est decimal(12,2), Pct decimal(9,1), Elementos int, Abiertos int, Ultimo datetimeoffset(3));
+INSERT @hz EXEC api.Horas_Arbol @Proyecto = 'CPZ';
+SET @ok = CASE WHEN EXISTS (SELECT 1 FROM @hz WHERE Nivel = 0 AND Reg = 12 AND Aut = 8 AND Cop = 10) THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'CPZ: 12 h registradas (4 corregidas + 8 de Beto), 8 h automáticas reales, 10 h copiadas aparte';
 SET @ok = CASE WHEN (SELECT COUNT(*) FROM ops.Worklog WHERE FuenteId = @f AND WorklogId IN ('cp-m1', 'cp-m2', 'cp-a1') AND EsCopia = 0) = 3
                THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Los worklogs de personas y el automático sin original no son copia';

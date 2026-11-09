@@ -25,12 +25,13 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM @issues) RETURN;
 
     -- Un worklog nuevo, editado o borrado puede cambiar si los automáticos de OTROS issues son copia suya
-    -- (sync.Worklog_Atribuir): se recalculan también esos issues.
+    -- (sync.Worklog_Atribuir): se recalculan también esos issues. Se buscan por hora de creación (la copia se crea
+    -- segundos después del original) sin exigir el mismo tiempo, porque una edición del original lo cambia.
     INSERT @issues (IdExterno)
     SELECT DISTINCT a.IssueId
     FROM ops.Worklog t
-    JOIN ops.Worklog a ON a.FuenteId = t.FuenteId AND a.Segundos = t.Segundos
-     AND a.Creado BETWEEN DATEADD(hour, -2, t.Creado) AND DATEADD(hour, 2, t.Creado)
+    JOIN ops.Worklog a ON a.FuenteId = t.FuenteId
+     AND a.Creado BETWEEN DATEADD(minute, -10, t.Creado) AND DATEADD(minute, 10, t.Creado)
     WHERE t.FuenteId = @FuenteId AND t.IssueId IN (SELECT IdExterno FROM @issues)
       AND a.EsAutomatico = 1 AND a.IssueId NOT IN (SELECT IdExterno FROM @issues);
     EXEC sync.Worklog_Atribuir @FuenteId = @FuenteId, @Issues = @issues;
