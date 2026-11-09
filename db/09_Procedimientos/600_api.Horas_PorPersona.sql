@@ -1,8 +1,8 @@
 /* Horas por persona y proyecto en un periodo (por fecha de inicio del worklog).
-   Separa las horas que registraron las personas (esfuerzo) de las automáticas (Automation for Jira:
-   días hábiles con el issue abierto), atribuidas al responsable del issue ese día. Ver rpt.vWorklog.
-   Ojo: las automáticas suman 8 h por cada issue abierto, así que una persona con varios issues abiertos
-   puede acumular más de 8 h automáticas en un día. */
+   Separa las horas que registraron las personas (esfuerzo) de las automáticas (Automation for Jira), atribuidas al
+   responsable del issue ese día. Ver rpt.vWorklog.
+   No suma las COPIAS automáticas (la automatización replica cada worklog de una subtarea en su tarea, su épica y el
+   ticket de la OC): ese trabajo ya cuenta en el worklog original, a nombre de quien lo registró. */
 CREATE OR ALTER PROCEDURE api.Horas_PorPersona
     @Desde        date,
     @Hasta        date,
@@ -39,7 +39,7 @@ BEGIN
         WHERE w.Fecha BETWEEN @Desde AND @Hasta
           AND (@Proyecto IS NULL OR w.ProyectoClave = @Proyecto)
           AND (@TipoProyecto IS NULL OR w.TipoProyecto = @TipoProyecto)
-          AND (@Origen IS NULL OR w.Origen = @Origen)
+          AND (@Origen IS NULL OR w.Origen = @Origen) AND w.Origen <> 'copia'   -- las copias automáticas no se suman
         GROUP BY w.AtribuidoA, w.ProyectoClave, w.TipoProyecto
         ORDER BY HorasRegistradas DESC, HorasTotales DESC
         OPTION (FORCE ORDER);   -- ver api.Issue_Detalle
@@ -57,7 +57,7 @@ BEGIN
       AND w.Inicio >= DATEADD(DAY, -1, CAST(@Desde AS datetimeoffset(3))) AND w.Inicio < DATEADD(DAY, 2, CAST(@Hasta AS datetimeoffset(3)))
       AND (@Proyecto IS NULL OR w.ProyectoClave = @Proyecto)
       AND (@TipoProyecto IS NULL OR w.TipoProyecto = @TipoProyecto)
-      AND (@Origen IS NULL OR w.Origen = @Origen)
+      AND (@Origen IS NULL OR w.Origen = @Origen) AND w.Origen <> 'copia'   -- las copias automáticas no se suman
     GROUP BY w.AtribuidoA, w.ProyectoClave, w.TipoProyecto
     ORDER BY HorasRegistradas DESC, HorasTotales DESC
     OPTION (RECOMPILE);

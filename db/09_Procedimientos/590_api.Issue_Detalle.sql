@@ -17,6 +17,7 @@ BEGIN
            CAST(EstimacionOriginalSeg / 3600.0 AS decimal(12,2)) AS HorasEstimadas,
            CAST(EstimacionRestanteSeg / 3600.0 AS decimal(12,2)) AS HorasRestantes,
            h.HorasRegistradas AS HorasRegistradasConHijos, h.HorasAutomaticas AS HorasAutomaticasConHijos,
+           h.HorasCopiadas AS HorasCopiadasConHijos,
            Creado, Actualizado, Resuelto, Vencimiento
     FROM rpt.vIssue i
     OUTER APPLY rpt.fn_HorasIssue(i.FuenteId, i.IssueId, i.Clave) h
@@ -34,14 +35,19 @@ BEGIN
         WHERE h.Eliminado = 0 AND a.Nivel < 5
     )
     SELECT FuenteId, IssueId INTO #arbol FROM arbol OPTION (MAXRECURSION 10);
-    SELECT w.FuenteId, w.WorklogId INTO #w
+    SELECT w.FuenteId, w.WorklogId, w.EsCopia, w.CopiaDeWorklogId INTO #w
     FROM #arbol a JOIN ops.Worklog w WITH (FORCESEEK(IX_ops_Worklog_IssueDet(FuenteId, IssueId))) ON w.FuenteId = a.FuenteId AND w.IssueId = a.IssueId
     WHERE w.Eliminado = 0;
+    -- Copias automáticas cuyo original ya está en la lista (p. ej. en una épica, la copia en la tarea y en la épica del
+    -- worklog de la subtarea): no se repiten. Las demás copias (en el ticket de la OC) se muestran con su original.
+    DELETE x FROM #w x WHERE x.EsCopia = 1 AND EXISTS (SELECT 1 FROM #w o WHERE o.FuenteId = x.FuenteId AND o.WorklogId = x.CopiaDeWorklogId);
 
     -- FORCE ORDER: primero los ids, luego el worklog por su llave y después su issue (sin esto el optimizador cruzaba
     -- los ids con todos los issues de la fuente; prueba de carga: 39 s contra 50 ms).
-    SELECT w.Clave, w.WorklogId, w.Inicio, w.Horas, w.Origen, w.AtribuidoA, w.MetodoAtribucion, w.Autor
+    SELECT w.Clave, w.WorklogId, w.Inicio, w.Horas, w.Origen, oi.Clave AS CopiaDe, w.AtribuidoA, w.MetodoAtribucion, w.Autor
     FROM #w x JOIN rpt.vWorklog w ON w.FuenteId = x.FuenteId AND w.WorklogId = x.WorklogId
+    LEFT JOIN ops.Worklog ow ON ow.FuenteId = x.FuenteId AND ow.WorklogId = x.CopiaDeWorklogId
+    LEFT JOIN ops.Issue oi ON oi.FuenteId = ow.FuenteId AND oi.IssueId = ow.IssueId
     ORDER BY w.Inicio
     OPTION (FORCE ORDER);
 

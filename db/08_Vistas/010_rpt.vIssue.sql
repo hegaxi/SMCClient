@@ -16,7 +16,8 @@ SELECT
     i.Creado, i.Actualizado, i.Resuelto, i.Vencimiento,
     -- Derivados calculados al integrar (ops.IssueResumen): con todo el árbol de descendientes.
     CAST(rs.SegRegArbol / 3600.0 AS decimal(12,2)) AS HorasRegistradasArbol,
-    CAST(rs.SegAutArbol / 3600.0 AS decimal(12,2)) AS HorasAutomaticasArbol,
+    CAST(rs.SegAutArbol / 3600.0 AS decimal(12,2)) AS HorasAutomaticasArbol,   -- sin las copias automáticas
+    CAST(rs.SegCopiaArbol / 3600.0 AS decimal(12,2)) AS HorasCopiadasArbol,    -- copias de otros issues (no se suman)
     CAST(rs.EstimacionArbolSeg / 3600.0 AS decimal(12,2)) AS HorasEstimadasArbol,
     rs.UltimoRegistroArbol, rs.EpicaIssueId, ep.Clave AS EpicaClave,
     CAST(CASE WHEN ep.Clave IS NOT NULL THEN CONCAT(ep.Clave, N' · ', LEFT(ep.Resumen, 150)) END AS nvarchar(220)) AS Epica

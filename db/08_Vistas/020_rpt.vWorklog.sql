@@ -4,13 +4,17 @@
      manual      -> el autor.
      automatico  -> el responsable del issue el día del worklog, según el historial del campo assignee.
    Si un worklog aún no tiene atribución guardada (recién llegado), se usa la regla simple: manual -> autor,
-   automático -> responsable actual. El autor original de Jira se conserva siempre en AutorId / Autor. */
+   automático -> responsable actual. El autor original de Jira se conserva siempre en AutorId / Autor.
+   Origen 'copia' = worklog que Automation for Jira copió de otro issue (subtarea → tarea → épica → ticket de la OC):
+   los reportes NO lo suman, porque ese trabajo ya está en el original (CopiaDeWorklogId). */
 CREATE OR ALTER VIEW rpt.vWorklog
 AS
 SELECT
     w.FuenteId, w.WorklogId, w.IssueId, i.IssueSk, i.Clave, i.ProyectoClave, i.TipoProyecto,
     w.AutorId, u.Nombre AS Autor, u.TipoCuenta AS TipoCuentaAutor,
-    CASE WHEN COALESCE(w.EsAutomatico, CASE WHEN u.TipoCuenta = 'app' THEN 1 ELSE 0 END) = 1 THEN 'automatico' ELSE 'manual' END AS Origen,
+    CASE WHEN w.EsCopia = 1 THEN 'copia'
+         WHEN COALESCE(w.EsAutomatico, CASE WHEN u.TipoCuenta = 'app' THEN 1 ELSE 0 END) = 1 THEN 'automatico' ELSE 'manual' END AS Origen,
+    w.CopiaDeWorklogId,
     a.AtribuidoAId,
     COALESCE(ua.Nombre, CASE WHEN a.AtribuidoAId IS NULL THEN N'(Sin responsable)' ELSE a.AtribuidoAId END) AS AtribuidoA,
     COALESCE(w.MetodoAtribucion, CASE WHEN u.TipoCuenta = 'app' THEN 'responsable_actual' ELSE 'autor' END) AS MetodoAtribucion,

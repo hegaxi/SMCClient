@@ -8,10 +8,12 @@ CREATE TABLE ops.IssueResumen (
     FuenteId             int            NOT NULL,
     IssueId              varchar(30)    NOT NULL,
     SegRegPropios        bigint         NULL,     -- NULL = sin worklogs de ese origen
-    SegAutPropios        bigint         NULL,
+    SegAutPropios        bigint         NULL,     -- automáticas que NO son copia de otro worklog
+    SegCopiaPropios      bigint         NULL,     -- copias automáticas de worklogs de otros issues (no se suman)
     UltimoRegistroPropio datetimeoffset(3) NULL,
     SegRegArbol          bigint         NULL,
     SegAutArbol          bigint         NULL,
+    SegCopiaArbol        bigint         NULL,
     EstimacionArbolSeg   bigint         NULL,
     UltimoRegistroArbol  datetimeoffset(3) NULL,
     EpicaIssueId         varchar(30)    NULL,     -- id de Jira de su épica (él mismo si es épica)

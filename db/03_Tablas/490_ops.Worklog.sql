@@ -15,6 +15,8 @@ CREATE TABLE ops.Worklog (
     EsAutomatico     bit            NULL,       -- 1 = lo registró una app (Automation for Jira)
     AtribuidoAId     varchar(128)   NULL,       -- persona a la que se atribuye (automáticos: responsable del issue ese día)
     MetodoAtribucion varchar(20)    NULL,       -- autor | historial | responsable_actual
+    EsCopia          bit            NULL,       -- 1 = copia automática de un worklog de otro issue: no se suma (ver 0009)
+    CopiaDeWorklogId varchar(30)    NULL,       -- el worklog original registrado por una persona, si se encontró
     CONSTRAINT PK_ops_Worklog PRIMARY KEY (FuenteId, WorklogId)
 );
 GO

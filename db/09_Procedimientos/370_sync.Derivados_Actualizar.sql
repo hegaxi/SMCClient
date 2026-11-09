@@ -23,6 +23,16 @@ BEGIN
         WHERE d.FuenteId = @FuenteId AND d.Entidad = @Entidad AND d.Procesado = 1 AND d.ProcesadoEn >= @Desde;
 
     IF NOT EXISTS (SELECT 1 FROM @issues) RETURN;
+
+    -- Un worklog nuevo, editado o borrado puede cambiar si los automáticos de OTROS issues son copia suya
+    -- (sync.Worklog_Atribuir): se recalculan también esos issues.
+    INSERT @issues (IdExterno)
+    SELECT DISTINCT a.IssueId
+    FROM ops.Worklog t
+    JOIN ops.Worklog a ON a.FuenteId = t.FuenteId AND a.Segundos = t.Segundos
+     AND a.Creado BETWEEN DATEADD(hour, -2, t.Creado) AND DATEADD(hour, 2, t.Creado)
+    WHERE t.FuenteId = @FuenteId AND t.IssueId IN (SELECT IdExterno FROM @issues)
+      AND a.EsAutomatico = 1 AND a.IssueId NOT IN (SELECT IdExterno FROM @issues);
     EXEC sync.Worklog_Atribuir @FuenteId = @FuenteId, @Issues = @issues;
     EXEC sync.Resumen_Recalcular @FuenteId = @FuenteId, @Issues = @issues;
 END;

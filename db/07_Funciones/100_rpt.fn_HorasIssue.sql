@@ -6,7 +6,8 @@ RETURNS TABLE
 AS
 RETURN
     SELECT CAST(r.SegRegArbol / 3600.0 AS decimal(12,2)) AS HorasRegistradas,
-           CAST(r.SegAutArbol / 3600.0 AS decimal(12,2)) AS HorasAutomaticas,
+           CAST(r.SegAutArbol / 3600.0 AS decimal(12,2)) AS HorasAutomaticas,      -- sin copias
+           CAST(r.SegCopiaArbol / 3600.0 AS decimal(12,2)) AS HorasCopiadas,       -- copias automáticas (no se suman)
            r.UltimoRegistroArbol AS UltimoRegistro,
            CAST(r.EstimacionArbolSeg / 3600.0 AS decimal(12,2)) AS HorasEstimadas
     FROM ops.Issue i

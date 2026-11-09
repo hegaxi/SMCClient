@@ -31,9 +31,12 @@ IF INDEXPROPERTY(OBJECT_ID('ops.IssueSprint'), 'IX_ops_IssueSprint_Sprint', 'Ind
     CREATE INDEX IX_ops_IssueSprint_Sprint ON ops.IssueSprint (FuenteId, SprintId);
 
 IF INDEXPROPERTY(OBJECT_ID('ops.Worklog'), 'IX_ops_Worklog_IssueDet', 'IndexId') IS NULL
-    CREATE INDEX IX_ops_Worklog_IssueDet ON ops.Worklog (FuenteId, IssueId) INCLUDE (Inicio, AutorId, Segundos, Eliminado, EsAutomatico, AtribuidoAId, MetodoAtribucion);
+    CREATE INDEX IX_ops_Worklog_IssueDet ON ops.Worklog (FuenteId, IssueId) INCLUDE (Inicio, AutorId, Segundos, Eliminado, EsAutomatico, EsCopia, AtribuidoAId, MetodoAtribucion);
 IF INDEXPROPERTY(OBJECT_ID('ops.Worklog'), 'IX_ops_Worklog_InicioDet', 'IndexId') IS NULL
-    CREATE INDEX IX_ops_Worklog_InicioDet ON ops.Worklog (Inicio) INCLUDE (FuenteId, IssueId, AutorId, Segundos, Eliminado, EsAutomatico, AtribuidoAId, MetodoAtribucion);
+    CREATE INDEX IX_ops_Worklog_InicioDet ON ops.Worklog (Inicio) INCLUDE (FuenteId, IssueId, AutorId, Segundos, Eliminado, EsAutomatico, EsCopia, AtribuidoAId, MetodoAtribucion);
+-- Búsqueda del original de una copia automática: mismo tiempo, creado casi al mismo momento (sync.Worklog_Atribuir).
+IF INDEXPROPERTY(OBJECT_ID('ops.Worklog'), 'IX_ops_Worklog_Copia', 'IndexId') IS NULL
+    CREATE INDEX IX_ops_Worklog_Copia ON ops.Worklog (FuenteId, Segundos, Creado) INCLUDE (IssueId, AutorId, EsAutomatico, Eliminado);
 
 IF INDEXPROPERTY(OBJECT_ID('sync.Ejecucion'), 'IX_sync_Ejecucion_Fuente', 'IndexId') IS NULL
     CREATE INDEX IX_sync_Ejecucion_Fuente ON sync.Ejecucion (FuenteId, Entidad, Inicio DESC) INCLUDE (Estado, Fin);
