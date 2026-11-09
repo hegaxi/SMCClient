@@ -166,7 +166,15 @@ Qué hace:
 - Las reglas están en SQL Server (`dash.*`, `api.Filtro_*`, `api.Tablero_*`, `api.Widget_*`): solo el propietario modifica,
   no se guardan filtros de acciones ni de consultas no permitidas, no se borra un filtro que usa un widget, etc.
 
-### 6. Búsqueda avanzada (como el navegador de issues de Jira)
+### 6. Tiempo reportado en Scrum
+
+En Scrum las personas registran el tiempo en las **subtareas**. *Horas por sprint* da las horas por sprint y persona
+(registradas y automáticas), *Avance de sprints* incluye las horas registradas dentro de las fechas de cada sprint, el
+detalle de una historia suma y lista las de sus subtareas, y la búsqueda avanzada tiene *Horas registradas (con
+subtareas)*, *Es subtarea*, *Registró tiempo (persona)* y *Fecha de registro de tiempo*.
+Detalle: [`docs/arquitectura.md` §5.6.1](docs/arquitectura.md).
+
+### 7. Búsqueda avanzada (como el navegador de issues de Jira)
 
 *Consultas → Búsqueda avanzada*: texto libre, criterios sobre **cualquier** campo — también los personalizados de Jira,
 que aparecen solos al sincronizarse — con operadores según el tipo (es alguno de / ninguno de, contiene, mayor que, entre,

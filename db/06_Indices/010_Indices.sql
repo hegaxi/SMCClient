@@ -6,6 +6,9 @@ IF INDEXPROPERTY(OBJECT_ID('raw.Documento'), 'IX_raw_Documento_Lote', 'IndexId')
 
 IF INDEXPROPERTY(OBJECT_ID('ops.Issue'), 'IX_ops_Issue_Clave', 'IndexId') IS NULL
     CREATE INDEX IX_ops_Issue_Clave ON ops.Issue (Clave) INCLUDE (FuenteId);
+-- Subtareas de un issue (para sumar su tiempo en el padre).
+IF INDEXPROPERTY(OBJECT_ID('ops.Issue'), 'IX_ops_Issue_Padre', 'IndexId') IS NULL
+    CREATE INDEX IX_ops_Issue_Padre ON ops.Issue (FuenteId, PadreClave) INCLUDE (IssueId, EsSubtarea, Eliminado);
 IF INDEXPROPERTY(OBJECT_ID('ops.Issue'), 'IX_ops_Issue_Proyecto', 'IndexId') IS NULL
     CREATE INDEX IX_ops_Issue_Proyecto ON ops.Issue (FuenteId, ProyectoId, Creado) INCLUDE (CategoriaEstado, ResponsableId, Eliminado);
 IF INDEXPROPERTY(OBJECT_ID('ops.Issue'), 'IX_ops_Issue_Actualizado', 'IndexId') IS NULL

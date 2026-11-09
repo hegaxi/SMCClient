@@ -156,7 +156,7 @@ DECLARE @ok bit;
 DECLARE @r TABLE (Grupo nvarchar(400), Valor decimal(19,4), Issues int, Grupos int, EsOtros bit, EtiquetaGrupo nvarchar(200), EtiquetaValor nvarchar(200), Posicion int);
 INSERT @r EXEC api.Issues_Resumir @AgruparPor = 'proyecto', @Agregacion = 'suma', @Valor = 'horas';
 SET @ok = CASE WHEN (SELECT Valor FROM @r WHERE Grupo = N'SCR') = 8 AND (SELECT Valor FROM @r WHERE Grupo = N'MDA') = 3
-                AND (SELECT TOP (1) EtiquetaValor FROM @r) = N'Horas invertidas' AND (SELECT TOP (1) Grupo FROM @r ORDER BY Posicion) = N'SCR' THEN 1 ELSE 0 END;
+                AND (SELECT TOP (1) EtiquetaValor FROM @r) = N'Horas invertidas (Jira)' AND (SELECT TOP (1) Grupo FROM @r ORDER BY Posicion) = N'SCR' THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Suma por grupo, de mayor a menor, con las etiquetas de los campos';
 DELETE @r; INSERT @r EXEC api.Issues_Resumir @AgruparPor = 'etiquetas';
 SET @ok = CASE WHEN (SELECT COUNT(*) FROM @r) = 3 AND (SELECT Issues FROM @r WHERE Grupo = N'(vacío)') = 1 THEN 1 ELSE 0 END;

@@ -65,6 +65,9 @@ dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administr
 
 ## Pruebas
 
+`tests/050_prueba_tiempos_scrum.sql` verifica 12 reglas del tiempo en Scrum (marca de subtarea, horas de una historia con
+sus subtareas, criterios por worklog, horas dentro de cada sprint y por persona). Agrega una subtarea y la borra al final.
+
 `tests/040_prueba_buscador.sql` verifica 57 reglas de la búsqueda avanzada y su resumen (cada operador y tipo, campos de varios
 valores y personalizados, columnas, orden, paginación, guardado como filtro, resumen sin tope con 1 200 issues, widgets e
 intentos de inyección). Va después de `010`.
@@ -85,6 +88,7 @@ sqlcmd -S localhost -d SMCClient -b -I -x -i tests/010_prueba_integracion.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/020_prueba_seguridad.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/030_prueba_tableros.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/040_prueba_buscador.sql
+sqlcmd -S localhost -d SMCClient -b -I -x -i tests/050_prueba_tiempos_scrum.sql
 ```
 
 ## Contrato con el worker (qué documento JSON va en cada entidad)

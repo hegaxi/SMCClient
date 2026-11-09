@@ -102,6 +102,14 @@ try {
     await pagina.getByRole('cell', { name: '(Sin responsable)' }).waitFor();
   });
 
+  await paso('Horas por sprint (tiempo reportado en Scrum)', async () => {
+    await pagina.getByRole('link', { name: 'Horas por sprint' }).click();
+    await titulo('Horas por sprint').waitFor();
+    await pagina.getByRole('columnheader', { name: 'Horas registradas' }).waitFor();
+    await pagina.getByRole('cell', { name: 'Sprint 4' }).waitFor();
+    await pagina.getByRole('cell', { name: 'Dev Uno' }).waitFor();
+  });
+
   await paso('Validacion de parametros', async () => {
     await pagina.goto(`${BASE}/?p=Issue_Detalle`);   // la sesión sigue tras recargar
     await titulo('Detalle de un issue').waitFor();

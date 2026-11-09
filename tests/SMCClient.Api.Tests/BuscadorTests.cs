@@ -58,7 +58,7 @@ public class BuscadorTests(ApiFixture bd) : IClassFixture<ApiFixture>
         var porProyecto = Filas(await Ejecutar(lector, "Issues_Resumir", new { AgruparPor = "proyecto", Agregacion = "suma", Valor = "horas" }));
         Assert.Equal(["SCR", "MDA"], porProyecto.EnumerateArray().Select(f => f.GetProperty("Grupo").GetString()));
         Assert.Equal(8m, porProyecto[0].GetProperty("Valor").GetDecimal());
-        Assert.Equal("Horas invertidas", porProyecto[0].GetProperty("EtiquetaValor").GetString());
+        Assert.Equal("Horas invertidas (Jira)", porProyecto[0].GetProperty("EtiquetaValor").GetString());
 
         var abiertos = Filas(await Ejecutar(lector, "Issues_Resumir", new { Criterios = """[{"campo":"abierto","operador":"es","valor":"1"}]""" }));
         Assert.Equal(1m, Assert.Single(abiertos.EnumerateArray()).GetProperty("Valor").GetDecimal());

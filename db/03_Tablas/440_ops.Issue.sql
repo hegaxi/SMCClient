@@ -20,6 +20,7 @@ CREATE TABLE ops.Issue (
     InformanteId            varchar(128)   NULL,
     Resumen                 nvarchar(1000) NULL,
     PadreClave              varchar(50)    NULL,
+    EsSubtarea              bit            NOT NULL CONSTRAINT DF_ops_Issue_EsSubtarea DEFAULT 0,   -- issuetype.subtask: sus horas se suman en el padre
     TipoSolicitudId         varchar(30)    NULL,       -- JSM: request type
     TipoSolicitud           nvarchar(255)  NULL,
     StoryPoints             decimal(9,2)   NULL,

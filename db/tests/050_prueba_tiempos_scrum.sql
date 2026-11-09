@@ -1,0 +1,121 @@
+/* Tiempo reportado en Scrum: subtareas (donde las personas registran el tiempo), horas de una historia con sus
+   subtareas, horas por sprint (dentro de las fechas del sprint, sin repetir) y criterios de búsqueda por worklog.
+   Ejecutar después de 010 (usa SCR-7, sus sprints y la fuente "prueba"). Los datos que agrega se borran al final. */
+SET NOCOUNT ON;
+GO
+IF SCHEMA_ID('prueba') IS NULL EXEC ('CREATE SCHEMA prueba');
+GO
+CREATE OR ALTER PROCEDURE prueba.Afirmar @Condicion bit, @Mensaje nvarchar(400)
+AS
+BEGIN
+    IF ISNULL(@Condicion, 0) = 0 BEGIN DECLARE @m nvarchar(500) = N'FALLÓ: ' + @Mensaje; THROW 50999, @m, 1; END;
+    PRINT N'ok  ' + @Mensaje;
+END;
+GO
+CREATE OR ALTER PROCEDURE prueba.Correr @Entidad varchar(40), @Modo varchar(20), @Docs sync.DocumentoTipo READONLY
+AS
+BEGIN
+    DECLARE @ej bigint, @f int = (SELECT FuenteId FROM cfg.Fuente WHERE Codigo = 'prueba');
+    EXEC sync.Ejecucion_Iniciar @Fuente = 'prueba', @Entidad = @Entidad, @Modo = @Modo, @Propietario = N'worker-1', @EjecucionId = @ej OUTPUT;
+    EXEC sync.Documento_Cargar @EjecucionId = @ej, @Documentos = @Docs;
+    EXEC sync.Procesar_Pendientes @FuenteId = @f, @EjecucionId = @ej, @Entidad = @Entidad;
+    EXEC sync.Ejecucion_Finalizar @EjecucionId = @ej, @Estado = 'ok';
+END;
+GO
+CREATE OR ALTER PROCEDURE prueba.Claves @Criterios nvarchar(max), @Claves nvarchar(400) OUTPUT
+AS
+BEGIN
+    DECLARE @r TABLE (n int IDENTITY, Clave nvarchar(50), TotalFilas int);
+    INSERT @r (Clave, TotalFilas) EXEC api.Issues_Consultar @Criterios = @Criterios, @Columnas = N'clave', @OrdenarPor = 'clave', @Descendente = 0;
+    SELECT @Claves = ISNULL(STRING_AGG(Clave, N',') WITHIN GROUP (ORDER BY n), N'') FROM @r;
+END;
+GO
+
+/* ===== Datos: subtarea SCR-8 de la historia SCR-7 (en el Sprint 4, como la pone Jira) y sus worklogs ===== */
+DECLARE @d sync.DocumentoTipo;
+INSERT @d (IdExterno, Actualizado, Json) VALUES
+ ('5010', '2026-11-03T12:00:00-06:00', N'{"id":"5010","key":"SCR-8","fields":{
+    "summary":"Subtarea: consulta de reportes","project":{"id":"901","key":"SCR"},"issuetype":{"id":"10003","name":"Subtarea","subtask":true},
+    "status":{"id":"3","name":"In Progress","statusCategory":{"key":"indeterminate"}},"priority":{"id":"3","name":"Medium"},
+    "assignee":{"accountId":"dev-2","displayName":"Dev Dos","accountType":"atlassian","active":true},
+    "created":"2026-10-17T08:00:00.000-0600","updated":"2026-11-03T12:00:00.000-0600","timespent":21600,"parent":{"id":"5002","key":"SCR-7"},
+    "customfield_10020":[{"id":991,"name":"Sprint 4","state":"active","boardId":540,"startDate":"2026-10-16T11:00:00.000Z","endDate":"2026-10-30T05:30:00.000Z"}]}}');
+EXEC prueba.Correr 'issue', 'incremental', @d;
+DELETE @d;
+INSERT @d (IdExterno, Actualizado, Json) VALUES
+ ('7010', '2026-11-03T12:00:00-06:00', N'{"id":"7010","issueId":"5010","author":{"accountId":"dev-2","displayName":"Dev Dos","accountType":"atlassian"},"started":"2026-10-22T10:00:00.000-0600","timeSpentSeconds":14400}'),
+ ('7011', '2026-11-03T12:00:00-06:00', N'{"id":"7011","issueId":"5002","author":{"accountId":"557058:automation","displayName":"Automation for Jira","accountType":"app"},"started":"2026-10-21T08:00:00.000-0600","timeSpentSeconds":28800}'),
+ ('7012', '2026-11-03T12:00:00-06:00', N'{"id":"7012","issueId":"5010","author":{"accountId":"dev-2","displayName":"Dev Dos","accountType":"atlassian"},"started":"2026-11-03T10:00:00.000-0600","timeSpentSeconds":7200}');
+EXEC prueba.Correr 'worklog', 'incremental', @d;
+GO
+
+/* ===== Subtareas y horas de un issue con sus subtareas ===== */
+DECLARE @ok bit, @k nvarchar(400);
+SET @ok = (SELECT CASE WHEN MAX(CASE WHEN Clave = 'SCR-8' THEN CAST(EsSubtarea AS int) END) = 1
+                        AND MAX(CASE WHEN Clave = 'SCR-7' THEN CAST(EsSubtarea AS int) END) = 0 THEN 1 ELSE 0 END FROM ops.Issue);
+EXEC prueba.Afirmar @ok, N'La sincronización marca las subtareas (issuetype.subtask)';
+
+DECLARE @r TABLE (Clave nvarchar(50), Reg decimal(12,2), Aut decimal(12,2), Jira decimal(12,2), TotalFilas int);
+INSERT @r EXEC api.Issues_Consultar @Columnas = N'horas_registradas,horas_automaticas,horas',
+     @Criterios = N'[{"campo":"proyecto","operador":"en","valores":["SCR"]}]', @OrdenarPor = 'clave', @Descendente = 0;
+SET @ok = CASE WHEN (SELECT Reg FROM @r WHERE Clave = N'SCR-7') = 14 AND (SELECT Aut FROM @r WHERE Clave = N'SCR-7') = 8
+                AND (SELECT Jira FROM @r WHERE Clave = N'SCR-7') = 8
+                AND (SELECT Reg FROM @r WHERE Clave = N'SCR-8') = 6 AND (SELECT Aut FROM @r WHERE Clave = N'SCR-8') IS NULL THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'La historia suma lo registrado en su subtarea (8 + 6 = 14 h) y separa las automáticas (8 h); el campo de Jira solo trae lo propio';
+
+EXEC prueba.Claves N'[{"campo":"proyecto","operador":"en","valores":["SCR"]},{"campo":"es_subtarea","operador":"es","valor":"0"}]', @k OUTPUT;
+SET @ok = CASE WHEN @k = N'SCR-7' THEN 1 ELSE 0 END; EXEC prueba.Afirmar @ok, N'Criterio: sin subtareas';
+GO
+DECLARE @ok bit, @k nvarchar(400);
+EXEC prueba.Claves N'[{"campo":"registro_persona","operador":"en","valores":["Dev Dos"]}]', @k OUTPUT;
+SET @ok = CASE WHEN @k = N'SCR-8' THEN 1 ELSE 0 END; EXEC prueba.Afirmar @ok, N'Criterio: quién registró tiempo (como worklogAuthor)';
+EXEC prueba.Claves N'[{"campo":"registro_fecha","operador":"desde","valor":"2026-11-01"}]', @k OUTPUT;
+SET @ok = CASE WHEN @k = N'SCR-8' THEN 1 ELSE 0 END; EXEC prueba.Afirmar @ok, N'Criterio: cuándo se registró tiempo (como worklogDate)';
+EXEC prueba.Claves N'[{"campo":"horas_registradas","operador":"mayor","valor":"10"}]', @k OUTPUT;
+SET @ok = CASE WHEN @k = N'SCR-7' THEN 1 ELSE 0 END; EXEC prueba.Afirmar @ok, N'Criterio: horas registradas con subtareas';
+DECLARE @v TABLE (Valor nvarchar(400), Issues int);
+INSERT @v EXEC api.Issues_Valores @Campo = 'registro_persona';
+SET @ok = CASE WHEN EXISTS (SELECT 1 FROM @v WHERE Valor = N'Dev Dos' AND Issues = 1) AND NOT EXISTS (SELECT 1 FROM @v WHERE Valor = N'Automation for Jira') THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Personas que registraron tiempo (sin la cuenta de Automation)';
+GO
+
+/* ===== Horas por sprint ===== */
+DECLARE @ok bit;
+DECLARE @sp TABLE (SprintId bigint, Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Comp datetimeoffset,
+                   Issues int, Terminados int, SP decimal(9,2), SPT decimal(9,2), Reg decimal(12,2), Aut decimal(12,2));
+INSERT @sp EXEC api.Sprint_Avance @Proyecto = 'SCR';
+SET @ok = CASE WHEN (SELECT Reg FROM @sp WHERE Sprint = N'Sprint 4') = 14 AND (SELECT Aut FROM @sp WHERE Sprint = N'Sprint 4') = 8
+                AND (SELECT Reg FROM @sp WHERE Sprint = N'Sprint 3') IS NULL THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Sprint 4 (sigue activo después de su fecha de fin): 14 h registradas (8 de la historia + 6 de la subtarea) y 8 automáticas; el Sprint 3, cerrado antes, no repite esas horas';
+SET @ok = CASE WHEN (SELECT Issues FROM @sp WHERE Sprint = N'Sprint 4') = 1 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Las subtareas no cuentan como issues del sprint';
+
+DECLARE @h TABLE (Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Persona nvarchar(200),
+                  Issues int, Reg decimal(12,2), Aut decimal(12,2), Total decimal(12,2));
+INSERT @h EXEC api.Horas_PorSprint @Proyecto = 'SCR', @Sprint = N'Sprint 4';
+SET @ok = CASE WHEN (SELECT Reg FROM @h WHERE Persona = N'Dev Uno') = 8 AND (SELECT Aut FROM @h WHERE Persona = N'Dev Uno') = 8
+                AND (SELECT Reg FROM @h WHERE Persona = N'Dev Dos') = 6 AND (SELECT SUM(Total) FROM @h) = 22 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Horas por sprint y persona: Dev Uno 8 h + 8 automáticas (responsable de la historia), Dev Dos 6 h en la subtarea';
+DELETE @h; INSERT @h EXEC api.Horas_PorSprint @Estado = 'closed';
+SET @ok = CASE WHEN NOT EXISTS (SELECT 1 FROM @h) THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Sprint cerrado sin worklogs en sus fechas: sin horas';
+GO
+
+/* ===== Función compartida por el detalle y la búsqueda ===== */
+DECLARE @ok bit;
+DECLARE @t TABLE (Clave varchar(50), Reg decimal(12,2), Aut decimal(12,2));
+INSERT @t SELECT i.Clave, h.HorasRegistradas, h.HorasAutomaticas FROM rpt.vIssue i OUTER APPLY rpt.fn_HorasIssue(i.FuenteId, i.IssueId, i.Clave) h WHERE i.Clave = 'SCR-7';
+SET @ok = CASE WHEN (SELECT Reg FROM @t) = 14 AND (SELECT Aut FROM @t) = 8 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'rpt.fn_HorasIssue (la usan el detalle y la búsqueda)';
+GO
+
+/* ===== Limpieza: se deja la base como la dejó 010 ===== */
+DECLARE @f int = (SELECT FuenteId FROM cfg.Fuente WHERE Codigo = 'prueba');
+DELETE ops.Worklog WHERE FuenteId = @f AND WorklogId IN ('7010', '7011', '7012');
+DELETE ops.Issue WHERE FuenteId = @f AND IssueId = '5010';
+DELETE raw.Documento WHERE FuenteId = @f AND ((Entidad = 'worklog' AND IdExterno IN ('7010', '7011', '7012')) OR (Entidad = 'issue' AND IdExterno = '5010'));
+GO
+
+DROP PROCEDURE prueba.Claves; DROP PROCEDURE prueba.Correr; DROP PROCEDURE prueba.Afirmar; DROP SCHEMA prueba;
+PRINT N'TODAS LAS PRUEBAS DE TIEMPOS SCRUM PASARON';
+GO

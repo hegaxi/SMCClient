@@ -186,6 +186,24 @@ Se calcula al consultar, así que si el historial llega después la atribución 
 y permite filtrar por `@Origen`. Las automáticas suman 8 h por cada issue abierto, así que una persona con varios
 issues abiertos puede tener más de 8 h automáticas en un día: no deben leerse como jornada trabajada.
 
+### 5.6.1 Tiempo reportado en Scrum (subtareas y sprints)
+
+En el Jira real (proyectos Scrum, últimos 60 días) las personas registran el tiempo **en las subtareas** (777 de 877 h
+manuales) y Automation for Jira en las tareas o historias padre (928 h). El `timespent` de Jira de una historia solo
+trae lo propio, así que no refleja el trabajo de sus subtareas. Por eso:
+
+| Pieza | Qué hace |
+|---|---|
+| `ops.Issue.EsSubtarea` | Se lee de `issuetype.subtask` (migración `0001` la rellena desde `raw`, sin llamar a Jira) |
+| `rpt.fn_HorasIssue` | Horas de un issue **más las de sus subtareas**, separadas en registradas y automáticas |
+| Búsqueda avanzada | Campos *Horas registradas (con subtareas)*, *Horas automáticas (con subtareas)*, *Es subtarea*, *Registró tiempo (persona)* y *Fecha de registro de tiempo* (como `worklogAuthor` / `worklogDate` de JQL; cada criterio se evalúa por separado, igual que en Jira) |
+| `api.Sprint_Avance` | Horas registradas y automáticas **dentro de las fechas del sprint** (de su inicio a su cierre; si sigue activo después de su fin, hasta hoy), en los issues del sprint y sus subtareas, cada worklog una vez: un issue que pasa de un sprint a otro no repite horas. Las subtareas no cuentan como issues |
+| `api.Horas_PorSprint` | Horas por sprint y persona (registradas, automáticas atribuidas como en 5.6, total) |
+| `api.Issue_Detalle` | Horas con subtareas y los worklogs de las subtareas (columna `Clave`) |
+
+El tiempo registrado fuera de las fechas de cualquier sprint (antes de empezar o después de cerrar) no se asigna a
+ningún sprint; sigue apareciendo en *Horas por persona* y en las horas del issue.
+
 
 ### 5.7 La interfaz (`web/`)
 
