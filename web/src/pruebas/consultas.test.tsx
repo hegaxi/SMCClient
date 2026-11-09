@@ -50,7 +50,7 @@ describe('Consultas personalizadas', () => {
         procedimiento({ nombre: 'ConsultasPersonalizadas_Listar', permiso: 'usuario', oculto: true }),
         procedimiento({ nombre: 'ConsultaPersonalizada_Ejecutar', permiso: 'usuario', oculto: true }),
       ] }),
-      'POST /api/procedimientos/Sync_Estado': () => ({ json: { salida: {}, resultados: [{ columnas: [], truncado: false,
+      'POST /api/procedimientos/Sync_Resumen': () => ({ json: { salida: {}, resultados: [{ columnas: [], truncado: false,
         filas: [{ Fuente: 'smco', DatosVigentes: true, DatosAtrasados: false, UltimaSincronizacion: '2026-11-08T10:00:00-06:00', AvisosAbiertos: 0 }] }] } }),
       'POST /api/procedimientos/ConsultasPersonalizadas_Listar': () => ({ json: { salida: {}, resultados: [{ columnas: [], truncado: false,
         filas: [{ ConsultaId: 7, Nombre: 'Tickets de mesa', Descripcion: 'Abiertos por organización', PuedoEditar: false }] }] } }),

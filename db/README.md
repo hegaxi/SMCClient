@@ -60,7 +60,7 @@ dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administr
 4. Cambiar una tabla existente: migración en `04_Migraciones` **y** actualizar su `CREATE TABLE` (ver `04_Migraciones/README.md`).
 5. Un procedimiento que llama a otro va con un número mayor (evita avisos de dependencia).
 6. El esquema `api` es el contrato con el controlador: no se cambian columnas existentes de sus resultados; se agregan al final o se crea `api.Nombre_v2`.
-7. Cada procedimiento `api.*` declara en `11_DatosSemilla/090_DescripcionesApi.sql` su `MS_Description`, `smc:permiso` (`lectura` | `admin`; sin él, solo administradores) y `smc:exentoSync` (`1` si debe responder aunque los datos no estén sincronizados).
+7. Cada procedimiento `api.*` declara en `11_DatosSemilla/090_DescripcionesApi.sql` su `MS_Description`, `smc:permiso` (`lectura` | `admin` | `usuario` | `sesion`; sin él, `admin`), si hace falta `smc:opcion` (opción de menú que agrupa los procedimientos de una pantalla) y `smc:exentoSync` (`1` si debe responder aunque los datos no estén sincronizados).
 8. Errores para el usuario: `THROW 5NNNN, 'mensaje', 1`. Si `NNN` es un código HTTP 4xx, la API responde con ese estado (`50404` → 404); si no, 400.
 
 ## Pruebas
@@ -78,6 +78,10 @@ y por persona). Agrega una épica, una tarea y una subtarea y las borra al final
 `tests/040_prueba_buscador.sql` verifica 57 reglas de la búsqueda avanzada y su resumen (cada operador y tipo, campos de varios
 valores y personalizados, columnas, orden, paginación, guardado como filtro, resumen sin tope con 1 200 issues, widgets e
 intentos de inyección). Va después de `010`.
+
+`tests/080_prueba_permisos_menu.sql` verifica 20 reglas de los permisos por opción: cada procedimiento pertenece a una
+opción, un rol sin permisos no ve nada salvo la sesión, conceder y quitar opciones casilla por casilla, restablecer
+contraseña como opción, límites de los roles externos y auditoría.
 
 `tests/030_prueba_tableros.sql` verifica 31 reglas de filtros y tableros (fechas relativas, permisos, compartir, propiedad).
 

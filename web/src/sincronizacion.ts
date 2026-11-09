@@ -15,7 +15,7 @@ const CADA_MS_PENDIENTE = 5_000;
 const CADA_MS_LISTO = 60_000;
 
 /**
- * Consulta api.Sync_Estado: cada 5 s mientras los datos no estén vigentes y cada minuto después
+ * Consulta api.Sync_Resumen (lo tiene todo usuario activo): cada 5 s mientras los datos no estén vigentes y cada minuto después
  * (para detectar si dejan de estarlo). Cualquier 503 de otro procedimiento llama a marcarPendiente().
  */
 export function useSincronizacion(intervaloPendiente = CADA_MS_PENDIENTE, intervaloListo = CADA_MS_LISTO) {
@@ -26,7 +26,7 @@ export function useSincronizacion(intervaloPendiente = CADA_MS_PENDIENTE, interv
     clearTimeout(temporizador.current);
     let listo: boolean | null = null;
     try {
-      const r = await api.ejecutar('Sync_Estado');
+      const r = await api.ejecutar('Sync_Resumen');
       const fuentes = r.resultados[0]?.filas ?? [];
       listo = fuentes.every((f) => f.DatosVigentes === true);
       setEstado({ listo, fuentes, entidades: r.resultados[1]?.filas ?? [], error: null, ultimaConsulta: new Date() });

@@ -137,6 +137,7 @@ public class SesionTests(ApiFixture bd) : IClassFixture<ApiFixture>
         var s = await Json(await bd.IniciarAsync(bd.Anonimo(), "instalador", "Instalacion-2026"));
         Assert.Contains("Administrador", s.GetProperty("roles").GetString());
         Assert.True(s.GetProperty("esAdministrador").GetBoolean());
+        Assert.True(s.GetProperty("puedeRestablecerContrasena").GetBoolean());
         Assert.Equal(0, await bd.EscalarAsync<int>("SELECT COUNT(*) FROM seg.Auditoria WHERE Despues LIKE '%Instalacion-2026%' OR Antes LIKE '%Instalacion-2026%'"));
     }
 }

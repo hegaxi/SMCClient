@@ -8,7 +8,7 @@ public sealed record ResultadoInicio(string Resultado, string? Nombre, Guid? Sel
 
 public sealed record PermisosUsuario(bool Valido, bool DebeCambiar, IReadOnlySet<string> Procedimientos);
 
-public sealed record DatosUsuario(string Login, string Nombre, string? Roles, bool EsAdministrador);
+public sealed record DatosUsuario(string Login, string Nombre, string? Roles, bool EsAdministrador, bool PuedeRestablecerContrasena);
 
 /// <summary>Llamadas a los procedimientos seg.* de sesión y autorización. Las reglas están en SQL Server.</summary>
 public sealed class RepositorioSesion(ConexionSql conexion)
@@ -81,7 +81,7 @@ public sealed class RepositorioSesion(ConexionSql conexion)
         cmd.Parameters.Add(new SqlParameter("@UsuarioActual", SqlDbType.NVarChar, 200) { Value = login });
         await using var r = await cmd.ExecuteReaderAsync(ct);
         return await r.ReadAsync(ct)
-            ? new DatosUsuario(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.GetBoolean(3))
+            ? new DatosUsuario(r.GetString(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2), r.GetBoolean(3), !r.IsDBNull(4) && r.GetBoolean(4))
             : null;
     }
 

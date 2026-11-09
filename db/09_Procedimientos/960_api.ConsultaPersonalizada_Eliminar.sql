@@ -6,7 +6,8 @@ AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @u int = (SELECT UsuarioId FROM seg.Usuario WHERE Login = @UsuarioActual AND Activo = 1);
-    IF seg.fn_EsAdministrador(@u) = 0 THROW 50403, 'Solo un administrador elimina consultas personalizadas.', 1;
+    IF NOT EXISTS (SELECT 1 FROM seg.fn_ProcedimientosPermitidos(@u) WHERE Procedimiento = N'ConsultaPersonalizada_Eliminar')
+        THROW 50403, 'No tiene permiso para eliminar consultas personalizadas.', 1;
     DECLARE @nombre nvarchar(150) = (SELECT Nombre FROM dash.Consulta WHERE ConsultaId = @ConsultaId);
     IF @nombre IS NULL THROW 50404, 'La consulta no existe.', 1;
     DELETE dash.Consulta WHERE ConsultaId = @ConsultaId;

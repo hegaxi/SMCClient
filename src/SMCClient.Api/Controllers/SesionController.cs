@@ -25,7 +25,8 @@ public sealed class SesionController(RepositorioSesion repo, ServicioPermisos pe
     public sealed record SolicitudInicio(string? Usuario, string? Contrasena);
     public sealed record SolicitudCambio(string? Actual, string? Nueva);
     public sealed record SolicitudRestablecer(string? Usuario, string? ContrasenaTemporal);
-    public sealed record Sesion(string Usuario, string Nombre, string? Roles, bool EsAdministrador, bool DebeCambiarContrasena);
+    public sealed record Sesion(string Usuario, string Nombre, string? Roles, bool EsAdministrador, bool DebeCambiarContrasena,
+                                bool PuedeRestablecerContrasena = false);
 
     private bool ModoFormulario => !string.Equals(seguridad.Value.Autenticacion, "Desarrollo", StringComparison.OrdinalIgnoreCase);
 
@@ -43,7 +44,7 @@ public sealed class SesionController(RepositorioSesion repo, ServicioPermisos pe
             return Problemas.Crear(401, "sesion.invalida", "Su sesión terminó. Inicie sesión de nuevo.");
         }
         var datos = await repo.UsuarioAsync(login, ct);
-        return new Sesion(login, datos?.Nombre ?? login, datos?.Roles, datos?.EsAdministrador ?? false, p.DebeCambiar);
+        return new Sesion(login, datos?.Nombre ?? login, datos?.Roles, datos?.EsAdministrador ?? false, p.DebeCambiar, datos?.PuedeRestablecerContrasena ?? false);
     }
 
     [HttpPost("iniciar")]
@@ -64,7 +65,7 @@ public sealed class SesionController(RepositorioSesion repo, ServicioPermisos pe
 
         await EmitirCookieAsync(login, r.Sello.Value);
         var datos = await repo.UsuarioAsync(login, ct);
-        return new Sesion(login, r.Nombre ?? login, datos?.Roles, datos?.EsAdministrador ?? false, r.DebeCambiar);
+        return new Sesion(login, r.Nombre ?? login, datos?.Roles, datos?.EsAdministrador ?? false, r.DebeCambiar, datos?.PuedeRestablecerContrasena ?? false);
     }
 
     [HttpPost("cerrar")]
@@ -103,7 +104,8 @@ public sealed class SesionController(RepositorioSesion repo, ServicioPermisos pe
         }
     }
 
-    /// <summary>Un administrador asigna una contraseña temporal; el usuario deberá cambiarla al entrar.</summary>
+    /// <summary>Asigna una contraseña temporal a otro usuario (opción "contrasena.restablecer", la revisa seg.Contrasena_Establecer);
+    /// el usuario deberá cambiarla al entrar.</summary>
     [HttpPost("restablecer-contrasena")]
     public async Task<IActionResult> RestablecerContrasena(SolicitudRestablecer solicitud, CancellationToken ct)
     {

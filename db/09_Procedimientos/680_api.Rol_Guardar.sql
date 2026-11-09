@@ -1,12 +1,14 @@
 /* Alta o cambio de un rol y sus permisos (reemplaza los permisos). @Permisos, separados por coma:
-   lectura | admin | api.Nombre (un procedimiento específico). Reglas:
-   - Cada permiso debe ser una categoría válida o un procedimiento existente del esquema api.
+   una categoría completa (lectura | admin | usuario), una opción de menú (su código en seg.fn_Opciones, p. ej. tableros,
+   contrasena.restablecer, api.Horas_PorPersona) o api.Nombre (un procedimiento). Reglas:
+   - Cada permiso debe ser una categoría, una opción o un procedimiento existente del esquema api.
+   - Un rol externo (clientes) solo puede tener la categoría usuario u opciones de esa categoría.
    - El rol Administrador siempre conserva 'admin'.
    - Siempre debe quedar al menos un administrador activo. */
 CREATE OR ALTER PROCEDURE api.Rol_Guardar
     @Nombre        nvarchar(100),
     @Descripcion   nvarchar(400) = NULL,
-    @Permisos      nvarchar(2000) = N'',
+    @Permisos      nvarchar(max) = N'',
     @EsExterno     bit = NULL,       -- 1 = rol de clientes: solo consultas personalizadas, limitadas a su organización
     @UsuarioActual nvarchar(200)
 AS
@@ -17,15 +19,29 @@ BEGIN
 
     DECLARE @p TABLE (Permiso nvarchar(200) PRIMARY KEY);
     INSERT @p SELECT DISTINCT LTRIM(RTRIM(value)) FROM STRING_SPLIT(ISNULL(@Permisos, N''), ',') WHERE LTRIM(RTRIM(value)) <> N'';
-    IF @EsExterno = 1 AND EXISTS (SELECT 1 FROM @p WHERE Permiso = N'admin') THROW 50400, 'Un rol externo (clientes) no puede tener el permiso admin.', 1;
+    -- Categoría de cada permiso: la propia (lectura/admin/usuario), la de su opción o la de su procedimiento.
+    DECLARE @cat TABLE (Permiso nvarchar(200) PRIMARY KEY, Categoria nvarchar(200) NULL);
+    INSERT @cat
+    SELECT x.Permiso,
+           CASE WHEN x.Permiso IN (N'lectura', N'admin', N'usuario') THEN x.Permiso
+                ELSE COALESCE((SELECT o.Categoria FROM seg.fn_Opciones() o WHERE o.Codigo = x.Permiso),
+                              (SELECT o.Categoria FROM seg.fn_OpcionProcedimiento() o WHERE N'api.' + o.Procedimiento = x.Permiso AND o.Categoria <> N'sesion')) END
+    FROM @p x;
 
-    DECLARE @msg nvarchar(1000) = (SELECT STRING_AGG(x.Permiso, N', ') FROM @p x
-                                   WHERE x.Permiso NOT IN (N'lectura', N'admin')
-                                     AND NOT (x.Permiso LIKE N'api.%' AND OBJECT_ID(x.Permiso, 'P') IS NOT NULL AND OBJECT_SCHEMA_NAME(OBJECT_ID(x.Permiso)) = N'api'));
+    DECLARE @msg nvarchar(max) = (SELECT STRING_AGG(Permiso, N', ') FROM @cat WHERE Categoria IS NULL);
     IF @msg IS NOT NULL
     BEGIN
-        SET @msg = N'Permisos inválidos: ' + @msg + N'. Use lectura, admin o api.NombreDelProcedimiento.';
+        SET @msg = N'Permisos inválidos: ' + @msg + N'. Use lectura, admin, usuario, el código de una opción o api.NombreDelProcedimiento.';
         THROW 50400, @msg, 1;
+    END;
+    IF COALESCE(@EsExterno, (SELECT EsExterno FROM seg.Rol WHERE Nombre = @Nombre), 0) = 1
+    BEGIN
+        SET @msg = (SELECT STRING_AGG(Permiso, N', ') FROM @cat WHERE Categoria <> N'usuario');
+        IF @msg IS NOT NULL
+        BEGIN
+            SET @msg = N'Un rol externo (clientes) solo puede tener tableros, filtros y consultas personalizadas. No permitido: ' + @msg + N'.';
+            THROW 50400, @msg, 1;
+        END;
     END;
     IF EXISTS (SELECT 1 FROM seg.Rol WHERE Nombre = @Nombre AND EsSistema = 1 AND Nombre = N'Administrador')
        AND NOT EXISTS (SELECT 1 FROM @p WHERE Permiso = N'admin')

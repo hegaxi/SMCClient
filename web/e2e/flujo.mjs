@@ -272,6 +272,20 @@ try {
 
   // ----- Administración de usuarios desde la aplicación (reglas en SQL Server) -----
   let temporal = '';
+  await paso('Permisos por opcion: cada opcion del menu se concede por rol', async () => {
+    await pagina.getByRole('link', { name: 'Permisos por opción' }).click();
+    await titulo('Permisos por opción').waitFor();
+    // Lo que da una categoría completa se ve marcado; a un rol externo no se le conceden reportes internos.
+    const incluida = pagina.getByRole('checkbox', { name: 'Administrador: Restablecer contraseña' });
+    if (!(await incluida.isChecked()) || !(await incluida.isDisabled())) throw new Error('La categoría admin no incluye Restablecer contraseña.');
+    if (!(await pagina.getByRole('checkbox', { name: 'Cliente: Horas por persona' }).isDisabled())) throw new Error('A un cliente se le pueden dar reportes internos.');
+    const filtros = pagina.getByRole('checkbox', { name: 'Cliente: Mis filtros' });
+    await filtros.check();
+    await pagina.getByRole('status').filter({ hasText: 'Cliente: se concedió "Mis filtros"' }).waitFor();
+    await filtros.uncheck();
+    await pagina.getByRole('status').filter({ hasText: 'Cliente: se quitó "Mis filtros"' }).waitFor();
+  });
+
   await paso('Administrador da de alta un usuario', async () => {
     await pagina.getByRole('link', { name: 'Guardar usuario' }).click();
     await pagina.getByLabel(/^Login/).fill(NUEVO);

@@ -28,7 +28,8 @@ const estado = (vigentes: boolean) => ({
 });
 
 const sesionLector = { json: { usuario: 'lector', nombre: 'Lector Uno', roles: 'Consulta', esAdministrador: false, debeCambiarContrasena: false } };
-const sesionAdmin = { json: { usuario: 'admin', nombre: 'Admin', roles: 'Administrador', esAdministrador: true, debeCambiarContrasena: false } };
+const sesionAdmin = { json: { usuario: 'admin', nombre: 'Admin', roles: 'Administrador', esAdministrador: true, debeCambiarContrasena: false,
+  puedeRestablecerContrasena: true } };
 
 const issues = {
   json: {
@@ -45,7 +46,7 @@ describe('App', () => {
     simularFetch({
       'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => ({ json: { resultados: [
+      'POST /api/procedimientos/Sync_Resumen': () => ({ json: { resultados: [
         { columnas: [], truncado: false, filas: [{ Fuente: 'smco', DatosVigentes: true, DatosAtrasados: true, MinutosDesdeSincronizacion: 190,
           UltimaSincronizacion: '2026-11-08T07:00:00-06:00', AvisosAbiertos: 0 }] },
         { columnas: [], truncado: false, filas: [] },
@@ -69,7 +70,7 @@ describe('App', () => {
     simularFetch({
       'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado(vigentes),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(vigentes),
     });
     render(<App intervaloSyncMs={50} />);
 
@@ -86,7 +87,7 @@ describe('App', () => {
     const peticiones = simularFetch({
       'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(true),
       'POST /api/procedimientos/Issues_Buscar': () => issues,
       'POST /api/procedimientos/Issue_Detalle': () => ({ json: { resultados: [issues.json.resultados[0]] } }),
     });
@@ -109,7 +110,7 @@ describe('App', () => {
     const peticiones = simularFetch({
       'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(true),
     });
     render(<App />);
     await userEvent.click(await screen.findByRole('link', { name: 'Sincronizar ahora' }));
@@ -122,7 +123,7 @@ describe('App', () => {
     simularFetch({
       'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado(vigentes),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(vigentes),
       'POST /api/procedimientos/Issues_Buscar': () => {
         vigentes = false;
         return { estado: 503, json: { title: 'Sincronizando', codigo: 'sync.pendiente' } };
@@ -137,7 +138,7 @@ describe('App', () => {
     simularFetch({
       'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(true),
       'POST /api/procedimientos/Issue_Detalle': () => ({ estado: 400, json: { title: 'Hay parámetros faltantes o desconocidos.', errors: { Clave: ['Es obligatorio.'] } } }),
     });
     window.history.replaceState(null, '', '/?p=Issue_Detalle');
@@ -156,7 +157,7 @@ describe('Sesión', () => {
         ? sesionLector
         : { estado: 401, json: { title: 'Usuario o contraseña incorrectos, o la cuenta está bloqueada temporalmente por demasiados intentos.' } }),
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(true),
     });
     render(<App />);
     await userEvent.type(await screen.findByLabelText('Usuario'), 'lector');
@@ -179,7 +180,7 @@ describe('Sesión', () => {
       'GET /api/sesion': () => ({ json: { ...sesionLector.json, debeCambiarContrasena: debeCambiar } }),
       'POST /api/sesion/cambiar-contrasena': () => { debeCambiar = false; return { estado: 204, json: null }; },
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(true),
     });
     render(<App />);
     expect(await screen.findByRole('heading', { name: 'Establezca su contraseña' })).toBeInTheDocument();
@@ -201,7 +202,7 @@ describe('Sesión', () => {
     simularFetch({
       'GET /api/sesion': () => sesionLector,
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(true),
       'POST /api/procedimientos/Issues_Buscar': () => ({ estado: 401, json: { codigo: 'sesion.invalida' } }),
     });
     render(<App />);
@@ -210,11 +211,25 @@ describe('Sesión', () => {
     expect(screen.getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument();
   });
 
+  it('Restablecer contraseña es una opción: sin ella no aparece aunque administre usuarios', async () => {
+    simularFetch({
+      'GET /api/sesion': () => ({ json: { ...sesionAdmin.json, puedeRestablecerContrasena: false } }),
+      'GET /api/procedimientos': () => ({ json: [...procs, procedimiento({ nombre: 'Usuarios_Listar', permiso: 'admin', exentoSync: true, titulo: 'Usuarios' })] }),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(true),
+    });
+    window.history.replaceState(null, '', '/?p=_restablecer');
+    render(<App />);
+    expect(await screen.findByRole('link', { name: 'Usuarios' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Restablecer contraseña' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Restablecer' })).not.toBeInTheDocument();
+    window.history.replaceState(null, '', '/');
+  });
+
   it('el administrador ve Restablecer contraseña; Salir cierra la sesión', async () => {
     const peticiones = simularFetch({
       'GET /api/sesion': () => sesionAdmin,
       'GET /api/procedimientos': () => ({ json: [...procs, procedimiento({ nombre: 'Usuarios_Listar', permiso: 'admin', exentoSync: true, titulo: 'Usuarios' })] }),
-      'POST /api/procedimientos/Sync_Estado': () => estado(true),
+      'POST /api/procedimientos/Sync_Resumen': () => estado(true),
       'POST /api/procedimientos/Usuarios_Listar': () => ({ json: { resultados: [] } }),
       'POST /api/sesion/restablecer-contrasena': () => ({ estado: 204, json: null }),
       'POST /api/sesion/cerrar': () => ({ estado: 204, json: null }),

@@ -8,6 +8,7 @@ import { CambiarContrasena } from './componentes/CambiarContrasena';
 import { ConsultaPersonalizadaVista } from './componentes/ConsultaPersonalizadaVista';
 import { EditorTablero } from './componentes/EditorTablero';
 import { MisFiltros } from './componentes/MisFiltros';
+import { PermisosRoles } from './componentes/PermisosRoles';
 import { TableroVista } from './componentes/TableroVista';
 import { Inicio } from './componentes/Inicio';
 import { PantallaSincronizacion } from './componentes/PantallaSincronizacion';
@@ -72,14 +73,19 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
     api.listar().then(setProcs).catch((e) => setErrorCarga(e instanceof ErrorApi ? e.message : 'No se pudo cargar la aplicación.'));
   }, []);
 
-  const tienenTableros = procs?.some((p) => p.nombre === 'Tableros_Listar') ?? false;
+  // Cada pantalla propia aparece solo si el usuario tiene concedida su opción (el catálogo trae solo lo permitido).
+  const tiene = (nombre: string) => procs?.some((p) => p.nombre === nombre) ?? false;
+  const tienenTableros = tiene('Tableros_Listar');
+  const puedeEditarTableros = tiene('Tablero_Guardar');
+  const tieneFiltros = tiene('Filtros_Listar');
+  const puedeRestablecer = sesion.puedeRestablecerContrasena === true;
   const cargarTableros = useCallback(() => {
     if (tienenTableros) api.ejecutar('Tableros_Listar').then((r) => setTableros(r.resultados[0]?.filas ?? [])).catch(() => setTableros([]));
   }, [tienenTableros]);
   useEffect(() => { cargarTableros(); }, [cargarTableros]);
 
   // Consultas personalizadas que puede ver (publicadas por un administrador; los clientes solo tienen éstas).
-  const tienenPersonalizadas = procs?.some((p) => p.nombre === 'ConsultasPersonalizadas_Listar') ?? false;
+  const tienenPersonalizadas = tiene('ConsultasPersonalizadas_Listar');
   const cargarPersonalizadas = useCallback(() => {
     if (tienenPersonalizadas) api.ejecutar('ConsultasPersonalizadas_Listar').then((r) => setPersonalizadas(r.resultados[0]?.filas ?? [])).catch(() => setPersonalizadas([]));
   }, [tienenPersonalizadas]);
@@ -180,7 +186,7 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   const tableroInicio = tableros.find((t) => t.EsInicio === true);
   const abrirTablero = (id: unknown) => navegar(VISTA_TABLERO, { t: String(id) });
   const tableroVista = (id: number) => (
-    <TableroVista key={`${id}-${vista}`} tableroId={id} procs={procs} etiquetasValores={etiquetasValores}
+    <TableroVista key={`${id}-${vista}`} tableroId={id} procs={procs} etiquetasValores={etiquetasValores} puedeEditar={puedeEditarTableros}
                   onAbrirConsulta={(n, v) => navegar(n, v)}
                   onEditarTablero={(t) => navegar(VISTA_TABLERO_EDITAR, { t: String(t.TableroId) })}
                   onEliminado={() => { cargarTableros(); navegar(null); }}
@@ -189,21 +195,22 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   );
 
   let contenido;
-  if (seleccion.nombre === VISTA_TABLERO && seleccion.valores.t) contenido = tableroVista(Number(seleccion.valores.t));
-  else if (seleccion.nombre === VISTA_TABLERO_NUEVO || seleccion.nombre === VISTA_TABLERO_EDITAR)
+  if (seleccion.nombre === VISTA_TABLERO && seleccion.valores.t && tienenTableros) contenido = tableroVista(Number(seleccion.valores.t));
+  else if ((seleccion.nombre === VISTA_TABLERO_NUEVO || seleccion.nombre === VISTA_TABLERO_EDITAR) && puedeEditarTableros)
     contenido = (
       <EditorTablero key={`${seleccion.nombre}-${vista}`} tablero={tableros.find((t) => String(t.TableroId) === seleccion.valores.t)}
                      onGuardado={(id) => { cargarTableros(); abrirTablero(id); }} onCancelar={() => window.history.back()} />
     );
-  else if (seleccion.nombre === VISTA_CONSULTA && seleccion.valores.c)
+  else if (seleccion.nombre === VISTA_CONSULTA && seleccion.valores.c && tienenPersonalizadas)
     contenido = (
       <ConsultaPersonalizadaVista key={`${seleccion.valores.c}-${vista}`} consultaId={Number(seleccion.valores.c)} onNavegar={(n, v) => navegar(n, v)}
                                   puedeVerDetalle={procs.some((p) => p.nombre === 'Issue_Detalle')} onSyncPendiente={sync.marcarPendiente}
                                   onEliminada={() => { cargarPersonalizadas(); navegar(null); }} />
     );
-  else if (seleccion.nombre === VISTA_FILTROS) contenido = <MisFiltros onAbrir={(n, v) => navegar(n, v)} />;
+  else if (seleccion.nombre === VISTA_FILTROS && tieneFiltros) contenido = <MisFiltros onAbrir={(n, v) => navegar(n, v)} />;
   else if (seleccion.nombre === VISTA_CONTRASENA) contenido = <CambiarContrasena obligatorio={false} onListo={() => navegar(null)} onCancelar={() => navegar(null)} />;
-  else if (seleccion.nombre === VISTA_RESTABLECER && sesion.esAdministrador) contenido = <RestablecerContrasena />;
+  else if (seleccion.nombre === VISTA_RESTABLECER && puedeRestablecer) contenido = <RestablecerContrasena />;
+  else if (proc?.nombre === 'Permisos_Matriz') contenido = <PermisosRoles key={vista} />;
   else if (proc?.nombre === 'Issues_Consultar')
     contenido = (
       <BuscadorIssues key={`${proc.nombre}-${vista}`} proc={proc} valoresUrl={seleccion.valores} onNavegar={navegar}
@@ -256,12 +263,12 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   );
 
   const interno = procs.some((p) => p.permiso === 'lectura');
-  const seccionTableros = tienenTableros && seccion('Tableros', (
+  const seccionTableros = (tienenTableros || tieneFiltros) && seccion('Tableros', (
     <ul>
-      {tableros.map((t) => enlace(VISTA_TABLERO, `${String(t.Nombre)}${t.EsInicio ? ' ★' : ''}`,
+      {tienenTableros && tableros.map((t) => enlace(VISTA_TABLERO, `${String(t.Nombre)}${t.EsInicio ? ' ★' : ''}`,
         t.EsMio ? String(t.Descripcion ?? '') : `De ${String(t.Propietario)}`, { t: String(t.TableroId) }))}
-      {enlace(VISTA_TABLERO_NUEVO, '+ Nuevo tablero', 'Crear un tablero con widgets', {}, 'nuevo')}
-      {enlace(VISTA_FILTROS, 'Mis filtros')}
+      {tienenTableros && puedeEditarTableros && enlace(VISTA_TABLERO_NUEVO, '+ Nuevo tablero', 'Crear un tablero con widgets', {}, 'nuevo')}
+      {tieneFiltros && enlace(VISTA_FILTROS, 'Mis filtros')}
     </ul>
   ));
   const seccionPersonalizadas = personalizadas.length > 0 && seccion('Consultas personalizadas', (
@@ -303,7 +310,7 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
         {/* Los clientes externos ven primero lo que se compartió con ellos. */}
         {interno ? <>{seccionTableros}{seccionPersonalizadas}</> : <>{seccionPersonalizadas}{seccionTableros}</>}
         {grupos.map((g) => seccion(g.titulo, g.subgrupos.map((s) => {
-          const extra = g.titulo === 'Administración' && s.titulo === 'Usuarios y acceso' && sesion.esAdministrador
+          const extra = g.titulo === 'Administración' && s.titulo === 'Usuarios y acceso' && puedeRestablecer
             ? enlace(VISTA_RESTABLECER, 'Restablecer contraseña', 'Asigna una contraseña temporal a un usuario.', {}, s.procs.some((p) => p.accion) ? undefined : 'primera-accion')
             : null;
           const primeraAccion = s.procs.findIndex((p) => p.accion);

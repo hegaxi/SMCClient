@@ -106,11 +106,26 @@ SQL Server: la API calcula su hash (PBKDF2-SHA256, 600 000 iteraciones) y la bas
 | Longitud mínima (`cfg.Parametro ContrasenaLongitudMinima`, 10) | `seg.Contrasena_Establecer` |
 | Bloqueo tras 5 intentos fallidos durante 15 min (`IntentosFallidosMaximos`, `MinutosBloqueo`) | `seg.Login_Resultado` |
 | Cambio obligatorio después de que un administrador la restablece | `seg.Contrasena_Establecer`, `seg.Permisos_Usuario` |
-| Solo un administrador restablece la contraseña de otro; para la propia se pide la actual | `seg.Contrasena_Establecer` |
+| Restablecer la contraseña de otro es una opción que se concede por rol (`contrasena.restablecer`); para la propia se pide la actual | `seg.Contrasena_Establecer` |
 | Cambiar la contraseña o desactivar a alguien cierra sus demás sesiones (sello de seguridad) | `seg.Contrasena_Establecer`, `api.Usuario_Guardar` |
 | Nadie se quita a sí mismo la administración; siempre queda un administrador activo | `api.Usuario_Guardar`, `api.Rol_Guardar` |
-| Qué puede ejecutar cada usuario (por categoría `lectura` / `admin` o por procedimiento `api.X`) | `seg.Permisos_Usuario` |
+| **Toda opción del menú se concede por rol** (por opción o por categoría completa); sin permisos solo se ve el propio nombre y el estado de los datos | `seg.fn_ProcedimientosPermitidos`, `seg.Permisos_Usuario` |
 | Todo queda en `seg.Auditoria` (sin datos de contraseñas) | `seg.Auditoria_Registrar` |
+
+**Permisos por opción** (Administración → Usuarios y acceso). Una matriz con cada opción del menú contra cada rol: una
+casilla concede o quita la opción. Incluye las pantallas propias (*Tableros*, *Crear y editar tableros*, *Mis filtros*,
+*Búsqueda avanzada*, *Consultas personalizadas*) y *Restablecer contraseña*. La fila de cada sección concede la
+**categoría completa**, que incluye también las opciones que se agreguen después:
+
+| Categoría | Qué incluye | De fábrica |
+|---|---|---|
+| `usuario` | Tableros, filtros y consultas personalizadas compartidas | Administrador, Consulta |
+| `lectura` | Todas las consultas y la sincronización | Administrador, Consulta |
+| `admin` | Toda la administración, incluido restablecer contraseñas | Administrador |
+
+El rol *Cliente* nace solo con *Consultas personalizadas*. A un rol externo solo se le pueden conceder opciones de la
+categoría `usuario`. Solo dos cosas no se conceden porque la aplicación no abre sin ellas: *quién soy* (`api.Mi_Usuario`)
+y el resumen de la sincronización (`api.Sync_Resumen`).
 
 Primer administrador, después de desplegar la base (pide la contraseña en la consola; usa una conexión con permisos de
 administración porque la API no puede crear administradores):

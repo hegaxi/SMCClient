@@ -15,7 +15,8 @@ AS
 BEGIN
     SET NOCOUNT ON; SET XACT_ABORT ON;
     DECLARE @u int = (SELECT UsuarioId FROM seg.Usuario WHERE Login = @UsuarioActual AND Activo = 1);
-    IF seg.fn_EsAdministrador(@u) = 0 THROW 50403, 'Solo un administrador publica consultas personalizadas.', 1;
+    IF NOT EXISTS (SELECT 1 FROM seg.fn_ProcedimientosPermitidos(@u) WHERE Procedimiento = N'ConsultaPersonalizada_Guardar')
+        THROW 50403, 'No tiene permiso para publicar consultas personalizadas.', 1;
     SET @Nombre = LTRIM(RTRIM(ISNULL(@Nombre, N'')));
     SET @Criterios = ISNULL(NULLIF(LTRIM(RTRIM(@Criterios)), N''), N'[]');
     SET @Columnas = NULLIF(REPLACE(LTRIM(RTRIM(@Columnas)), N' ', N''), N'');

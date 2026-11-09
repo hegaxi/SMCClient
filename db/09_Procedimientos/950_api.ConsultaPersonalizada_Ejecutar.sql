@@ -14,7 +14,7 @@ BEGIN
     SET NOCOUNT ON;
     DECLARE @u int = (SELECT UsuarioId FROM seg.Usuario WHERE Login = @UsuarioActual AND Activo = 1);
     IF NOT EXISTS (SELECT 1 FROM dash.Consulta WHERE ConsultaId = @ConsultaId) THROW 50404, 'La consulta no existe.', 1;
-    IF @u IS NULL OR (seg.fn_EsAdministrador(@u) = 0 AND NOT EXISTS (
+    IF @u IS NULL OR (NOT EXISTS (SELECT 1 FROM seg.fn_ProcedimientosPermitidos(@u) WHERE Procedimiento = N'ConsultaPersonalizada_Guardar') AND NOT EXISTS (
         SELECT 1 FROM dash.ConsultaAcceso x WHERE x.ConsultaId = @ConsultaId
           AND ((x.Tipo = 'U' AND x.Id = @u) OR (x.Tipo = 'R' AND x.Id IN (SELECT RolId FROM seg.UsuarioRol WHERE UsuarioId = @u)))))
         THROW 50403, 'No tiene acceso a esta consulta.', 1;

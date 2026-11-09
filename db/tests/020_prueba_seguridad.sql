@@ -48,8 +48,8 @@ DECLARE @ignorarRoles TABLE (a nvarchar(100), b nvarchar(400), c nvarchar(2000),
 
 /* ===== Roles de sistema ===== */
 SET @ok = (SELECT CASE WHEN COUNT(*) = 2 THEN 1 ELSE 0 END FROM seg.Rol WHERE EsSistema = 1); EXEC prueba.Afirmar @ok, N'Roles de sistema: Administrador y Consulta';
-SET @ok = (SELECT CASE WHEN STRING_AGG(rp.Permiso, ',') WITHIN GROUP (ORDER BY rp.Permiso) = 'admin,lectura' THEN 1 ELSE 0 END FROM seg.RolPermiso rp JOIN seg.Rol r ON r.RolId = rp.RolId WHERE r.Nombre = N'Administrador');
-EXEC prueba.Afirmar @ok, N'Administrador tiene admin y lectura';
+SET @ok = (SELECT CASE WHEN STRING_AGG(rp.Permiso, ',') WITHIN GROUP (ORDER BY rp.Permiso) = 'admin,lectura,usuario' THEN 1 ELSE 0 END FROM seg.RolPermiso rp JOIN seg.Rol r ON r.RolId = rp.RolId WHERE r.Nombre = N'Administrador');
+EXEC prueba.Afirmar @ok, N'Administrador tiene admin, lectura y usuario';
 
 /* ===== Primer administrador (comando de instalación) ===== */
 EXEC prueba.AfirmarError N'EXEC seg.Instalacion_CrearAdministrador @Login = N''admin1'', @Nombre = N''A'', @Hash = 0x01, @Sal = 0x01, @Iteraciones = 600000, @Longitud = 5;', 50400, N'Contraseña corta rechazada al instalar';

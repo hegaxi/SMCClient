@@ -278,7 +278,8 @@ sola aplicación con la misma autenticación de Windows.
 |---|---|---|
 | `smc:titulo` | procedimiento | Nombre en el menú |
 | `MS_Description` | procedimiento / parámetro | Descripción y texto de ayuda |
-| `smc:permiso` | procedimiento | Grupo del menú (y autorización en la API) |
+| `smc:permiso` | procedimiento | Categoría (`lectura` / `admin` / `usuario` / `sesion`): grupo del menú y categoría que se puede conceder completa |
+| `smc:opcion` | procedimiento | Opción de menú que agrupa los procedimientos de una pantalla (p. ej. `tableros`); sin ella cada procedimiento es su propia opción |
 | `smc:exentoSync` | procedimiento | Responde aunque los datos no estén sincronizados |
 | `smc:accion` | procedimiento | No corre sola al abrirla; pide confirmación |
 | `smc:resultados` | procedimiento | Títulos de cada conjunto de resultados |
@@ -343,9 +344,9 @@ La prueba `db/tests/040` crea 1 200 issues y verifica que el resumen da 600 h do
   Quien tiene acceso la ve en el menú (*Consultas personalizadas*) y en la pantalla de inicio; solo elige orden y página: los
   criterios y columnas los define el administrador. Se validan con las mismas reglas de la búsqueda (lista blanca).
 - **Clientes**: un rol **externo** (`seg.Rol.EsExterno`; se crea el rol *Cliente*). Un usuario externo:
-  - solo ejecuta procedimientos de permiso `usuario` (sus consultas personalizadas, sus tableros, su contraseña), **aunque
-    alguno de sus roles tenga más permisos** (`seg.fn_ProcedimientosPermitidos`): un error de configuración no le abre los
-    reportes internos;
+  - solo puede tener opciones de la categoría `usuario` (consultas personalizadas y, si se las conceden, tableros y
+    filtros), **aunque alguno de sus roles tenga más permisos** (`seg.fn_ProcedimientosPermitidos`): un error de
+    configuración no le abre los reportes internos. El rol *Cliente* nace solo con *Consultas personalizadas*;
   - solo ve los tickets de **sus organizaciones de mesa de ayuda** (`seg.UsuarioOrganizacion`, *Organizaciones de un cliente*):
     `api.ConsultaPersonalizada_Ejecutar` agrega ese criterio en SQL Server. Sin organización asignada no ve tickets;
   - no ve el detalle del issue (comentarios internos, campos) ni el detalle interno de la sincronización.
@@ -396,7 +397,11 @@ La lógica de negocio de seguridad está en procedimientos; .NET solo hace lo qu
 | Exige el encabezado `X-SMC-Solicitud` en peticiones que modifican (CSRF) y limita intentos por IP | Longitud mínima, cambio obligatorio, quién puede restablecer a quién (`seg.Contrasena_Establecer`) |
 | Pone `@UsuarioActual` / `@SolicitadoPor` con el usuario de la sesión (el cliente no puede enviarlos) | Qué procedimientos puede ejecutar cada usuario según sus roles; reglas de administración y auditoría (`api.Usuario_Guardar`, `api.Rol_Guardar`...) |
 
-- **Roles**: `Administrador` (categorías `admin` + `lectura`) y `Consulta` (`lectura`) vienen de fábrica; se pueden crear más con permisos por categoría o por procedimiento (`api.Sla_EnRiesgo`). Un procedimiento nuevo con `smc:permiso = lectura` queda disponible para todos los roles con esa categoría.
+- **Roles y opciones del menú**: **toda opción del menú se concede por rol**; nada queda abierto a cualquier usuario salvo la categoría `sesion` (`api.Mi_Usuario` y `api.Sync_Resumen`, sin los que la aplicación no abre).
+  - Un rol recibe en `seg.RolPermiso` opciones (`seg.fn_Opciones`: `tableros`, `tableros.editar`, `filtros`, `busqueda_avanzada`, `consultas_personalizadas`, `contrasena.restablecer` y un `api.X` por cada otro procedimiento) o categorías completas (`usuario`, `lectura`, `admin`), que incluyen lo que se agregue después.
+  - `seg.fn_OpcionProcedimiento` da la categoría y la opción de cada procedimiento a partir de `smc:permiso` y `smc:opcion`, así que un procedimiento nuevo aparece solo en la matriz.
+  - De fábrica: `Administrador` (`admin`, `lectura`, `usuario`), `Consulta` (`lectura`, `usuario`) y `Cliente` (`consultas_personalizadas`). La migración `0007` dio la categoría `usuario` a los roles que ya existían, para no quitarle nada a nadie.
+  - Pantalla *Permisos por opción* (`api.Permisos_Matriz`, `api.Rol_Opcion_Establecer`): una casilla por opción y rol, con las reglas de `api.Rol_Guardar` y auditoría. Restablecer contraseña es la opción `contrasena.restablecer`, que revisa `seg.Contrasena_Establecer` (`seg.fn_TieneOpcion`); la sesión trae `puedeRestablecerContrasena` para mostrarla.
 - **Primer administrador**: `dotnet SMCClient.Api.dll crear-administrador` con una conexión de administración; `seg.Instalacion_CrearAdministrador` no está concedido al rol `smc_api`, así que la aplicación web no puede crear administradores por esa vía.
 - **Cuentas de SQL**: la API usa una cuenta con el rol `smc_api` (solo `EXECUTE` sobre `api` y sobre los cuatro procedimientos de sesión de `seg`); el worker, `smc_sync`.
 - Token de Jira en un almacén de secretos o variables de entorno, nunca en `appsettings.json`; usuario técnico de Jira de solo lectura.

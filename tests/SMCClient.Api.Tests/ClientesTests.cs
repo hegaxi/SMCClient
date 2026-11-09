@@ -31,18 +31,22 @@ public class ClientesTests(ApiFixture bd) : IClassFixture<ApiFixture>
         Assert.Equal(HttpStatusCode.OK, estado);
         var id = pub.GetProperty("resultados")[0].GetProperty("filas")[0].GetProperty("ConsultaId").GetInt32();
 
-        // El menú del cliente: solo procedimientos "usuario" (consultas personalizadas, tableros, su contraseña).
+        // El menú del cliente: solo las opciones concedidas a su rol (el rol Cliente nace con "Consultas personalizadas").
         var procs = JsonDocument.Parse(await (await cliente.GetAsync("/api/procedimientos")).Content.ReadAsStringAsync()).RootElement
             .EnumerateArray().Select(p => p.GetProperty("nombre").GetString()).ToList();
         Assert.Contains("ConsultaPersonalizada_Ejecutar", procs);
         Assert.DoesNotContain("Issues_Buscar", procs);
         Assert.DoesNotContain("Issue_Detalle", procs);
+        Assert.DoesNotContain("Tableros_Listar", procs);
+        Assert.DoesNotContain("Sync_Estado", procs);
         Assert.Equal(HttpStatusCode.Forbidden, (await Post(cliente, "Issues_Buscar", new { })).Estado);
+        Assert.Equal(HttpStatusCode.Forbidden, (await Post(cliente, "Tableros_Listar", new { })).Estado);
 
-        // El estado de la sincronización responde (la interfaz lo necesita), pero sin el detalle interno.
-        var (estadoSync, sync) = await Post(cliente, "Sync_Estado", new { });
+        // El resumen de la sincronización responde (la interfaz lo necesita); el detalle por entidad es una opción aparte.
+        var (estadoSync, sync) = await Post(cliente, "Sync_Resumen", new { });
         Assert.Equal(HttpStatusCode.OK, estadoSync);
         Assert.Equal(1, sync.GetProperty("resultados").GetArrayLength());
+        Assert.Equal(HttpStatusCode.Forbidden, (await Post(cliente, "Sync_Estado", new { })).Estado);
 
         // Ve la consulta en su lista; sin organización asignada no ve tickets. El administrador sí.
         var lista = (await Post(cliente, "ConsultasPersonalizadas_Listar", new { })).Json.GetProperty("resultados")[0].GetProperty("filas");

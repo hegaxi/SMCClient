@@ -8,7 +8,8 @@ BEGIN
            (SELECT STRING_AGG(r.Nombre, N', ') WITHIN GROUP (ORDER BY r.Nombre)
             FROM seg.UsuarioRol ur JOIN seg.Rol r ON r.RolId = ur.RolId WHERE ur.UsuarioId = u.UsuarioId) AS Roles,
            CAST(CASE WHEN EXISTS (SELECT 1 FROM seg.UsuarioRol ur JOIN seg.RolPermiso rp ON rp.RolId = ur.RolId
-                                  WHERE ur.UsuarioId = u.UsuarioId AND rp.Permiso = N'admin') THEN 1 ELSE 0 END AS bit) AS EsAdministrador
+                                  WHERE ur.UsuarioId = u.UsuarioId AND rp.Permiso = N'admin') THEN 1 ELSE 0 END AS bit) AS EsAdministrador,
+           seg.fn_TieneOpcion(u.UsuarioId, N'contrasena.restablecer') AS PuedeRestablecerContrasena
     FROM seg.Usuario u
     WHERE u.Login = @UsuarioActual;
 END;

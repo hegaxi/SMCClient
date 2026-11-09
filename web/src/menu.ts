@@ -15,23 +15,23 @@ export interface GrupoMenu {
   subgrupos: SubgrupoMenu[];
 }
 
-type Regla = [RegExp, string];
+export type Regla = [RegExp, string];
 
-const SUBGRUPOS_CONSULTAS: Regla[] = [
+export const SUBGRUPOS_CONSULTAS: Regla[] = [
   [/^(Issues?|Proyectos)_/, 'Historias y tickets'],
   [/^(Horas|Estimacion)_/, 'Tiempo y estimación'],
   [/^(Sprints?|Epicas?)_/, 'Avance de sprints y épicas'],
   [/^Sla_/, 'Mesa de ayuda (SLA)'],
 ];
-const SUBGRUPOS_ADMIN: Regla[] = [
-  [/^(Usuarios?|Roles?|Organizaciones|Usuario)_/, 'Usuarios y acceso'],
+export const SUBGRUPOS_ADMIN: Regla[] = [
+  [/^(Usuarios?|Roles?|Organizaciones|Usuario|Permisos)_/, 'Usuarios y acceso'],
   [/^(Sync|Mapeos?|Mapeo|Campos)_/, 'Sincronización y campos'],
   [/^(Avisos?|Auditoria)_/, 'Monitoreo'],
   [/^ConsultaPersonalizada/, 'Consultas personalizadas'],
 ];
 
 /** Subgrupo en el que cae un procedimiento (en el orden de las reglas; si ninguna aplica, el último). */
-function subagrupar(procs: ProcedimientoInfo[], reglas: Regla[], otros: string): SubgrupoMenu[] {
+export function subagrupar(procs: ProcedimientoInfo[], reglas: Regla[], otros: string): SubgrupoMenu[] {
   const titulos = [...reglas.map(([, t]) => t), otros];
   const porTitulo = new Map<string, ProcedimientoInfo[]>(titulos.map((t) => [t, []]));
   for (const p of procs) porTitulo.get(reglas.find(([re]) => re.test(p.nombre))?.[1] ?? otros)!.push(p);
@@ -44,14 +44,12 @@ export function ordenar(procs: ProcedimientoInfo[]): ProcedimientoInfo[] {
 }
 
 export function agruparMenu(todos: ProcedimientoInfo[]): GrupoMenu[] {
-  // Usuario interno: tiene alguna consulta de lectura (los clientes externos solo tienen las de "usuario").
-  const interno = todos.some((p) => p.permiso === 'lectura');
-  const lista = todos
-    // De los de permiso "usuario" solo el estado de la sincronización va al menú (tableros y filtros tienen sus pantallas).
-    .filter((p) => !p.oculto && (p.permiso !== 'usuario' || (interno && p.nombre.startsWith('Sync_'))));
+  // El catálogo ya trae solo lo que el usuario tiene concedido. Tableros, filtros y consultas personalizadas
+  // ("usuario") tienen pantallas propias, y lo de la sesión no es una opción del menú.
+  const lista = todos.filter((p) => !p.oculto && p.permiso !== 'usuario' && p.permiso !== 'sesion');
   const consultas = lista.filter((p) => p.permiso === 'lectura' && !p.exentoSync);
-  const sincronizacion = lista.filter((p) => (p.permiso === 'lectura' || p.permiso === 'usuario') && p.exentoSync);
-  const admin = lista.filter((p) => p.permiso !== 'lectura' && p.permiso !== 'usuario');
+  const sincronizacion = lista.filter((p) => p.permiso === 'lectura' && p.exentoSync);
+  const admin = lista.filter((p) => p.permiso !== 'lectura');
   const grupos: GrupoMenu[] = [
     { titulo: 'Consultas', subgrupos: subagrupar(consultas, SUBGRUPOS_CONSULTAS, 'Otras consultas') },
     { titulo: 'Sincronización', subgrupos: [{ titulo: null, procs: ordenar(sincronizacion) }] },

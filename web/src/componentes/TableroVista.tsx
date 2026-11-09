@@ -7,6 +7,8 @@ import { WidgetVista } from './WidgetVista';
 interface Props {
   tableroId: number;
   procs: ProcedimientoInfo[];
+  /** Tiene la opción "Crear y editar tableros". */
+  puedeEditar?: boolean;
   etiquetasValores?: Map<string, Map<string, string>>;
   onAbrirConsulta: (nombre: string, valores: ValoresFormulario) => void;
   onEditarTablero: (tablero: Fila) => void;
@@ -16,7 +18,7 @@ interface Props {
 }
 
 /** Un tablero: sus widgets en una cuadrícula de 4 columnas. El propietario puede agregar, editar, ordenar y quitar. */
-export function TableroVista({ tableroId, procs, etiquetasValores, onAbrirConsulta, onEditarTablero, onEliminado, onCambio, onSyncPendiente }: Props) {
+export function TableroVista({ tableroId, procs, puedeEditar = true, etiquetasValores, onAbrirConsulta, onEditarTablero, onEliminado, onCambio, onSyncPendiente }: Props) {
   const [tablero, setTablero] = useState<Fila | null>(null);
   const [widgets, setWidgets] = useState<Fila[]>([]);
   const [filtros, setFiltros] = useState<Fila[]>([]);
@@ -73,7 +75,7 @@ export function TableroVista({ tableroId, procs, etiquetasValores, onAbrirConsul
                   onClick={async () => { if (await accion('Tablero_Inicio', { TableroId: tablero.EsInicio ? null : tableroId })) { await cargar(); onCambio(); } }}>
             {tablero.EsInicio ? 'Quitar de inicio' : 'Usar como inicio'}
           </button>
-          {esMio && (
+          {esMio && puedeEditar && (
             <>
               <button type="button" className={edicion ? 'boton' : 'boton secundario-btn'} onClick={() => { setEdicion((e) => !e); setEditor(null); }}>
                 {edicion ? 'Terminar edición' : 'Editar'}

@@ -5,7 +5,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @u int = (SELECT UsuarioId FROM seg.Usuario WHERE Login = @UsuarioActual AND Activo = 1);
-    DECLARE @admin bit = seg.fn_EsAdministrador(@u);
+    DECLARE @admin bit = CASE WHEN EXISTS (SELECT 1 FROM seg.fn_ProcedimientosPermitidos(@u) WHERE Procedimiento = N'ConsultaPersonalizada_Guardar') THEN 1 ELSE 0 END;   -- las administra
     SELECT c.ConsultaId, c.Nombre, c.Descripcion,
            CASE WHEN @admin = 1 THEN a.CompartidaCon END AS CompartidaCon,
            c.FechaCambio, @admin AS PuedoEditar

@@ -7,7 +7,7 @@ AS
 BEGIN
     SET NOCOUNT ON;
     DECLARE @u int = (SELECT UsuarioId FROM seg.Usuario WHERE Login = @UsuarioActual AND Activo = 1);
-    DECLARE @admin bit = seg.fn_EsAdministrador(@u);
+    DECLARE @admin bit = CASE WHEN EXISTS (SELECT 1 FROM seg.fn_ProcedimientosPermitidos(@u) WHERE Procedimiento = N'ConsultaPersonalizada_Guardar') THEN 1 ELSE 0 END;   -- las administra
     IF NOT EXISTS (SELECT 1 FROM dash.Consulta WHERE ConsultaId = @ConsultaId) THROW 50404, 'La consulta no existe.', 1;
     IF @u IS NULL OR (@admin = 0 AND NOT EXISTS (
         SELECT 1 FROM dash.ConsultaAcceso x WHERE x.ConsultaId = @ConsultaId

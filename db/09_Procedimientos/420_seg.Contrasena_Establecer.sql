@@ -27,10 +27,9 @@ BEGIN
 
     DECLARE @propia bit = CASE WHEN @Login = @UsuarioActual THEN 1 ELSE 0 END;
     IF @propia = 1 AND @ActualVerificada = 0 THROW 50400, 'Para cambiar su contraseña indique la actual.', 1;
-    IF @propia = 0 AND NOT EXISTS (SELECT 1 FROM seg.Usuario u JOIN seg.UsuarioRol ur ON ur.UsuarioId = u.UsuarioId
-                                   JOIN seg.RolPermiso rp ON rp.RolId = ur.RolId
-                                   WHERE u.Login = @UsuarioActual AND u.Activo = 1 AND rp.Permiso = N'admin')
-        THROW 50403, 'Solo un administrador puede restablecer la contraseña de otro usuario.', 1;
+    -- Restablecer la de otro es una opción del menú que se concede por rol ('contrasena.restablecer' o la categoría admin).
+    IF @propia = 0 AND ISNULL(seg.fn_TieneOpcion((SELECT UsuarioId FROM seg.Usuario WHERE Login = @UsuarioActual), N'contrasena.restablecer'), 0) = 0
+        THROW 50403, 'No tiene permiso para restablecer la contraseña de otro usuario.', 1;
 
     SET @SelloNuevo = NEWID();
     BEGIN TRAN;

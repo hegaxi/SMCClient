@@ -71,11 +71,42 @@ const horas = { json: { resultados: [{ truncado: false, columnas: [{ nombre: 'Pe
   filas: [{ Persona: 'Ana', HorasTotales: 10 }, { Persona: 'Luis', HorasTotales: 4 }] }] } };
 
 describe('Filtros y tableros', () => {
+  it('cada pantalla propia aparece solo con su opción: ver tableros no deja crearlos', async () => {
+    simularFetch({
+      'GET /api/sesion': () => sesion,
+      'GET /api/procedimientos': () => ({ json: procs.filter((p) => p.nombre !== 'Filtros_Listar' && p.nombre !== 'Filtro_Guardar') }),
+      'POST /api/procedimientos/Sync_Resumen': () => estado,
+      'POST /api/procedimientos/Tableros_Listar': () => ({ json: { resultados: [{ columnas: [], truncado: false, filas: [
+        { TableroId: 3, Nombre: 'Equipo', EsMio: true, EsInicio: false },
+      ] }] } }),
+    });
+    window.history.replaceState(null, '', '/?p=_tablero_nuevo');
+    render(<App />);
+    expect(await screen.findByRole('link', { name: 'Equipo' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '+ Nuevo tablero' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Mis filtros' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Nuevo tablero' })).not.toBeInTheDocument();
+    window.history.replaceState(null, '', '/');
+  });
+
+  it('con "Crear y editar tableros" y "Mis filtros" aparecen sus enlaces', async () => {
+    simularFetch({
+      'GET /api/sesion': () => sesion,
+      'GET /api/procedimientos': () => ({ json: [...procs, procedimiento({ nombre: 'Tablero_Guardar', permiso: 'usuario', accion: true, oculto: true })] }),
+      'POST /api/procedimientos/Sync_Resumen': () => estado,
+      'POST /api/procedimientos/Tableros_Listar': () => ({ json: { resultados: [{ columnas: [], truncado: false, filas: [] }] } }),
+    });
+    window.history.replaceState(null, '', '/');
+    render(<App />);
+    expect(await screen.findByRole('link', { name: '+ Nuevo tablero' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mis filtros' })).toBeInTheDocument();
+  });
+
   it('guarda la consulta como filtro con fecha relativa', async () => {
     const peticiones = simularFetch({
       'GET /api/sesion': () => sesion,
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado,
+      'POST /api/procedimientos/Sync_Resumen': () => estado,
       'POST /api/procedimientos/Tableros_Listar': () => ({ json: { resultados: [{ columnas: [], truncado: false, filas: [] }] } }),
       'POST /api/procedimientos/Horas_PorPersona': () => horas,
       'POST /api/procedimientos/Filtro_Guardar': () => ({ json: { resultados: [{ columnas: [], truncado: false, filas: [{ FiltroId: 7 }] }] } }),
@@ -99,7 +130,7 @@ describe('Filtros y tableros', () => {
     const peticiones = simularFetch({
       'GET /api/sesion': () => sesion,
       'GET /api/procedimientos': () => ({ json: procs }),
-      'POST /api/procedimientos/Sync_Estado': () => estado,
+      'POST /api/procedimientos/Sync_Resumen': () => estado,
       'POST /api/procedimientos/Tableros_Listar': () => ({ json: { resultados: [{ columnas: [], truncado: false, filas: [
         { TableroId: 3, Nombre: 'Equipo', EsMio: false, Propietario: 'Lector', EsInicio: true },
       ] }] } }),

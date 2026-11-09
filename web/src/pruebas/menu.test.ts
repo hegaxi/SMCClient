@@ -13,7 +13,10 @@ const catalogo = [
   p('Sla_Cumplimiento', 'lectura'),
   p('Nuevo_Reporte', 'lectura'),
   p('Issues_Campos', 'lectura', { oculto: true }),
-  p('Sync_Estado', 'usuario', { exentoSync: true }),
+  p('Sync_Estado', 'lectura', { exentoSync: true }),
+  p('Mi_Usuario', 'sesion', { exentoSync: true }),
+  p('Sync_Resumen', 'sesion', { exentoSync: true, oculto: true }),
+  p('Permisos_Matriz', 'admin', { exentoSync: true }),
   p('Tablero_Guardar', 'usuario', { accion: true }),
   p('Usuario_Guardar', 'admin', { accion: true }),
   p('Usuarios_Listar', 'admin'),
@@ -34,14 +37,14 @@ describe('agruparMenu', () => {
       ]],
       ['Sincronización', [[null, ['Sync_Estado']]]],
       ['Administración', [
-        ['Usuarios y acceso', ['Usuarios_Listar', 'Usuario_Guardar']],
+        ['Usuarios y acceso', ['Permisos_Matriz', 'Usuarios_Listar', 'Usuario_Guardar']],
         ['Monitoreo', ['Auditoria_Listar']],
       ]],
     ]);
   });
 
-  it('a un cliente externo (solo procedimientos de usuario) no le muestra ninguna sección', () => {
-    const cliente = catalogo.filter((x) => x.permiso === 'usuario');
+  it('lo de la sesión y las pantallas propias (tableros, filtros) no son secciones del menú', () => {
+    const cliente = catalogo.filter((x) => x.permiso === 'usuario' || x.permiso === 'sesion');
     expect(agruparMenu(cliente)).toEqual([]);
   });
 

@@ -75,5 +75,7 @@ export interface Sesion {
   nombre: string;
   roles: string | null;
   esAdministrador: boolean;
+  /** Tiene la opción "Restablecer contraseña" (no es un procedimiento: la revisa la API). */
+  puedeRestablecerContrasena?: boolean;
   debeCambiarContrasena: boolean;
 }

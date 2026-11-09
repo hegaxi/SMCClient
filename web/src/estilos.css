@@ -514,3 +514,26 @@ td .enlace { font-weight: 500; }
 }
 
 .indicador.pequeno { width: 1rem; height: 1rem; border-width: 2px; margin: 0; flex-shrink: 0; }
+
+/* Permisos por opción: opciones del menú (filas) contra roles (columnas). */
+.matriz-permisos { max-height: 75vh; }
+.matriz-permisos thead th { z-index: 2; }
+.matriz-permisos thead th:first-child { left: 0; z-index: 3; }
+.matriz-permisos .col-rol { text-align: center; min-width: 7.5rem; }
+.matriz-permisos th small { display: block; font-weight: 400; font-size: var(--t-xs); color: var(--texto-2); }
+.matriz-permisos tbody th {
+  position: sticky; left: 0; top: auto; z-index: 1;
+  background: var(--superficie); color: var(--texto); font-weight: 500; white-space: normal; min-width: 16rem; max-width: 26rem;
+  border-bottom-color: var(--borde);
+}
+.matriz-permisos .celda-permiso { text-align: center; vertical-align: middle; }
+.matriz-permisos .celda-permiso input { width: 1.1rem; height: 1.1rem; accent-color: var(--acento); cursor: pointer; }
+.matriz-permisos .celda-permiso input:disabled { cursor: not-allowed; }
+.matriz-permisos .celda-permiso input:focus-visible { outline: 2px solid var(--acento); outline-offset: 2px; }
+.matriz-permisos .fila-seccion th {
+  background: var(--superficie-2); color: var(--texto); font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.05em;
+  font-weight: 700; padding-top: var(--e-4);
+}
+.matriz-permisos .fila-subgrupo th { background: var(--superficie); color: var(--texto-2); font-size: var(--t-xs); font-weight: 600; padding-top: var(--e-3); }
+.matriz-permisos .fila-categoria th, .matriz-permisos .fila-categoria td { background: color-mix(in srgb, var(--acento) 6%, var(--superficie)); }
+.matriz-permisos .fila-categoria th { font-weight: 600; }

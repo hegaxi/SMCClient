@@ -1,14 +1,21 @@
 /* Metadatos que lee el controlador único para construir la interfaz y autorizar:
    smc:titulo      nombre corto para el menú
    MS_Description  descripción que ve el usuario
-   smc:permiso     usuario (cualquier usuario activo) | lectura | admin. Quién tiene cada categoría lo deciden
-                   los roles en seg.RolPermiso (ver seg.Permisos_Usuario)
+   smc:permiso     categoría: lectura | admin | usuario (tableros, filtros, consultas compartidas) | sesion (lo mínimo
+                   para usar la aplicación; lo tiene todo usuario activo). Cada opción del menú se concede por rol en
+                   seg.RolPermiso (ver seg.fn_ProcedimientosPermitidos y la pantalla "Permisos por opción")
+   smc:opcion      opción de menú que agrupa varios procedimientos de una misma pantalla (p. ej. tableros); sin ella,
+                   cada procedimiento es su propia opción
    smc:exentoSync  1 = se puede ejecutar aunque los datos no estén sincronizados
    smc:accion      1 = modifica algo (la interfaz nunca lo ejecuta solo al abrirlo; pide confirmar)
    smc:resultados  títulos de cada conjunto de resultados, separados por '|'
    smc:oculto      1 = no aparece en el menú (lo usa una pantalla propia de la interfaz)
    smc:opciones    (en un parámetro) valores permitidos: valor=Etiqueta|valor2=Etiqueta2 */
 DECLARE @p TABLE (Objeto nvarchar(300), Titulo nvarchar(100), Descripcion nvarchar(400), Permiso varchar(10), Exento char(1));
+INSERT @p VALUES
+ ('api.Sync_Resumen',     N'Resumen de la sincronización', N'Cuándo se sincronizó cada fuente y si los datos están al día (pantalla de sincronización y aviso de atraso).', 'sesion', '1'),
+ ('api.Permisos_Matriz',  N'Permisos por opción',        N'Qué opción del menú tiene cada rol: marque o desmarque cada casilla.',                         'admin',   '1'),
+ ('api.Rol_Opcion_Establecer', N'Conceder o quitar una opción', N'Concede o quita una opción del menú a un rol.',                                         'admin',   '1');
 INSERT @p VALUES
  ('api.Issues_Buscar',    N'Buscar historias y tickets', N'Historias Scrum y tickets de mesa de ayuda con filtros por proyecto, estado, responsable y fechas.', 'lectura', '0'),
  ('api.Issue_Detalle',    N'Detalle de un issue',        N'Datos, campos personalizados, tiempo registrado, SLA e historial de un issue.',                   'lectura', '0'),
@@ -31,14 +38,14 @@ INSERT @p VALUES
  ('api.Sync_Antiguedad_Guardar',        N'Cambiar margen de datos atrasados', N'Minutos de tolerancia, además de la frecuencia, antes de avisar que los datos están atrasados.', 'admin', '1'),
  ('api.Horas_PorSprint',  N'Horas por sprint',           N'Tiempo reportado en Scrum: horas por sprint y persona, registradas y automáticas (incluye subtareas).', 'lectura', '0'),
  ('api.Proyectos_Listar', N'Proyectos',                  N'Proyectos Scrum y de mesa de ayuda que se sincronizan.',                                        'lectura', '0'),
- ('api.Sync_Estado',      N'Estado de la sincronización', N'Cuándo se sincronizó cada fuente y cada tipo de dato.',                                        'usuario', '1'),
+ ('api.Sync_Estado',      N'Estado de la sincronización', N'Cuándo se sincronizó cada fuente y cada tipo de dato.',                                        'lectura', '1'),
  ('api.Sync_Solicitar',   N'Sincronizar ahora',          N'Pide una sincronización inmediata con Jira.',                                                   'lectura', '1'),
  ('api.Campos_Listar',    N'Campos de Jira',             N'Catálogo de campos de Jira y el rol que cumplen en los reportes.',                              'lectura', '1'),
  ('api.Avisos_Listar',    N'Avisos',                     N'Cambios detectados en Jira (campos nuevos o eliminados) y errores de sincronización.',          'admin',   '1'),
  ('api.Aviso_Atender',    N'Marcar aviso como atendido', N'Marca un aviso como atendido.',                                                                 'admin',   '1'),
  ('api.Mapeos_Listar',    N'Mapeo de campos',            N'Qué campo de Jira alimenta cada dato de los reportes (estado, story points, sprint...).',       'admin',   '1'),
  ('api.Mapeo_Establecer', N'Asignar campo a un dato',    N'Asigna manualmente el campo de Jira de un dato; vacío lo devuelve a automático.',              'admin',   '1'),
- ('api.Mi_Usuario',       N'Mi usuario',                 N'Su usuario y sus roles.',                                                                       'usuario', '1'),
+ ('api.Mi_Usuario',       N'Mi usuario',                 N'Su usuario y sus roles.',                                                                       'sesion',  '1'),
  ('api.Usuarios_Listar',  N'Usuarios',                   N'Usuarios de la aplicación y sus roles.',                                                        'admin',   '1'),
  ('api.Usuario_Guardar',  N'Guardar usuario',            N'Da de alta o modifica un usuario y le asigna roles. La contraseña se asigna en Restablecer contraseña.',                         'admin',   '1'),
  ('api.Roles_Listar',     N'Roles',                      N'Roles y sus permisos.',                                                                         'admin',   '1'),
@@ -90,7 +97,35 @@ EXEC adm.Descripcion_Establecer 'api.Rol_Eliminar', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Login', N'MS_Description', N'Nombre de usuario para iniciar sesión (p. ej. mbravo)';
 EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Roles', N'MS_Description', N'Separados por coma, p. ej. Consulta o Administrador';
 EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Activo', N'MS_Description', N'No = no puede entrar (se conserva su historial)';
-EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', '@Permisos', N'MS_Description', N'Separados por coma: lectura (todas las consultas), admin (administración) o api.Nombre (un procedimiento)';
+EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', '@Permisos', N'MS_Description', N'Separados por coma: lectura (todas las consultas), admin (toda la administración), usuario (tableros, filtros y consultas compartidas) o una opción (ver Permisos por opción)';
+EXEC adm.Descripcion_Establecer 'api.Rol_Opcion_Establecer', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.Rol_Opcion_Establecer', NULL, N'smc:oculto', N'1';
+EXEC adm.Descripcion_Establecer 'api.Sync_Resumen', NULL, N'smc:oculto', N'1';
+EXEC adm.Descripcion_Establecer 'api.Mi_Usuario', NULL, N'smc:oculto', N'1';
+EXEC adm.Descripcion_Establecer 'api.Permisos_Matriz', NULL, N'smc:resultados', N'Roles|Opciones del menú|Permisos concedidos';
+
+-- Opciones de menú de varias pantallas: se conceden juntas (seg.fn_Opciones les da título). Todas son pantallas propias
+-- de la interfaz, por eso no salen en el menú generado.
+DECLARE @opciones TABLE (Objeto nvarchar(300), Opcion nvarchar(100));
+INSERT @opciones VALUES
+ ('api.Tableros_Listar', N'tableros'), ('api.Tablero_Obtener', N'tableros'), ('api.Tablero_Inicio', N'tableros'),
+ ('api.Tablero_Guardar', N'tableros.editar'), ('api.Tablero_Eliminar', N'tableros.editar'), ('api.Widget_Guardar', N'tableros.editar'),
+ ('api.Widget_Eliminar', N'tableros.editar'), ('api.Widget_Mover', N'tableros.editar'),
+ ('api.Filtros_Listar', N'filtros'), ('api.Filtro_Guardar', N'filtros'), ('api.Filtro_Eliminar', N'filtros'),
+ ('api.Issues_Consultar', N'busqueda_avanzada'), ('api.Issues_Campos', N'busqueda_avanzada'), ('api.Issues_Valores', N'busqueda_avanzada'),
+ ('api.Issues_Resumir', N'busqueda_avanzada'),
+ ('api.ConsultasPersonalizadas_Listar', N'consultas_personalizadas'), ('api.ConsultaPersonalizada_Obtener', N'consultas_personalizadas'),
+ ('api.ConsultaPersonalizada_Ejecutar', N'consultas_personalizadas');
+DECLARE @oo nvarchar(300), @op nvarchar(100);
+DECLARE co CURSOR LOCAL FAST_FORWARD FOR SELECT Objeto, Opcion FROM @opciones;
+OPEN co; FETCH co INTO @oo, @op;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    EXEC adm.Descripcion_Establecer @Objeto = @oo, @Nombre = N'smc:opcion', @Valor = @op;
+    IF @op <> N'busqueda_avanzada' EXEC adm.Descripcion_Establecer @Objeto = @oo, @Nombre = N'smc:oculto', @Valor = N'1';
+    FETCH co INTO @oo, @op;
+END;
+CLOSE co; DEALLOCATE co;
 EXEC adm.Descripcion_Establecer 'api.Aviso_Atender', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Mapeo_Establecer', NULL, N'smc:accion', N'1';
 
