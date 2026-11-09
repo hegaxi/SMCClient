@@ -15,6 +15,8 @@ const ACENTOS: Record<string, string> = {
   dias: 'días', cuarentena: 'cuarentena', fecha: 'fecha', intento: 'intento',
   estimacion: 'estimación', desviacion: 'desviación', epica: 'épica', epicas: 'épicas', situacion: 'situación',
   jerarquia: 'jerarquía', automaticos: 'automáticos', subtareas: 'subtareas',
+  antiguedad: 'antigüedad', max: 'máx.', min: 'min', id: 'ID', ok: 'OK', organizacion: 'organización', periodo: 'periodo',
+  comentarios: 'comentarios', ultimos: 'últimos', ultimas: 'últimas', pais: 'país', titulo: 'título', codigo: 'código',
 };
 
 /** "HorasAutomaticas" -> "Horas automáticas"; "ProyectoClave" -> "Proyecto clave". */

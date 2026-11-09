@@ -70,7 +70,7 @@ export function ConsultaPersonalizadaVista({ consultaId, onNavegar, puedeVerDeta
   if (!def) {
     return (
       <section className="vista">
-        {error ? <p className="alerta" role="alert">{error}</p> : <p role="status" className="secundario">Cargando…</p>}
+        {error ? <p className="alerta" role="alert">{error}</p> : <p role="status" className="estado-carga"><span className="indicador pequeno" aria-hidden="true" />Cargando…</p>}
       </section>
     );
   }
@@ -133,11 +133,13 @@ export function ConsultaPersonalizadaVista({ consultaId, onNavegar, puedeVerDeta
           {criterios.map((c, i) => <li key={i} className="chip activo">{describirCriterio(c, etiquetaDe(c.campo))}</li>)}
         </ul>
       )}
-      {def.SoloMiOrganizacion === true && <p className="secundario">Se muestran solo los tickets de su organización.</p>}
-      {def.PuedoEditar === true && (
-        <p className="secundario">
-          Compartida con: {def.CompartidaCon ? String(def.CompartidaCon) : 'nadie (solo administradores)'}
-        </p>
+      {(def.SoloMiOrganizacion === true || def.PuedoEditar === true) && (
+        <div className="metadatos secundario">
+          {def.SoloMiOrganizacion === true && <p>Se muestran solo los tickets de su organización.</p>}
+          {def.PuedoEditar === true && (
+            <p>Compartida con: {def.CompartidaCon ? String(def.CompartidaCon) : 'nadie (solo administradores)'}</p>
+          )}
+        </div>
       )}
 
       <div className="herramientas-resultado">
@@ -158,7 +160,8 @@ export function ConsultaPersonalizadaVista({ consultaId, onNavegar, puedeVerDeta
 
       {datos && datos.filas.length === 0 && !cargando && <p className="vacio">No hay issues con estos criterios.</p>}
       {datos && datos.filas.length > 0 && (
-        <div className={`contenedor-tabla${cargando ? ' cargando' : ''}`}>
+        <div className="resultado">
+        <div className={`contenedor-tabla${cargando ? ' cargando' : ''}`} aria-busy={cargando}>
           <table>
             <thead>
               <tr>
@@ -170,7 +173,7 @@ export function ConsultaPersonalizadaVista({ consultaId, onNavegar, puedeVerDeta
                         aria-sort={activa ? (orden!.desc ? 'descending' : 'ascending') : undefined}>
                       {campo && !campo.multivalor ? (
                         <button type="button" onClick={() => ordenar(c.nombre)}>
-                          {campo.etiqueta}<span aria-hidden="true">{activa ? (orden!.desc ? ' ▼' : ' ▲') : ''}</span>
+                          {campo.etiqueta}<span className="orden" aria-hidden="true">{activa ? (orden!.desc ? '▼' : '▲') : ''}</span>
                         </button>
                       ) : (campo?.etiqueta ?? c.nombre)}
                     </th>
@@ -197,11 +200,12 @@ export function ConsultaPersonalizadaVista({ consultaId, onNavegar, puedeVerDeta
             </tbody>
           </table>
         </div>
+        </div>
       )}
       {paginas > 1 && (
         <nav className="paginacion" aria-label="Páginas">
           <button type="button" className="boton secundario-btn" disabled={pagina <= 1} onClick={() => setPagina((p) => p - 1)}>← Anterior</button>
-          <span>Página {pagina} de {paginas}</span>
+          <span aria-live="polite">Página {pagina} de {paginas}</span>
           <button type="button" className="boton secundario-btn" disabled={pagina >= paginas} onClick={() => setPagina((p) => p + 1)}>Siguiente →</button>
         </nav>
       )}

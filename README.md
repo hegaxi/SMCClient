@@ -151,7 +151,7 @@ Qué hace:
 
 - **Inicio de sesión** con usuario y contraseña de la base; cambio obligatorio de contraseña tras un restablecimiento; "Cambiar contraseña" y "Salir" en el encabezado; los administradores ven "Restablecer contraseña".
 - **Sincroniza antes de todo.** Mientras alguna fuente no tenga datos vigentes muestra el avance por tipo de dato y se abre sola al terminar. Si una consulta responde 503, vuelve a esa pantalla.
-- **Se arma con los metadatos de la base.** Menú (`smc:titulo`, agrupado en Consultas / Sincronización / Administración según `smc:permiso`), formularios por tipo de parámetro, listas (`smc:opciones`), títulos de cada resultado (`smc:resultados`). Un procedimiento nuevo en la base aparece en el menú sin tocar React.
+- **Se arma con los metadatos de la base.** Menú (`smc:titulo`, agrupado en Consultas / Sincronización / Administración según `smc:permiso` y en subgrupos según el prefijo del nombre, con los listados antes que las acciones; ver `web/src/menu.ts`), formularios por tipo de parámetro, listas (`smc:opciones`), títulos de cada resultado (`smc:resultados`). Un procedimiento nuevo en la base aparece en el menú sin tocar React.
 - **Consultas.** Corren solas al abrirlas si no les falta nada obligatorio; las acciones (`smc:accion`) nunca, y piden confirmación. Tablas ordenables, descarga CSV, paginación, la clave de un issue abre su detalle, los filtros quedan en la dirección (se pueden compartir y funciona "Atrás").
 - Accesible (etiquetas, errores ligados a cada campo, navegación con teclado), adaptable a pantallas chicas y con modo oscuro.
 

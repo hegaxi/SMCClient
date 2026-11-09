@@ -12,13 +12,15 @@ interface Props {
   permitirFicha?: boolean;
   /** Etiquetas para valores codificados ("service_desk" -> "Mesa de ayuda"). */
   etiquetasValores?: Map<string, Map<string, string>>;
+  /** Mensaje cuando no hay filas (por omisión, el de una consulta con filtros). */
+  textoVacio?: string;
 }
 
 const COLUMNAS_CLAVE = new Set(['Clave', 'PadreClave']);
 const COLUMNAS_OCULTAS = new Set(['TotalFilas']);
 
 /** Un conjunto de resultados: ficha si es un solo registro con muchas columnas; si no, tabla ordenable. */
-export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave, permitirFicha = false, etiquetasValores }: Props) {
+export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave, permitirFicha = false, etiquetasValores, textoVacio = 'No hay registros con estos filtros.' }: Props) {
   const columnas = conjunto.columnas.filter((c) => !COLUMNAS_OCULTAS.has(c.nombre));
   const [orden, setOrden] = useState<{ columna: string; asc: boolean } | null>(null);
 
@@ -55,14 +57,18 @@ export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
     URL.revokeObjectURL(url);
   };
 
+  const esFicha = permitirFicha && conjunto.filas.length === 1 && columnas.length > 6;
   const encabezado = (
     <div className="encabezado-resultado">
       {titulo && <h3>{titulo}</h3>}
-      <span className="secundario">
-        {conjunto.filas.length === 1 ? '1 registro' : `${conjunto.filas.length.toLocaleString('es-MX')} registros`}
-      </span>
+      {!esFicha && (
+        <span className="contador">
+          {conjunto.filas.length === 1 ? '1 registro' : `${conjunto.filas.length.toLocaleString('es-MX')} registros`}
+        </span>
+      )}
       {conjunto.filas.length > 0 && (
-        <button type="button" className="boton secundario-btn" onClick={descargar}>Descargar CSV</button>
+        <button type="button" className="boton secundario-btn" onClick={descargar}
+                aria-label={titulo ? `Descargar CSV: ${titulo}` : undefined}>Descargar CSV</button>
       )}
     </div>
   );
@@ -71,12 +77,12 @@ export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
     return (
       <section className="resultado">
         {encabezado}
-        <p className="vacio">No hay registros con estos filtros.</p>
+        <p className="vacio">{textoVacio}</p>
       </section>
     );
   }
 
-  if (permitirFicha && conjunto.filas.length === 1 && columnas.length > 6) {
+  if (esFicha) {
     const f = conjunto.filas[0];
     return (
       <section className="resultado">
@@ -110,7 +116,7 @@ export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
                       aria-sort={activa ? (orden!.asc ? 'ascending' : 'descending') : 'none'}>
                     <button type="button" onClick={() => setOrden({ columna: c.nombre, asc: activa ? !orden!.asc : true })}>
                       {etiqueta(c.nombre)}
-                      <span aria-hidden="true">{activa ? (orden!.asc ? ' ▲' : ' ▼') : ''}</span>
+                      <span className="orden" aria-hidden="true">{activa ? (orden!.asc ? '▲' : '▼') : ''}</span>
                     </button>
                   </th>
                 );

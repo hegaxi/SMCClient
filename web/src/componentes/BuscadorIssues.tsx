@@ -129,7 +129,7 @@ export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, p
     return (
       <section className="vista buscador">
         <header><h1>{proc.titulo}</h1></header>
-        {error ? <p className="alerta" role="alert">{error}</p> : <p role="status" className="secundario">Cargando campos…</p>}
+        {error ? <p className="alerta" role="alert">{error}</p> : <p role="status" className="estado-carga"><span className="indicador pequeno" aria-hidden="true" />Cargando campos…</p>}
       </section>
     );
   }
@@ -206,12 +206,12 @@ export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, p
           </button>
           {total > 0 && <button type="button" className="boton secundario-btn" onClick={() => void descargar()} title="Hasta 500 issues">Descargar CSV</button>}
           {puedePublicar && (
-            <button type="button" className="boton secundario-btn" onClick={() => { setEdicion(null); setPanel(panel === 'publicar' ? null : 'publicar'); }}>
+            <button type="button" className="boton secundario-btn" aria-expanded={panel === 'publicar'} onClick={() => { setEdicion(null); setPanel(panel === 'publicar' ? null : 'publicar'); }}>
               {consultaId ? 'Actualizar consulta personalizada' : 'Publicar como consulta personalizada'}
             </button>
           )}
           {puedeGuardarFiltro && (
-            <button type="button" className="boton secundario-btn" onClick={() => { setEdicion(null); setPanel(panel === 'guardar' ? null : 'guardar'); }}>
+            <button type="button" className="boton secundario-btn" aria-expanded={panel === 'guardar'} onClick={() => { setEdicion(null); setPanel(panel === 'guardar' ? null : 'guardar'); }}>
               Guardar como filtro
             </button>
           )}
@@ -234,12 +234,13 @@ export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, p
                        onGuardado={(n) => { setPanel(null); setAviso(`Filtro «${n}» guardado. Puede usarlo en un widget de sus tableros.`); }}
                        onCancelar={() => setPanel(null)} />
       )}
-      {aviso && <p className="secundario" role="status">{aviso}</p>}
+      {aviso && <p className="aviso" role="status">{aviso}</p>}
       {error && <p className="alerta" role="alert">{error}</p>}
 
       {resultado && resultado.filas.length === 0 && !cargando && <p className="vacio">No hay issues con estos criterios.</p>}
       {resultado && resultado.filas.length > 0 && (
-        <div className={`contenedor-tabla${cargando ? ' cargando' : ''}`}>
+        <div className="resultado">
+        <div className={`contenedor-tabla${cargando ? ' cargando' : ''}`} aria-busy={cargando}>
           <table>
             <thead>
               <tr>
@@ -252,7 +253,7 @@ export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, p
                         aria-sort={activa ? (estado.descendente ? 'descending' : 'ascending') : undefined}>
                       {ordenable ? (
                         <button type="button" onClick={() => ordenarPor(c.nombre)}>
-                          {campo.etiqueta}<span aria-hidden="true">{activa ? (estado.descendente ? ' ▼' : ' ▲') : ''}</span>
+                          {campo.etiqueta}<span className="orden" aria-hidden="true">{activa ? (estado.descendente ? '▼' : '▲') : ''}</span>
                         </button>
                       ) : (campo?.etiqueta ?? c.nombre)}
                     </th>
@@ -279,11 +280,12 @@ export function BuscadorIssues({ proc, valoresUrl, onNavegar, puedeVerDetalle, p
             </tbody>
           </table>
         </div>
+        </div>
       )}
       {paginas > 1 && (
         <nav className="paginacion" aria-label="Páginas">
           <button type="button" className="boton secundario-btn" disabled={estado.pagina <= 1} onClick={() => setEstado((e) => ({ ...e, pagina: e.pagina - 1 }))}>← Anterior</button>
-          <span>Página {estado.pagina} de {paginas}</span>
+          <span aria-live="polite">Página {estado.pagina} de {paginas}</span>
           <button type="button" className="boton secundario-btn" disabled={estado.pagina >= paginas} onClick={() => setEstado((e) => ({ ...e, pagina: e.pagina + 1 }))}>Siguiente →</button>
         </nav>
       )}

@@ -30,6 +30,7 @@ export function PantallaInicioSesion({ aviso, onIniciada }: Props) {
   return (
     <main className="pantalla-sync" aria-labelledby="titulo-inicio">
       <form className="tarjeta inicio-sesion" onSubmit={enviar}>
+        <span className="monograma" aria-hidden="true">S</span>
         <h1 id="titulo-inicio">SMCClient</h1>
         <p className="secundario">Scrum y mesa de ayuda. Inicie sesión para continuar.</p>
         {aviso && <p className="aviso" role="status">{aviso}</p>}

@@ -1,4 +1,4 @@
-import type { FormEvent } from 'react';
+import type { FormEvent, ReactNode } from 'react';
 import type { ParametroInfo, ValoresFormulario } from '../tipos';
 import { etiqueta, tipoControl } from '../formato';
 
@@ -10,10 +10,12 @@ interface Props {
   onCambio: (nombre: string, valor: string) => void;
   onEnviar: () => void;
   textoBoton?: string;
+  /** Acciones secundarias junto al botón principal (p. ej. "Guardar como filtro"). */
+  children?: ReactNode;
 }
 
 /** Formulario generado a partir de los metadatos del procedimiento (tipo, longitud, opcional, opciones, descripción). */
-export function Formulario({ parametros, valores, errores, ocupado, onCambio, onEnviar, textoBoton = 'Consultar' }: Props) {
+export function Formulario({ parametros, valores, errores, ocupado, onCambio, onEnviar, textoBoton = 'Consultar', children }: Props) {
   const visibles = parametros.filter((p) => !p.salida);
   const enviar = (e: FormEvent) => {
     e.preventDefault();
@@ -21,7 +23,7 @@ export function Formulario({ parametros, valores, errores, ocupado, onCambio, on
   };
 
   return (
-    <form className="formulario" onSubmit={enviar} noValidate>
+    <form className={visibles.length > 0 ? 'formulario' : 'formulario sin-campos'} onSubmit={enviar} noValidate>
       {visibles.length > 0 && (
         <div className="campos">
           {visibles.map((p) => {
@@ -74,9 +76,12 @@ export function Formulario({ parametros, valores, errores, ocupado, onCambio, on
           })}
         </div>
       )}
-      <button type="submit" className="boton" disabled={ocupado}>
-        {ocupado ? 'Consultando…' : textoBoton}
-      </button>
+      <div className="acciones-formulario">
+        <button type="submit" className="boton" disabled={ocupado} aria-busy={ocupado || undefined}>
+          {ocupado ? 'Consultando…' : textoBoton}
+        </button>
+        {children}
+      </div>
     </form>
   );
 }

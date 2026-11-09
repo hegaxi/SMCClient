@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, ErrorApi } from './api';
 import { etiquetasDeValores, formatear } from './formato';
 import { useSincronizacion } from './sincronizacion';
@@ -13,6 +13,7 @@ import { Inicio } from './componentes/Inicio';
 import { PantallaSincronizacion } from './componentes/PantallaSincronizacion';
 import { RestablecerContrasena } from './componentes/RestablecerContrasena';
 import { VistaProcedimiento } from './componentes/VistaProcedimiento';
+import { agruparMenu, ubicacion, type GrupoMenu } from './menu';
 
 /** Vistas propias de la interfaz (no son procedimientos). */
 const VISTA_CONTRASENA = '_contrasena';
@@ -60,6 +61,12 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
 
   const [tableros, setTableros] = useState<Fila[]>([]);
   const [personalizadas, setPersonalizadas] = useState<Fila[]>([]);
+  // Pantallas angostas: el menú es un panel que se abre y se cierra.
+  const [menuAbierto, setMenuAbierto] = useState(false);
+  const [avisoSync, setAvisoSync] = useState<string | null>(null);
+  const [cerradas, setCerradas] = useState<string[]>(leerCerradas);
+  const contenidoRef = useRef<HTMLElement>(null);
+  const primeraVista = useRef(true);
 
   useEffect(() => {
     api.listar().then(setProcs).catch((e) => setErrorCarga(e instanceof ErrorApi ? e.message : 'No se pudo cargar la aplicación.'));
@@ -93,35 +100,56 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
     if (!reemplazar) {
       setSeleccion(s);
       setVista((v) => v + 1);
+      setMenuAbierto(false);
     }
   }, []);
 
-  const grupos = useMemo(() => {
-    const todos = procs ?? [];
-    // Usuario interno: tiene alguna consulta de lectura (los clientes externos solo tienen las de "usuario").
-    const interno = todos.some((p) => p.permiso === 'lectura');
-    const lista = [...todos]
-      // De los de permiso "usuario" solo el estado de la sincronización va al menú (tableros y filtros tienen sus pantallas).
-      .filter((p) => !p.oculto && (p.permiso !== 'usuario' || (interno && p.nombre.startsWith('Sync_'))))
-      .sort((a, b) => a.titulo.localeCompare(b.titulo, 'es'));
-    return [
-      { titulo: 'Consultas', procs: lista.filter((p) => p.permiso === 'lectura' && !p.exentoSync) },
-      { titulo: 'Sincronización', procs: lista.filter((p) => (p.permiso === 'lectura' || p.permiso === 'usuario') && p.exentoSync) },
-      { titulo: 'Administración', procs: lista.filter((p) => p.permiso !== 'lectura' && p.permiso !== 'usuario') },
-    ].filter((g) => g.procs.length > 0);
-  }, [procs]);
+  // Al cambiar de pantalla el foco va al contenido (lectores de pantalla y teclado no se quedan en el menú).
+  useEffect(() => {
+    if (primeraVista.current) { primeraVista.current = false; return; }
+    contenidoRef.current?.focus({ preventScroll: true });
+    document.documentElement.scrollTop = 0;
+  }, [vista]);
+
+  // Escape cierra el menú en pantallas angostas.
+  useEffect(() => {
+    if (!menuAbierto) return;
+    const alTeclear = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuAbierto(false); };
+    window.addEventListener('keydown', alTeclear);
+    return () => window.removeEventListener('keydown', alTeclear);
+  }, [menuAbierto]);
+
+  const grupos = useMemo<GrupoMenu[]>(() => agruparMenu(procs ?? []), [procs]);
 
   const etiquetasValores = useMemo(() => etiquetasDeValores(procs ?? []), [procs]);
 
+  // El título de la pestaña dice dónde está el usuario (historial del navegador, lectores de pantalla).
+  useEffect(() => {
+    const n = seleccion.nombre;
+    const t = n === VISTA_TABLERO ? tableros.find((x) => String(x.TableroId) === seleccion.valores.t)?.Nombre
+      : n === VISTA_CONSULTA ? personalizadas.find((x) => String(x.ConsultaId) === seleccion.valores.c)?.Nombre
+      : n === VISTA_FILTROS ? 'Mis filtros'
+      : n === VISTA_CONTRASENA ? 'Cambiar contraseña'
+      : n === VISTA_TABLERO_NUEVO ? 'Nuevo tablero'
+      : procs?.find((p) => p.nombre.toLowerCase() === n?.toLowerCase())?.titulo;
+    document.title = t ? `${String(t)} · SMCClient` : 'SMCClient';
+  }, [seleccion, procs, tableros, personalizadas]);
+
   const barra = (
     <header className="barra">
+      <button type="button" className="boton secundario-btn pequeno menu-boton" aria-expanded={menuAbierto} aria-controls="menu-principal"
+              onClick={() => setMenuAbierto((a) => !a)}>
+        <span aria-hidden="true">☰</span> Menú
+      </button>
       <a className="marca" href="./" onClick={(e) => { e.preventDefault(); navegar(null); }}>
-        SMCClient <span>Scrum y mesa de ayuda</span>
+        <span className="monograma" aria-hidden="true">S</span>SMCClient <span className="subtitulo">Scrum y mesa de ayuda</span>
       </a>
       <div className="estado-sync">
-        <span className="usuario" title={sesion.roles ?? undefined}>{sesion.nombre}</span>
-        <button type="button" className="enlace" onClick={() => navegar(VISTA_CONTRASENA)}>Cambiar contraseña</button>
-        <button type="button" className="boton secundario-btn" onClick={onSalir}>Salir</button>
+        <span className="usuario">{sesion.nombre}{sesion.roles && <small>{sesion.roles}</small>}</span>
+        <button type="button" className="enlace" aria-label="Cambiar contraseña" onClick={() => navegar(VISTA_CONTRASENA)}>
+          <span className="ocultar-angosto">Cambiar contraseña</span><span className="solo-angosto" aria-hidden="true">Contraseña</span>
+        </button>
+        <button type="button" className="boton secundario-btn pequeno" onClick={onSalir}>Salir</button>
       </div>
     </header>
   );
@@ -199,14 +227,14 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
       />
     );
   else if (tableroInicio) contenido = tableroVista(Number(tableroInicio.TableroId));
-  else contenido = <Inicio consultas={grupos.find((g) => g.titulo === 'Consultas')?.procs ?? []} onAbrir={(n) => navegar(n)}
+  else contenido = <Inicio grupos={grupos.find((g) => g.titulo === 'Consultas')?.subgrupos ?? []} onAbrir={(n) => navegar(n)}
                            personalizadas={personalizadas} onAbrirPersonalizada={(id) => navegar(VISTA_CONSULTA, { c: String(id) })} />;
 
-  const enlace = (nombre: string, titulo: string, descripcion?: string | null, valores: ValoresFormulario = {}) => {
+  const enlace = (nombre: string, titulo: string, descripcion?: string | null, valores: ValoresFormulario = {}, clase?: string) => {
     const actual = seleccion.nombre === nombre && Object.entries(valores).every(([k, v]) => seleccion.valores[k] === v);
     const q = new URLSearchParams({ ...valores, p: nombre });
     return (
-      <li key={`${nombre}-${JSON.stringify(valores)}`}>
+      <li key={`${nombre}-${JSON.stringify(valores)}`} className={clase}>
         <a href={`?${q}`} aria-current={actual ? 'page' : undefined} title={descripcion ?? undefined}
            onClick={(e) => { e.preventDefault(); navegar(nombre, valores); }}>
           {titulo}
@@ -215,47 +243,83 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
     );
   };
 
+  // Secciones del menú que el usuario cerró (se recuerdan en este navegador).
+  const seccion = (titulo: string, cuerpo: ReactNode) => (
+    <details key={titulo} className="menu-seccion" open={!cerradas.includes(titulo)}
+             onToggle={(e) => {
+               const abierta = (e.currentTarget as HTMLDetailsElement).open;
+               setCerradas((c) => { const n = abierta ? c.filter((x) => x !== titulo) : [...new Set([...c, titulo])]; guardarCerradas(n); return n; });
+             }}>
+      <summary><h2>{titulo}</h2></summary>
+      {cuerpo}
+    </details>
+  );
+
+  const interno = procs.some((p) => p.permiso === 'lectura');
+  const seccionTableros = tienenTableros && seccion('Tableros', (
+    <ul>
+      {tableros.map((t) => enlace(VISTA_TABLERO, `${String(t.Nombre)}${t.EsInicio ? ' ★' : ''}`,
+        t.EsMio ? String(t.Descripcion ?? '') : `De ${String(t.Propietario)}`, { t: String(t.TableroId) }))}
+      {enlace(VISTA_TABLERO_NUEVO, '+ Nuevo tablero', 'Crear un tablero con widgets', {}, 'nuevo')}
+      {enlace(VISTA_FILTROS, 'Mis filtros')}
+    </ul>
+  ));
+  const seccionPersonalizadas = personalizadas.length > 0 && seccion('Consultas personalizadas', (
+    <ul>{personalizadas.map((c) => enlace(VISTA_CONSULTA, String(c.Nombre), c.Descripcion ? String(c.Descripcion) : null, { c: String(c.ConsultaId) }))}</ul>
+  ));
+
+  // Migas de pan: en qué sección del menú está lo que se ve.
+  const migas = proc ? ubicacion(grupos, proc.nombre)
+    : seleccion.nombre === VISTA_RESTABLECER ? ['Administración', 'Usuarios y acceso']
+    : seleccion.nombre === VISTA_CONSULTA ? ['Consultas personalizadas']
+    : seleccion.nombre && [VISTA_TABLERO, VISTA_TABLERO_NUEVO, VISTA_TABLERO_EDITAR, VISTA_FILTROS].includes(seleccion.nombre) ? ['Tableros']
+    : [];
+
+  const solicitarSync = async () => {
+    setAvisoSync(null);
+    try {
+      await sync.solicitar();
+      setAvisoSync('Solicitud enviada; empieza en menos de un minuto.');
+    } catch (e) {
+      setAvisoSync(e instanceof ErrorApi ? e.message : 'No se pudo solicitar la sincronización.');
+    }
+  };
+
   return (
-    <div className="app">
+    <div className={menuAbierto ? 'app menu-abierto' : 'app'}>
+      <a className="saltar" href="#contenido">Saltar al contenido</a>
       {barra}
-      <nav className="menu" aria-label="Consultas">
-        <p className="datos-al secundario">
-          {ultima && <>Datos de Jira al {formatear(ultima, 'datetimeoffset')}</>}
+      <nav className="menu" id="menu-principal" aria-label="Consultas">
+        <div className="datos-al secundario">
+          {ultima && <span className="fecha">Datos de Jira al <strong>{formatear(ultima, 'datetimeoffset')}</strong></span>}
           {avisos > 0 && verAvisos && (
             <button type="button" className="insignia" onClick={() => navegar('Avisos_Listar')}>{avisos} aviso(s)</button>
           )}
-        </p>
-        {tienenTableros && (
-          <section>
-            <h2>Tableros</h2>
-            <ul>
-              {tableros.map((t) => enlace(VISTA_TABLERO, `${String(t.Nombre)}${t.EsInicio ? ' ★' : ''}`,
-                t.EsMio ? String(t.Descripcion ?? '') : `De ${String(t.Propietario)}`, { t: String(t.TableroId) }))}
-              {enlace(VISTA_TABLERO_NUEVO, '+ Nuevo tablero')}
-              {enlace(VISTA_FILTROS, 'Mis filtros')}
-            </ul>
-          </section>
-        )}
-        {personalizadas.length > 0 && (
-          <section>
-            <h2>Consultas personalizadas</h2>
-            <ul>{personalizadas.map((c) => enlace(VISTA_CONSULTA, String(c.Nombre), c.Descripcion ? String(c.Descripcion) : null, { c: String(c.ConsultaId) }))}</ul>
-          </section>
-        )}
-        {grupos.map((g) => (
-          <section key={g.titulo}>
-            <h2>{g.titulo}</h2>
-            <ul>
-              {g.procs.map((p) => enlace(p.nombre, p.titulo, p.descripcion))}
-              {g.titulo === 'Administración' && sesion.esAdministrador && enlace(VISTA_RESTABLECER, 'Restablecer contraseña', 'Asigna una contraseña temporal a un usuario.')}
-            </ul>
-          </section>
-        ))}
-        {procs.some((p) => p.nombre === 'Sync_Solicitar') && (
-          <button type="button" className="boton secundario-btn sync-menu" onClick={() => void sync.solicitar()}>Sincronizar ahora</button>
-        )}
+          {procs.some((p) => p.nombre === 'Sync_Solicitar') && (
+            <button type="button" className="enlace" onClick={() => void solicitarSync()}>Sincronizar ahora</button>
+          )}
+          {avisoSync && <span role="status" className="fecha">{avisoSync}</span>}
+        </div>
+        {/* Los clientes externos ven primero lo que se compartió con ellos. */}
+        {interno ? <>{seccionTableros}{seccionPersonalizadas}</> : <>{seccionPersonalizadas}{seccionTableros}</>}
+        {grupos.map((g) => seccion(g.titulo, g.subgrupos.map((s) => {
+          const extra = g.titulo === 'Administración' && s.titulo === 'Usuarios y acceso' && sesion.esAdministrador
+            ? enlace(VISTA_RESTABLECER, 'Restablecer contraseña', 'Asigna una contraseña temporal a un usuario.', {}, s.procs.some((p) => p.accion) ? undefined : 'primera-accion')
+            : null;
+          const primeraAccion = s.procs.findIndex((p) => p.accion);
+          return (
+            <div key={s.titulo ?? '-'}>
+              {s.titulo && g.subgrupos.length > 1 && <h3>{s.titulo}</h3>}
+              <ul>
+                {s.procs.map((p, i) => enlace(p.nombre, p.titulo, p.descripcion, {}, i === primeraAccion && i > 0 ? 'primera-accion' : undefined))}
+                {extra}
+              </ul>
+            </div>
+          );
+        })))}
       </nav>
-      <main className="contenido">
+      <div className="velo" aria-hidden="true" onClick={() => setMenuAbierto(false)} />
+      <main className="contenido" id="contenido" ref={contenidoRef} tabIndex={-1}>
         {atrasadas.length > 0 && (
           <p className="aviso-atraso" role="status">
             Los datos de Jira tienen {textoAtraso(minutosAtraso)} sin actualizarse: la sincronización está fallando o detenida.
@@ -263,10 +327,19 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
             {verAvisos && <> <button type="button" className="enlace" onClick={() => navegar('Avisos_Listar')}>Ver avisos</button></>}
           </p>
         )}
+        {migas.length > 0 && <p className="migas">{migas.join(' › ')}</p>}
         {contenido}
       </main>
     </div>
   );
+}
+
+const CLAVE_CERRADAS = 'smc.menu.cerradas';
+function leerCerradas(): string[] {
+  try { return JSON.parse(localStorage.getItem(CLAVE_CERRADAS) ?? '[]') as string[]; } catch { return []; }
+}
+function guardarCerradas(c: string[]) {
+  try { localStorage.setItem(CLAVE_CERRADAS, JSON.stringify(c)); } catch { /* sin almacenamiento */ }
 }
 
 /** 45 -> "45 minutos"; 130 -> "2 horas"; 3000 -> "2 días". */

@@ -109,14 +109,13 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
         onCambio={cambiar}
         onEnviar={enviar}
         textoBoton={proc.accion ? 'Ejecutar' : 'Consultar'}
-      />
-
-      {puedeGuardarFiltro && !proc.accion && !guardando && (
-        <div className="acciones guardar-filtro-acciones">
+      >
+        {puedeGuardarFiltro && !proc.accion && !guardando && (
           <button type="button" className="boton secundario-btn" onClick={() => { setGuardando(true); setAviso(null); }}>Guardar como filtro</button>
-          {aviso && <span className="secundario" role="status">{aviso}</span>}
-        </div>
-      )}
+        )}
+      </Formulario>
+      {aviso && <p className="aviso" role="status">{aviso}</p>}
+
       {guardando && (
         <GuardarFiltro proc={proc} valores={valores}
                        onGuardado={(n) => { setGuardando(false); setAviso(`Filtro "${n}" guardado. Úselo en un tablero o en Mis filtros.`); }}
@@ -137,14 +136,15 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
               nombreArchivo={`${proc.nombre}${resultado.resultados.length > 1 ? `_${i + 1}` : ''}`}
               onAbrirClave={abrirClave}
               permitirFicha={i === 0 && proc.parametros.some((p) => !p.opcional && !p.salida)}
+              textoVacio={resultado.resultados.length > 1 && i > 0 ? 'Sin registros.' : undefined}
               etiquetasValores={etiquetasValores}
             />
           ))}
           {tienePaginas && total > tamano && (
             <nav className="paginacion" aria-label="Páginas">
-              <button type="button" className="boton secundario-btn" disabled={pagina <= 1 || ocupado} onClick={() => irA(pagina - 1)}>Anterior</button>
-              <span>Página {pagina} de {paginas} · {total.toLocaleString('es-MX')} en total</span>
-              <button type="button" className="boton secundario-btn" disabled={pagina >= paginas || ocupado} onClick={() => irA(pagina + 1)}>Siguiente</button>
+              <button type="button" className="boton secundario-btn" disabled={pagina <= 1 || ocupado} onClick={() => irA(pagina - 1)}>← Anterior</button>
+              <span aria-live="polite">Página {pagina} de {paginas} · {total.toLocaleString('es-MX')} en total</span>
+              <button type="button" className="boton secundario-btn" disabled={pagina >= paginas || ocupado} onClick={() => irA(pagina + 1)}>Siguiente →</button>
             </nav>
           )}
         </div>

@@ -11,6 +11,7 @@ const NOMBRES: Record<string, string> = {
   worklog: 'Tiempo registrado',
   worklog_eliminado: 'Tiempo eliminado',
   sla: 'SLA de mesa de ayuda',
+  comentario: 'Comentarios',
 };
 
 function estadoEntidad(e: Fila): { clase: string; texto: string } {
