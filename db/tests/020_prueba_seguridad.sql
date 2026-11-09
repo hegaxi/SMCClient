@@ -127,9 +127,22 @@ UPDATE seg.Usuario SET DebeCambiarContrasena = 0 WHERE Login = N'soporte1';
 EXEC prueba.Permisos @Login = N'soporte1', @Lista = @lista OUTPUT, @Valido = @valido OUTPUT, @DebeCambiar = @cambiar OUTPUT;
 SET @ok = CASE WHEN @lista LIKE N'%,Sla_EnRiesgo,%' AND @lista NOT LIKE N'%,Issues_Buscar,%' AND @lista LIKE N'%,Mi_Usuario,%' THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Rol con permiso a un solo procedimiento';
+-- Editar sin indicar permisos, roles ni estado los conserva (antes se borraban los permisos y se reactivaba al usuario).
+INSERT @ignorarRoles EXEC api.Rol_Guardar @Nombre = N'Soporte', @Descripcion = N'Mesa de ayuda N1', @UsuarioActual = N'admin2';
+SET @ok = (SELECT CASE WHEN COUNT(*) = 1 AND MIN(rp.Permiso) = N'api.Sla_EnRiesgo' THEN 1 ELSE 0 END
+           FROM seg.RolPermiso rp JOIN seg.Rol r ON r.RolId = rp.RolId WHERE r.Nombre = N'Soporte');
+EXEC prueba.Afirmar @ok, N'Editar un rol sin @Permisos conserva sus permisos';
+INSERT @ignorar EXEC api.Usuario_Guardar @Login = N'soporte1', @Nombre = N'Soporte 1', @UsuarioActual = N'admin2';
+SET @ok = (SELECT CASE WHEN u.Nombre = N'Soporte 1' AND u.Activo = 1 AND r.Nombre = N'Soporte' THEN 1 ELSE 0 END
+           FROM seg.Usuario u JOIN seg.UsuarioRol ur ON ur.UsuarioId = u.UsuarioId JOIN seg.Rol r ON r.RolId = ur.RolId WHERE u.Login = N'soporte1');
+EXEC prueba.Afirmar @ok, N'Editar un usuario sin @Roles ni @Activo los conserva';
+EXEC prueba.AfirmarError N'EXEC api.Usuario_Guardar @Login = N''nuevo_sin_rol'', @UsuarioActual = N''admin2'';', 50400, N'Un usuario nuevo necesita al menos un rol';
 EXEC prueba.AfirmarError N'EXEC api.Rol_Eliminar @Nombre = N''Soporte'', @UsuarioActual = N''admin2'';', 50409, N'No se elimina un rol con usuarios';
 EXEC prueba.AfirmarError N'EXEC api.Rol_Eliminar @Nombre = N''Consulta'', @UsuarioActual = N''admin2'';', 50409, N'No se elimina un rol del sistema';
 INSERT @ignorar EXEC api.Usuario_Guardar @Login = N'soporte1', @Activo = 0, @Roles = N'', @UsuarioActual = N'admin2';
+INSERT @ignorar EXEC api.Usuario_Guardar @Login = N'soporte1', @Nombre = N'Soporte Uno', @UsuarioActual = N'admin2';
+SET @ok = (SELECT CASE WHEN Activo = 0 THEN 1 ELSE 0 END FROM seg.Usuario WHERE Login = N'soporte1');
+EXEC prueba.Afirmar @ok, N'Editar a un usuario inactivo sin @Activo no lo reactiva';
 INSERT @ignorarRoles EXEC api.Rol_Eliminar @Nombre = N'Soporte', @UsuarioActual = N'admin2';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END FROM seg.Rol WHERE Nombre = N'Soporte'); EXEC prueba.Afirmar @ok, N'Rol sin usuarios eliminado';
 DELETE @res; INSERT @res EXEC seg.Login_Resultado @Login = N'soporte1', @Coincide = 1;

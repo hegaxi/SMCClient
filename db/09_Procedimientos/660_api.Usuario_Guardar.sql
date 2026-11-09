@@ -1,4 +1,5 @@
-/* Alta o cambio de un usuario y sus roles (reemplaza los roles). Reglas:
+/* Alta o cambio de un usuario y sus roles. Al editar, lo que no se indica (NULL) se conserva: @Activo y @Roles
+   (con valor, @Roles reemplaza los roles). Al dar de alta, @Activo es 1 y hay que indicar al menos un rol. Reglas:
    - Los roles deben existir.
    - Nadie puede desactivarse ni quitarse la administración a sí mismo.
    - Siempre debe quedar al menos un administrador activo.
@@ -6,8 +7,8 @@
 CREATE OR ALTER PROCEDURE api.Usuario_Guardar
     @Login         nvarchar(100),
     @Nombre        nvarchar(200) = NULL,
-    @Activo        bit = 1,
-    @Roles         nvarchar(1000),
+    @Activo        bit = NULL,             -- NULL = conservar (alta: 1)
+    @Roles         nvarchar(1000) = NULL,  -- NULL = conservar los actuales
     @UsuarioActual nvarchar(200)
 AS
 BEGIN
@@ -16,8 +17,12 @@ BEGIN
     IF @Login = N'' THROW 50400, 'El nombre de usuario es obligatorio.', 1;
     IF @Login LIKE N'%[ /\]%' OR @Login LIKE N'(%' THROW 50400, 'El nombre de usuario no puede tener espacios ni diagonales, ni empezar con paréntesis.', 1;
 
+    SET @Activo = COALESCE(@Activo, (SELECT Activo FROM seg.Usuario WHERE Login = @Login), 1);
     DECLARE @listaRoles TABLE (Nombre nvarchar(100) PRIMARY KEY);
-    INSERT @listaRoles SELECT DISTINCT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Roles, ',') WHERE LTRIM(RTRIM(value)) <> N'';
+    IF @Roles IS NULL
+        INSERT @listaRoles SELECT r.Nombre FROM seg.Usuario u JOIN seg.UsuarioRol ur ON ur.UsuarioId = u.UsuarioId JOIN seg.Rol r ON r.RolId = ur.RolId WHERE u.Login = @Login;
+    ELSE
+        INSERT @listaRoles SELECT DISTINCT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Roles, ',') WHERE LTRIM(RTRIM(value)) <> N'';
 
     DECLARE @msg nvarchar(400) = (SELECT STRING_AGG(r.Nombre, N', ') FROM @listaRoles r WHERE NOT EXISTS (SELECT 1 FROM seg.Rol x WHERE x.Nombre = r.Nombre));
     IF @msg IS NOT NULL
@@ -56,7 +61,7 @@ BEGIN
     -- Al desactivar a alguien se cierran sus sesiones abiertas.
     IF @Activo = 0 UPDATE seg.Usuario SET SelloSeguridad = NEWID() WHERE UsuarioId = @UsuarioId;
 
-    DECLARE @despues nvarchar(max) = (SELECT u.Nombre, u.Activo, @Roles AS Roles FROM seg.Usuario u WHERE u.UsuarioId = @UsuarioId FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    DECLARE @despues nvarchar(max) = (SELECT u.Nombre, u.Activo, (SELECT STRING_AGG(Nombre, N',') FROM @listaRoles) AS Roles FROM seg.Usuario u WHERE u.UsuarioId = @UsuarioId FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
     EXEC seg.Auditoria_Registrar @Usuario = @UsuarioActual, @Accion = 'usuario.guardar', @Objeto = @Login, @Antes = @antes, @Despues = @despues;
     COMMIT;
 

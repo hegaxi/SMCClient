@@ -1,4 +1,5 @@
-/* Alta o cambio de un rol y sus permisos (reemplaza los permisos). @Permisos, separados por coma:
+/* Alta o cambio de un rol y sus permisos. Sin @Permisos (NULL) se conservan los que tiene; con valor los reemplaza
+   (N'' los quita todos). @Permisos, separados por coma:
    una categoría completa (lectura | admin | usuario), una opción de menú (su código en seg.fn_Opciones, p. ej. tableros,
    contrasena.restablecer, api.Horas_PorPersona) o api.Nombre (un procedimiento). Reglas:
    - Cada permiso debe ser una categoría, una opción o un procedimiento existente del esquema api.
@@ -8,7 +9,7 @@
 CREATE OR ALTER PROCEDURE api.Rol_Guardar
     @Nombre        nvarchar(100),
     @Descripcion   nvarchar(400) = NULL,
-    @Permisos      nvarchar(max) = N'',
+    @Permisos      nvarchar(max) = NULL,   -- NULL = conservar los actuales
     @EsExterno     bit = NULL,       -- 1 = rol de clientes: solo consultas personalizadas, limitadas a su organización
     @UsuarioActual nvarchar(200)
 AS
@@ -18,7 +19,10 @@ BEGIN
     IF @Nombre = N'' THROW 50400, 'El nombre del rol es obligatorio.', 1;
 
     DECLARE @p TABLE (Permiso nvarchar(200) PRIMARY KEY);
-    INSERT @p SELECT DISTINCT LTRIM(RTRIM(value)) FROM STRING_SPLIT(ISNULL(@Permisos, N''), ',') WHERE LTRIM(RTRIM(value)) <> N'';
+    IF @Permisos IS NULL
+        INSERT @p SELECT rp.Permiso FROM seg.RolPermiso rp JOIN seg.Rol r ON r.RolId = rp.RolId WHERE r.Nombre = @Nombre;
+    ELSE
+        INSERT @p SELECT DISTINCT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Permisos, ',') WHERE LTRIM(RTRIM(value)) <> N'';
     -- Categoría de cada permiso: la propia (lectura/admin/usuario), la de su opción o la de su procedimiento.
     DECLARE @cat TABLE (Permiso nvarchar(200) PRIMARY KEY, Categoria nvarchar(200) NULL);
     INSERT @cat
@@ -65,7 +69,7 @@ BEGIN
         THROW 50409, 'Debe quedar al menos un administrador activo.', 1;
     END;
 
-    DECLARE @despues nvarchar(max) = (SELECT @Descripcion AS Descripcion, @Permisos AS Permisos FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
+    DECLARE @despues nvarchar(max) = (SELECT @Descripcion AS Descripcion, (SELECT STRING_AGG(Permiso, N',') FROM @p) AS Permisos FOR JSON PATH, WITHOUT_ARRAY_WRAPPER);
     EXEC seg.Auditoria_Registrar @Usuario = @UsuarioActual, @Accion = 'rol.guardar', @Objeto = @Nombre, @Antes = @antes, @Despues = @despues;
     COMMIT;
 
