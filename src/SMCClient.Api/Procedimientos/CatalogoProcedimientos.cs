@@ -13,7 +13,7 @@ public interface ICatalogoProcedimientos
 /// <summary>
 /// Lee de SQL Server los procedimientos del esquema api: parámetros (sys.parameters), columnas del primer
 /// resultado (sys.dm_exec_describe_first_result_set_for_object) y propiedades extendidas
-/// (MS_Description, smc:permiso, smc:exentoSync, smc:titulo, smc:accion, smc:oculto…). Se guarda en memoria y se recarga solo cuando cambia
+/// (MS_Description, smc:permiso, smc:exentoSync, smc:titulo, smc:accion, smc:oculto, smc:menu, smc:orden, smc:padre…). Se guarda en memoria y se recarga solo cuando cambia
 /// algo en la base (firma = fechas de modificación + propiedades extendidas), así un procedimiento
 /// nuevo aparece sin reiniciar la API.
 /// </summary>
@@ -38,14 +38,20 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:resultados') AS nvarchar(3750)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:titulo') AS nvarchar(200)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:accion') AS nvarchar(10)),
-               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:oculto') AS nvarchar(10))
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:oculto') AS nvarchar(10)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:menu') AS nvarchar(200)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:orden') AS nvarchar(20)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:padre') AS nvarchar(128))
         FROM sys.procedures p
         WHERE p.schema_id = SCHEMA_ID('api')
         ORDER BY p.name;
 
         SELECT pa.object_id, pa.name, TYPE_NAME(pa.system_type_id), pa.max_length, pa.precision, pa.scale, pa.is_output,
                CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'MS_Description') AS nvarchar(3750)),
-               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:opciones') AS nvarchar(3750))
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:opciones') AS nvarchar(3750)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:origen') AS nvarchar(400)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:multiple') AS nvarchar(10)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:origenLibre') AS nvarchar(10))
         FROM sys.parameters pa JOIN sys.procedures p ON p.object_id = pa.object_id
         WHERE p.schema_id = SCHEMA_ID('api') AND pa.parameter_id > 0
         ORDER BY pa.object_id, pa.parameter_id;
@@ -100,7 +106,7 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
         await using var cmd = new SqlCommand(SqlMetadatos, cn);
         await using var r = await cmd.ExecuteReaderAsync(ct);
 
-        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion, string? Resultados, string Titulo, bool Accion, bool Oculto)>();
+        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion, string? Resultados, string Titulo, bool Accion, bool Oculto, string? Menu, int? Orden, string? Padre)>();
         while (await r.ReadAsync(ct))
         {
             procs.Add((r.GetInt32(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
@@ -110,17 +116,22 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                        r.IsDBNull(6) ? null : r.GetString(6),
                        r.IsDBNull(7) ? r.GetString(1).Replace('_', ' ') : r.GetString(7),
                        !r.IsDBNull(8) && r.GetString(8).Trim() == "1",
-                       !r.IsDBNull(9) && r.GetString(9).Trim() == "1"));
+                       !r.IsDBNull(9) && r.GetString(9).Trim() == "1",
+                       r.IsDBNull(10) ? null : r.GetString(10).Trim(),
+                       !r.IsDBNull(11) && int.TryParse(r.GetString(11), out var orden) ? orden : null,
+                       r.IsDBNull(12) ? null : r.GetString(12).Trim()));
         }
 
         await r.NextResultAsync(ct);
-        var parametros = new Dictionary<int, List<(string Nombre, string Tipo, short MaxLen, byte Prec, byte Escala, bool Salida, string? Desc, string? Opciones)>>();
+        var parametros = new Dictionary<int, List<(string Nombre, string Tipo, short MaxLen, byte Prec, byte Escala, bool Salida, string? Desc, string? Opciones, string? Origen, string? Multiple, bool Libre)>>();
         while (await r.ReadAsync(ct))
         {
             var id = r.GetInt32(0);
             if (!parametros.TryGetValue(id, out var lista)) parametros[id] = lista = new();
             lista.Add((r.GetString(1).TrimStart('@'), r.GetString(2), r.GetInt16(3), r.GetByte(4), r.GetByte(5), r.GetBoolean(6),
-                       r.IsDBNull(7) ? null : r.GetString(7), r.IsDBNull(8) ? null : r.GetString(8)));
+                       r.IsDBNull(7) ? null : r.GetString(7), r.IsDBNull(8) ? null : r.GetString(8),
+                       r.IsDBNull(9) ? null : r.GetString(9), r.IsDBNull(10) ? null : r.GetString(10),
+                       !r.IsDBNull(11) && r.GetString(11).Trim() == "1"));
         }
 
         await r.NextResultAsync(ct);
@@ -141,7 +152,8 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                 x.Nombre, x.Tipo,
                 EsTexto(x.Tipo) ? (x.MaxLen == -1 ? -1 : x.Tipo.StartsWith('n') ? x.MaxLen / 2 : x.MaxLen) : null,
                 EsDecimal(x.Tipo) ? x.Prec : null, EsDecimal(x.Tipo) ? x.Escala : null,
-                conDefault.Contains(x.Nombre), x.Salida, x.Desc, Opciones(x.Opciones))).ToList();
+                conDefault.Contains(x.Nombre), x.Salida, x.Desc, Opciones(x.Opciones),
+                Origen(x.Origen, x.Libre), string.IsNullOrEmpty(x.Multiple) ? null : x.Multiple)).ToList();
 
             resultado[p.Nombre] = new ProcedimientoInfo(
                 p.Nombre, p.Descripcion, p.Permiso, p.Exento,
@@ -150,7 +162,10 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                 p.Resultados?.Split('|', StringSplitOptions.TrimEntries),
                 p.Titulo,
                 p.Accion,
-                p.Oculto)
+                p.Oculto,
+                p.Menu,
+                p.Orden,
+                p.Padre)
             {
                 ParametrosDeContexto = todos.Where(x => deUsuario.Contains(x.Nombre)).ToList(),
             };
@@ -179,6 +194,19 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
             .Select(o => o.Split('=', 2, StringSplitOptions.TrimEntries))
             .Select(o => new OpcionParametro(o[0], o.Length > 1 ? o[1] : o[0]))
             .ToList();
+
+    /// <summary>
+    /// smc:origen = "Procedimiento:ColumnaValor[:ColumnaEtiqueta[:ColumnaDescripcion]]": la interfaz ejecuta ese procedimiento
+    /// del esquema api (con los permisos del usuario) y ofrece sus filas como lista. Sin etiqueta se muestra el valor.
+    /// </summary>
+    internal static OrigenParametro? Origen(string? valor, bool libre)
+    {
+        if (string.IsNullOrWhiteSpace(valor)) return null;
+        var partes = valor.Split(':', StringSplitOptions.TrimEntries);
+        if (partes.Length < 2 || partes[0] == "" || partes[1] == "") return null;
+        string? Parte(int i) => partes.Length > i && partes[i] != "" ? partes[i] : null;
+        return new OrigenParametro(partes[0], partes[1], Parte(2), Parte(3), libre);
+    }
 
     private static bool EsTexto(string tipo) => tipo is "varchar" or "nvarchar" or "char" or "nchar";
     private static bool EsDecimal(string tipo) => tipo is "decimal" or "numeric";

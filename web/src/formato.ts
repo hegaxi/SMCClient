@@ -70,7 +70,30 @@ export function formatear(valor: unknown, tipo: string): string {
     return Number.isNaN(f.getTime()) ? valor : fechaHora.format(f);
   }
   if (typeof valor === 'object') return JSON.stringify(valor);
+  if (typeof valor === 'string' && valor.startsWith('{"type":"doc"')) return adfATexto(valor) ?? valor;
   return String(valor);
+}
+
+/**
+ * Documento de Jira en Atlassian Document Format (descripciones, campos de texto enriquecido) a texto legible:
+ * párrafos y elementos de lista en líneas, menciones y emojis con su texto. null si no se puede leer.
+ */
+export function adfATexto(json: string): string | null {
+  type Nodo = { type?: string; text?: string; attrs?: Record<string, unknown>; content?: Nodo[] };
+  const BLOQUES = new Set(['paragraph', 'heading', 'listItem', 'blockquote', 'codeBlock', 'tableRow', 'rule']);
+  const recorrer = (n: Nodo): string => {
+    if (n.type === 'text') return n.text ?? '';
+    if (n.type === 'hardBreak') return '\n';
+    if (n.type === 'mention' || n.type === 'emoji' || n.type === 'status' || n.type === 'date')
+      return String(n.attrs?.text ?? n.attrs?.shortName ?? '');
+    const interior = (n.content ?? []).map(recorrer).join(n.type === 'tableRow' ? ' | ' : '');
+    return BLOQUES.has(n.type ?? '') ? `${n.type === 'listItem' ? '• ' : ''}${interior}\n` : interior;
+  };
+  try {
+    return recorrer(JSON.parse(json) as Nodo).replace(/\n{3,}/g, '\n\n').trim();
+  } catch {
+    return null;
+  }
 }
 
 /** Valor para ordenar una columna. */

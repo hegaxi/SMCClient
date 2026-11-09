@@ -1,6 +1,7 @@
 import type { FormEvent, ReactNode } from 'react';
 import type { ParametroInfo, ValoresFormulario } from '../tipos';
 import { etiqueta, tipoControl } from '../formato';
+import { ListaOrigen } from './ListaOrigen';
 
 interface Props {
   parametros: ParametroInfo[];
@@ -41,13 +42,7 @@ export function Formulario({ parametros, valores, errores, ocupado, onCambio, on
               onChange: (ev: { target: { value: string } }) => onCambio(p.nombre, ev.target.value),
             };
             const control = tipoControl(p);
-            return (
-              <div key={p.nombre} className={err ? 'campo con-error' : 'campo'}>
-                <label htmlFor={id}>
-                  {etiqueta(p.nombre)}
-                  {!p.opcional && <span className="obligatorio" aria-hidden="true"> *</span>}
-                </label>
-                {control === 'lista' ? (
+            const entrada = control === 'lista' ? (
                   <select {...comunes}>
                     <option value="">{p.opcional ? 'Todos' : 'Seleccione…'}</option>
                     {p.opciones!.map((o) => (
@@ -68,7 +63,19 @@ export function Formulario({ parametros, valores, errores, ocupado, onCambio, on
                     maxLength={control === 'texto' && p.longitud && p.longitud > 0 ? p.longitud : undefined}
                     inputMode={control === 'entero' ? 'numeric' : control === 'decimal' ? 'decimal' : undefined}
                   />
-                )}
+                );
+            const etiquetaId = `${id}-etiqueta`;
+            return (
+              <div key={p.nombre} className={err ? 'campo con-error' : 'campo'}>
+                <label htmlFor={p.origen && p.multiple ? undefined : id} id={etiquetaId}>
+                  {etiqueta(p.nombre)}
+                  {!p.opcional && <span className="obligatorio" aria-hidden="true"> *</span>}
+                </label>
+                {p.origen ? (
+                  <ListaOrigen id={id} etiquetaId={etiquetaId} origen={p.origen} multiple={p.multiple ?? null}
+                               valor={valores[p.nombre] ?? ''} onCambio={(v) => onCambio(p.nombre, v)} opcional={p.opcional}
+                               describedBy={descrito} invalido={!!err} respaldo={entrada} />
+                ) : entrada}
                 {p.descripcion && <small id={ayuda} className="ayuda">{p.descripcion}</small>}
                 {err && <small id={`${id}-error`} className="error-campo">{err.join(' ')}</small>}
               </div>

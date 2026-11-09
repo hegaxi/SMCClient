@@ -228,7 +228,7 @@ describe('Sesión', () => {
   it('el administrador ve Restablecer contraseña; Salir cierra la sesión', async () => {
     const peticiones = simularFetch({
       'GET /api/sesion': () => sesionAdmin,
-      'GET /api/procedimientos': () => ({ json: [...procs, procedimiento({ nombre: 'Usuarios_Listar', permiso: 'admin', exentoSync: true, titulo: 'Usuarios' })] }),
+      'GET /api/procedimientos': () => ({ json: [...procs, procedimiento({ nombre: 'Usuarios_Listar', permiso: 'admin', exentoSync: true, titulo: 'Usuarios', menu: 'Administración/Usuarios y clientes', orden: 910 })] }),
       'POST /api/procedimientos/Sync_Resumen': () => estado(true),
       'POST /api/procedimientos/Usuarios_Listar': () => ({ json: { resultados: [] } }),
       'POST /api/sesion/restablecer-contrasena': () => ({ estado: 204, json: null }),
@@ -236,6 +236,11 @@ describe('Sesión', () => {
     });
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     render(<App />);
+    // Administración empieza plegada: se abre y ahí está Restablecer contraseña.
+    const seccionAdmin = (await screen.findByRole('heading', { name: 'Administración' })).closest('details')!;
+    expect(seccionAdmin).not.toHaveAttribute('open');
+    await userEvent.click(screen.getByRole('heading', { name: 'Administración' }));
+    expect(seccionAdmin).toHaveAttribute('open');
     await userEvent.click(await screen.findByRole('link', { name: 'Restablecer contraseña' }));
     await userEvent.type(screen.getByLabelText(/Usuario/), 'lector');
     await userEvent.click(screen.getByRole('button', { name: 'Restablecer' }));

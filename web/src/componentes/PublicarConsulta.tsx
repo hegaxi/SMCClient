@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, ErrorApi } from '../api';
+import { DESTINATARIOS, ListaOrigen } from './ListaOrigen';
 
 interface Props {
   /** Parámetros de la búsqueda (los mismos de api.Issues_Consultar). */
@@ -66,9 +67,11 @@ export function PublicarConsulta({ parametros, consultaId, onPublicada, onCancel
           <input id="pc-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={500} />
         </div>
         <div className="campo">
-          <label htmlFor="pc-compartir">Compartir con</label>
-          <input id="pc-compartir" value={compartir} onChange={(e) => setCompartir(e.target.value)} placeholder="ana, cliente1, rol:Cliente" />
-          <small className="ayuda">Usuarios o roles (rol:Nombre). Los clientes solo verán los tickets de su organización.</small>
+          <label htmlFor="pc-compartir" id="pc-compartir-etiqueta">Compartir con</label>
+          <ListaOrigen id="pc-compartir" etiquetaId="pc-compartir-etiqueta" origen={DESTINATARIOS} multiple="," valor={compartir}
+                       onCambio={setCompartir} opcional describedBy="pc-compartir-ayuda"
+                       respaldo={<input id="pc-compartir" value={compartir} onChange={(e) => setCompartir(e.target.value)} placeholder="ana, cliente1, rol:Cliente" aria-describedby="pc-compartir-ayuda" />} />
+          <small id="pc-compartir-ayuda" className="ayuda">Marque usuarios o roles. Los clientes solo verán los tickets de su organización.</small>
         </div>
       </div>
       {error && <p className="alerta" role="alert">{error}</p>}

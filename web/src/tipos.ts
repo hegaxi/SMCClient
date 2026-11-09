@@ -15,6 +15,19 @@ export interface ParametroInfo {
   salida: boolean;
   descripcion: string | null;
   opciones: OpcionParametro[] | null;
+  /** Lista que sale de otro procedimiento (smc:origen). */
+  origen?: OrigenParametro | null;
+  /** Separador si se pueden elegir varios valores (smc:multiple). */
+  multiple?: string | null;
+}
+
+export interface OrigenParametro {
+  procedimiento: string;
+  valor: string;
+  etiqueta: string | null;
+  descripcion: string | null;
+  /** Además de elegir, se puede escribir un valor nuevo. */
+  libre: boolean;
 }
 
 export interface ColumnaInfo {
@@ -36,6 +49,12 @@ export interface ProcedimientoInfo {
   accion: boolean;
   /** No aparece en el menú: lo usa una pantalla propia (p. ej. los campos de la búsqueda avanzada). */
   oculto: boolean;
+  /** Ubicación en el menú (smc:menu): "Sección" o "Sección/Subgrupo". */
+  menu?: string | null;
+  /** Posición en el menú (smc:orden). */
+  orden?: number | null;
+  /** Procedimiento bajo el que aparece como sub-opción (smc:padre). */
+  padre?: string | null;
 }
 
 export type Fila = Record<string, unknown>;

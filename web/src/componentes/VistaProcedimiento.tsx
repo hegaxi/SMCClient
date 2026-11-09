@@ -3,8 +3,10 @@ import { api, ErrorApi } from '../api';
 import { construirCuerpo, valoresIniciales } from '../formato';
 import type { ProcedimientoInfo, ResultadoEjecucion, ValoresFormulario } from '../tipos';
 import { Formulario } from './Formulario';
+import { limpiarCacheListas } from './ListaOrigen';
 import { GuardarFiltro } from './GuardarFiltro';
 import { TablaResultados } from './TablaResultados';
+import { ArbolResultados, esArbol } from './ArbolResultados';
 
 interface Props {
   proc: ProcedimientoInfo;
@@ -40,6 +42,8 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
       onNavegar(proc.nombre, Object.fromEntries(Object.entries(v).filter(([, x]) => x !== '')), true);
       try {
         setResultado(await api.ejecutar(proc.nombre, construirCuerpo(proc.parametros, v)));
+        // Una acción pudo cambiar lo que ofrecen las listas (p. ej. un rol nuevo): se vuelven a pedir.
+        if (proc.accion) limpiarCacheListas();
         if (enfocar) setTimeout(() => tituloResultados.current?.focus(), 0);
       } catch (e) {
         setResultado(null);
@@ -128,7 +132,10 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
         <div className="resultados" aria-busy={ocupado}>
           <h2 ref={tituloResultados} tabIndex={-1} className="solo-lectores">Resultados</h2>
           {resultado.resultados.length === 0 && <p className="vacio">Listo. El procedimiento no devolvió datos.</p>}
-          {resultado.resultados.map((c, i) => (
+          {resultado.resultados.map((c, i) => esArbol(c) ? (
+            <ArbolResultados key={i} conjunto={c} titulo={proc.titulosResultados?.[i] ?? null}
+                             nombreArchivo={`${proc.nombre}${resultado.resultados.length > 1 ? `_${i + 1}` : ''}`} onAbrirClave={abrirClave} />
+          ) : (
             <TablaResultados
               key={i}
               conjunto={c}

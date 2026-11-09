@@ -172,6 +172,20 @@ code { font-size: 0.92em; background: var(--superficie-2); border: 1px solid var
 .menu a[aria-current="page"] { background: var(--acento-suave); color: var(--acento); font-weight: 600; border-left-color: var(--acento); }
 .menu .primera-accion { margin-top: var(--e-1); padding-top: var(--e-1); border-top: 1px dashed var(--borde); }
 .menu .nuevo a { color: var(--acento); }
+/* acciones de un listado (smc:padre): debajo de él, sangradas y más discretas */
+.menu .sub-opciones > ul { margin: 0 0 var(--e-1) var(--e-3); padding-left: var(--e-1); border-left: 1px solid var(--borde); }
+.menu .sub-opciones a { font-size: var(--t-sm); color: var(--texto-2); padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.menu .sub-opciones a::before { content: "› "; }
+
+/* ir a un ticket por su clave, arriba del menú */
+.ir-ticket { margin: 0 0 var(--e-2); padding: 0 var(--e-1); }
+.ir-ticket label { display: block; font-size: var(--t-xs); font-weight: 600; color: var(--texto-2); margin-bottom: var(--e-1); }
+.ir-ticket-fila { display: flex; gap: var(--e-1); }
+.ir-ticket input {
+  flex: 1; min-width: 0; font: inherit; font-size: var(--t-sm); padding: 0.25rem 0.5rem;
+  border: 1px solid var(--borde-control); border-radius: var(--radio-sm); background: var(--superficie); color: var(--texto);
+}
+.ir-ticket input:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
 
 /* estado de los datos, arriba del menú */
 .datos-al {
@@ -262,6 +276,48 @@ code { font-size: 0.92em; background: var(--superficie-2); border: 1px solid var
 .acciones-formulario .separador { flex: 1; }
 .casilla { display: inline-flex; gap: var(--e-2); align-items: center; font-size: var(--t-base); }
 .casilla input { width: 1rem; height: 1rem; accent-color: var(--acento); }
+
+/* lista de casillas de un parámetro con varios valores (smc:origen + smc:multiple) */
+.lista-casillas {
+  border: 1px solid var(--borde-control); border-radius: var(--radio-sm); background: var(--superficie);
+  padding: var(--e-2); min-width: 16rem;
+}
+.lista-casillas ul { list-style: none; margin: 0; padding: 0; max-height: 14rem; overflow-y: auto; }
+.lista-casillas li { padding: 0.15rem 0; }
+.lista-casillas .casilla { align-items: flex-start; margin: 0; font-size: var(--t-sm); }
+.lista-casillas .casilla input { margin-top: 0.15rem; flex: none; }
+.lista-filtro { width: 100%; margin-bottom: var(--e-2); font: inherit; font-size: var(--t-sm); padding: 0.25rem 0.5rem;
+  border: 1px solid var(--borde-control); border-radius: var(--radio-sm); background: var(--superficie); color: var(--texto); }
+.lista-resumen { margin: var(--e-2) 0 0; font-size: var(--t-xs); }
+.lista-cargando { margin: 0; font-size: var(--t-sm); }
+
+/* texto largo en tablas: se lee completo con sus saltos de línea */
+.texto-largo.completo { white-space: pre-wrap; display: inline-block; min-width: 18rem; max-width: 60ch; }
+.ver-mas { font-size: var(--t-xs); white-space: nowrap; }
+
+/* árbol con columnas (Horas por proyecto: épicas, tareas, subtareas) */
+.acciones-arbol { display: flex; flex-wrap: wrap; gap: var(--e-1); margin-left: auto; }
+table.arbol td.celda-arbol { white-space: normal; min-width: 22rem; }
+.alternar-nodo {
+  display: inline-block; width: 1.4rem; border: 0; background: none; padding: 0; cursor: pointer;
+  color: var(--texto-2); font-size: var(--t-base); line-height: 1;
+}
+.alternar-nodo:focus-visible { outline: 2px solid var(--acento); outline-offset: 1px; }
+.vacio-nodo { cursor: default; }
+.clave-nodo { margin-right: var(--e-2); font-weight: 600; white-space: nowrap; }
+table.arbol tr.nivel-0 td { font-weight: 700; background: var(--superficie-2); }
+table.arbol tr.nivel-1 td { font-weight: 600; }
+table.arbol tr.nivel-3 td, table.arbol tr.nivel-4 td { color: var(--texto-2); }
+
+/* Proyectos a sincronizar */
+.opcion-nuevos { display: flex; align-items: flex-start; margin: 0 0 var(--e-4); padding: var(--e-3);
+  border: 1px solid var(--borde); border-radius: var(--radio); background: var(--superficie-2); }
+.filtros-proyectos { display: flex; flex-wrap: wrap; gap: var(--e-3); align-items: flex-end; margin-bottom: var(--e-3); }
+.filtros-proyectos label { display: flex; flex-direction: column; gap: var(--e-1); font-size: var(--t-sm); font-weight: 600; }
+.filtros-proyectos input, .filtros-proyectos select { font: inherit; font-weight: 400; padding: 0.3rem 0.5rem;
+  border: 1px solid var(--borde-control); border-radius: var(--radio-sm); background: var(--superficie); color: var(--texto); }
+.resumen-proyectos { margin: 0 0 0 auto; }
+tr.fila-inactiva td { color: var(--texto-2); }
 
 /* ---------- 5. mensajes y estados ---------- */
 .alerta, .aviso, .aviso-atraso, .nota {

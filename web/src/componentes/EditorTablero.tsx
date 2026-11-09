@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { api, ErrorApi } from '../api';
 import type { Fila } from '../tipos';
+import { DESTINATARIOS, ListaOrigen } from './ListaOrigen';
 
 interface Props {
   tablero?: Fila;
@@ -46,9 +47,11 @@ export function EditorTablero({ tablero, onGuardado, onCancelar }: Props) {
             <input id="t-descripcion" value={descripcion} onChange={(e) => setDescripcion(e.target.value)} maxLength={400} />
           </div>
           <div className="campo">
-            <label htmlFor="t-compartir">Compartir con</label>
-            <input id="t-compartir" value={compartir} onChange={(e) => setCompartir(e.target.value)} aria-describedby="t-compartir-ayuda" />
-            <small id="t-compartir-ayuda" className="ayuda">Usuarios o roles separados por coma, p. ej. <code>ana, rol:Consulta</code>. Vacío = solo usted.</small>
+            <label htmlFor="t-compartir" id="t-compartir-etiqueta">Compartir con</label>
+            <ListaOrigen id="t-compartir" etiquetaId="t-compartir-etiqueta" origen={DESTINATARIOS} multiple="," valor={compartir}
+                         onCambio={setCompartir} opcional describedBy="t-compartir-ayuda"
+                         respaldo={<input id="t-compartir" value={compartir} onChange={(e) => setCompartir(e.target.value)} aria-describedby="t-compartir-ayuda" />} />
+            <small id="t-compartir-ayuda" className="ayuda">Marque usuarios o roles. Sin marcar = solo usted.</small>
           </div>
         </div>
         {error && <p className="alerta" role="alert">{error}</p>}

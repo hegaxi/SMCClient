@@ -7,51 +7,62 @@ const p = (nombre: string, permiso: string, extra: Partial<ProcedimientoInfo> = 
   columnas: null, titulosResultados: null, accion: false, oculto: false, ...extra,
 });
 
+// Como lo declara db/11_DatosSemilla/091_Menu.sql (smc:menu, smc:orden, smc:padre).
 const catalogo = [
-  p('Issues_Buscar', 'lectura'),
-  p('Horas_PorPersona', 'lectura'),
-  p('Sla_Cumplimiento', 'lectura'),
+  p('Usuarios_Listar', 'admin', { menu: 'Administración/Usuarios y clientes', orden: 910 }),
+  p('Usuario_Guardar', 'admin', { accion: true, menu: 'Administración/Usuarios y clientes', orden: 911, padre: 'Usuarios_Listar' }),
+  p('Auditoria_Listar', 'admin', { menu: 'Administración/Monitoreo', orden: 985 }),
+  p('Sla_Resumen', 'lectura', { menu: 'Mesa de ayuda', orden: 410 }),
+  p('Issues_Buscar', 'lectura', { menu: 'Buscar', orden: 120 }),
+  p('Issues_Consultar', 'lectura', { menu: 'Buscar', orden: 110 }),
+  p('Horas_PorPersona', 'lectura', { menu: 'Tiempo', orden: 310 }),
   p('Nuevo_Reporte', 'lectura'),
-  p('Issues_Campos', 'lectura', { oculto: true }),
-  p('Sync_Estado', 'lectura', { exentoSync: true }),
+  p('Nueva_Herramienta', 'admin'),
+  p('Issue_Detalle', 'lectura', { oculto: true, menu: 'Buscar' }),
   p('Mi_Usuario', 'sesion', { exentoSync: true }),
-  p('Sync_Resumen', 'sesion', { exentoSync: true, oculto: true }),
-  p('Permisos_Matriz', 'admin', { exentoSync: true }),
   p('Tablero_Guardar', 'usuario', { accion: true }),
-  p('Usuario_Guardar', 'admin', { accion: true }),
-  p('Usuarios_Listar', 'admin'),
-  p('Auditoria_Listar', 'admin'),
 ];
 
 const titulos = (grupos: ReturnType<typeof agruparMenu>) =>
   grupos.map((g) => [g.titulo, g.subgrupos.map((s) => [s.titulo, s.procs.map((x) => x.nombre)])]);
 
 describe('agruparMenu', () => {
-  it('agrupa por permiso y prefijo, con los listados antes que las acciones', () => {
+  it('ordena secciones, subgrupos y opciones por smc:orden, con Administración al final', () => {
     expect(titulos(agruparMenu(catalogo))).toEqual([
-      ['Consultas', [
-        ['Historias y tickets', ['Issues_Buscar']],
-        ['Tiempo y estimación', ['Horas_PorPersona']],
-        ['Mesa de ayuda (SLA)', ['Sla_Cumplimiento']],
-        ['Otras consultas', ['Nuevo_Reporte']],
-      ]],
-      ['Sincronización', [[null, ['Sync_Estado']]]],
+      ['Buscar', [[null, ['Issues_Consultar', 'Issues_Buscar']]]],
+      ['Tiempo', [[null, ['Horas_PorPersona']]]],
+      ['Mesa de ayuda', [[null, ['Sla_Resumen']]]],
+      ['Otras consultas', [[null, ['Nuevo_Reporte']]]],
       ['Administración', [
-        ['Usuarios y acceso', ['Permisos_Matriz', 'Usuarios_Listar', 'Usuario_Guardar']],
+        ['Usuarios y clientes', ['Usuarios_Listar']],
         ['Monitoreo', ['Auditoria_Listar']],
+        ['Otras herramientas', ['Nueva_Herramienta']],
       ]],
     ]);
   });
 
-  it('lo de la sesión y las pantallas propias (tableros, filtros) no son secciones del menú', () => {
+  it('las acciones (smc:padre) cuelgan de su listado', () => {
+    const usuarios = agruparMenu(catalogo).find((g) => g.titulo === 'Administración')!.subgrupos[0];
+    expect(usuarios.hijos?.Usuarios_Listar?.map((x) => x.nombre)).toEqual(['Usuario_Guardar']);
+  });
+
+  it('si no ve el listado, la acción aparece sola en su subgrupo', () => {
+    const sinListado = catalogo.filter((x) => x.nombre !== 'Usuarios_Listar');
+    const usuarios = agruparMenu(sinListado).find((g) => g.titulo === 'Administración')!.subgrupos[0];
+    expect([usuarios.titulo, usuarios.procs.map((x) => x.nombre)]).toEqual(['Usuarios y clientes', ['Usuario_Guardar']]);
+  });
+
+  it('lo oculto, lo de la sesión y las pantallas propias (tableros, filtros) no son opciones del menú', () => {
+    const nombres = agruparMenu(catalogo).flatMap((g) => g.subgrupos.flatMap((s) => s.procs.map((x) => x.nombre)));
+    expect(nombres).not.toContain('Issue_Detalle');
     const cliente = catalogo.filter((x) => x.permiso === 'usuario' || x.permiso === 'sesion');
     expect(agruparMenu(cliente)).toEqual([]);
   });
 
-  it('da la ubicación para las migas de pan', () => {
+  it('da la ubicación para las migas de pan, también de las sub-opciones', () => {
     const grupos = agruparMenu(catalogo);
-    expect(ubicacion(grupos, 'Usuario_Guardar')).toEqual(['Administración', 'Usuarios y acceso']);
-    expect(ubicacion(grupos, 'Sync_Estado')).toEqual(['Sincronización']);
+    expect(ubicacion(grupos, 'Usuario_Guardar')).toEqual(['Administración', 'Usuarios y clientes']);
+    expect(ubicacion(grupos, 'Issues_Buscar')).toEqual(['Buscar']);
     expect(ubicacion(grupos, 'No_Existe')).toEqual([]);
   });
 });

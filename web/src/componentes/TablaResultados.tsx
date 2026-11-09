@@ -17,6 +17,10 @@ interface Props {
 }
 
 const COLUMNAS_CLAVE = new Set(['Clave', 'PadreClave']);
+/** Solo una clave de issue (PROYECTO-123) abre el detalle; la clave de un proyecto (SMC26) no. */
+const ES_CLAVE_ISSUE = /^[A-Z][A-Z0-9_]*-\d+$/;
+/** Columnas de texto que se leen completas (con sus saltos de línea) hasta este largo; más, con "Ver más". */
+const COLUMNAS_TEXTO = new Set(['Comentario', 'Cuerpo', 'Descripcion', 'UltimoComentario']);
 const COLUMNAS_OCULTAS = new Set(['TotalFilas']);
 
 /** Un conjunto de resultados: ficha si es un solo registro con muchas columnas; si no, tabla ordenable. */
@@ -38,14 +42,14 @@ export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
     const v = f[nombre];
     const opciones = etiquetasValores ? opcionesDeColumna(nombre, etiquetasValores) : undefined;
     const texto = typeof v === 'string' && opciones?.has(v) ? opciones.get(v)! : formatear(v, tipo);
-    if (onAbrirClave && COLUMNAS_CLAVE.has(nombre) && typeof v === 'string' && v) {
+    if (onAbrirClave && COLUMNAS_CLAVE.has(nombre) && typeof v === 'string' && ES_CLAVE_ISSUE.test(v)) {
       return (
         <button type="button" className="enlace" onClick={() => onAbrirClave(v)} title={`Ver el detalle de ${v}`}>
           {texto}
         </button>
       );
     }
-    return texto.length > 120 ? <span title={texto}>{texto.slice(0, 117)}…</span> : texto;
+    return <TextoLargo texto={texto} limite={COLUMNAS_TEXTO.has(nombre) ? 600 : 120} completo={COLUMNAS_TEXTO.has(nombre)} />;
   };
 
   const descargar = () => {
@@ -135,5 +139,26 @@ export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
         </table>
       </div>
     </section>
+  );
+}
+
+/** Texto recortado con "Ver más" / "Ver menos" (antes solo se veía completo al pasar el ratón). */
+function TextoLargo({ texto, limite, completo }: { texto: string; limite: number; completo: boolean }) {
+  const [abierto, setAbierto] = useState(false);
+  const largo = texto.length > limite;
+  const visible = !largo || abierto ? texto : `${texto.slice(0, limite - 3).trimEnd()}…`;
+  if (!largo && !completo) return <>{texto}</>;
+  return (
+    <span className={completo || abierto ? 'texto-largo completo' : 'texto-largo'}>
+      {visible}
+      {largo && (
+        <>
+          {' '}
+          <button type="button" className="enlace ver-mas" aria-expanded={abierto} onClick={() => setAbierto((a) => !a)}>
+            {abierto ? 'Ver menos' : 'Ver más'}
+          </button>
+        </>
+      )}
+    </span>
   );
 }

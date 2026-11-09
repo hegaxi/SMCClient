@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, ErrorApi } from './api';
 import { etiquetasDeValores, formatear } from './formato';
 import { useSincronizacion } from './sincronizacion';
@@ -9,12 +9,13 @@ import { ConsultaPersonalizadaVista } from './componentes/ConsultaPersonalizadaV
 import { EditorTablero } from './componentes/EditorTablero';
 import { MisFiltros } from './componentes/MisFiltros';
 import { PermisosRoles } from './componentes/PermisosRoles';
+import { ProyectosSync } from './componentes/ProyectosSync';
 import { TableroVista } from './componentes/TableroVista';
 import { Inicio } from './componentes/Inicio';
 import { PantallaSincronizacion } from './componentes/PantallaSincronizacion';
 import { RestablecerContrasena } from './componentes/RestablecerContrasena';
 import { VistaProcedimiento } from './componentes/VistaProcedimiento';
-import { agruparMenu, ubicacion, type GrupoMenu } from './menu';
+import { agruparMenu, SECCION_ADMIN, ubicacion, type GrupoMenu } from './menu';
 
 /** Vistas propias de la interfaz (no son procedimientos). */
 const VISTA_CONTRASENA = '_contrasena';
@@ -66,6 +67,7 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   const [menuAbierto, setMenuAbierto] = useState(false);
   const [avisoSync, setAvisoSync] = useState<string | null>(null);
   const [cerradas, setCerradas] = useState<string[]>(leerCerradas);
+  const [claveTicket, setClaveTicket] = useState('');
   const contenidoRef = useRef<HTMLElement>(null);
   const primeraVista = useRef(true);
 
@@ -211,6 +213,7 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   else if (seleccion.nombre === VISTA_CONTRASENA) contenido = <CambiarContrasena obligatorio={false} onListo={() => navegar(null)} onCancelar={() => navegar(null)} />;
   else if (seleccion.nombre === VISTA_RESTABLECER && puedeRestablecer) contenido = <RestablecerContrasena />;
   else if (proc?.nombre === 'Permisos_Matriz') contenido = <PermisosRoles key={vista} />;
+  else if (proc?.nombre === 'ProyectosSync_Listar') contenido = <ProyectosSync key={vista} />;
   else if (proc?.nombre === 'Issues_Consultar')
     contenido = (
       <BuscadorIssues key={`${proc.nombre}-${vista}`} proc={proc} valoresUrl={seleccion.valores} onNavegar={navegar}
@@ -234,7 +237,8 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
       />
     );
   else if (tableroInicio) contenido = tableroVista(Number(tableroInicio.TableroId));
-  else contenido = <Inicio grupos={grupos.find((g) => g.titulo === 'Consultas')?.subgrupos ?? []} onAbrir={(n) => navegar(n)}
+  else contenido = <Inicio grupos={grupos.filter((g) => g.titulo !== SECCION_ADMIN).map((g) => ({ titulo: g.titulo, procs: g.subgrupos.flatMap((s) => s.procs) }))}
+                           onAbrir={(n) => navegar(n)}
                            personalizadas={personalizadas} onAbrirPersonalizada={(id) => navegar(VISTA_CONSULTA, { c: String(id) })} />;
 
   const enlace = (nombre: string, titulo: string, descripcion?: string | null, valores: ValoresFormulario = {}, clase?: string) => {
@@ -277,7 +281,7 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
 
   // Migas de pan: en qué sección del menú está lo que se ve.
   const migas = proc ? ubicacion(grupos, proc.nombre)
-    : seleccion.nombre === VISTA_RESTABLECER ? ['Administración', 'Usuarios y acceso']
+    : seleccion.nombre === VISTA_RESTABLECER ? [SECCION_ADMIN, SUBGRUPO_USUARIOS]
     : seleccion.nombre === VISTA_CONSULTA ? ['Consultas personalizadas']
     : seleccion.nombre && [VISTA_TABLERO, VISTA_TABLERO_NUEVO, VISTA_TABLERO_EDITAR, VISTA_FILTROS].includes(seleccion.nombre) ? ['Tableros']
     : [];
@@ -307,18 +311,44 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
           )}
           {avisoSync && <span role="status" className="fecha">{avisoSync}</span>}
         </div>
+        {/* Abrir un ticket o historia por su clave (reemplaza la opción "Detalle" del menú). */}
+        {procs.some((p) => p.nombre === 'Issue_Detalle') && (
+          <form className="ir-ticket" role="search" onSubmit={(e) => {
+            e.preventDefault();
+            const clave = claveTicket.trim().toUpperCase();
+            if (clave) { navegar('Issue_Detalle', { Clave: clave }); setClaveTicket(''); }
+          }}>
+            <label htmlFor="ir-ticket">Ir a un ticket</label>
+            <div className="ir-ticket-fila">
+              <input id="ir-ticket" type="search" placeholder="p. ej. SMC26-120" value={claveTicket} autoComplete="off"
+                     onChange={(e) => setClaveTicket(e.target.value)} />
+              <button type="submit" className="boton pequeno" disabled={!claveTicket.trim()}>Ir</button>
+            </div>
+          </form>
+        )}
         {/* Los clientes externos ven primero lo que se compartió con ellos. */}
         {interno ? <>{seccionTableros}{seccionPersonalizadas}</> : <>{seccionPersonalizadas}{seccionTableros}</>}
         {grupos.map((g) => seccion(g.titulo, g.subgrupos.map((s) => {
-          const extra = g.titulo === 'Administración' && s.titulo === 'Usuarios y acceso' && puedeRestablecer
-            ? enlace(VISTA_RESTABLECER, 'Restablecer contraseña', 'Asigna una contraseña temporal a un usuario.', {}, s.procs.some((p) => p.accion) ? undefined : 'primera-accion')
+          const extra = g.titulo === SECCION_ADMIN && s.titulo === SUBGRUPO_USUARIOS && puedeRestablecer
+            ? enlace(VISTA_RESTABLECER, 'Restablecer contraseña', 'Asigna una contraseña temporal a un usuario.')
             : null;
-          const primeraAccion = s.procs.findIndex((p) => p.accion);
           return (
             <div key={s.titulo ?? '-'}>
               {s.titulo && g.subgrupos.length > 1 && <h3>{s.titulo}</h3>}
               <ul>
-                {s.procs.map((p, i) => enlace(p.nombre, p.titulo, p.descripcion, {}, i === primeraAccion && i > 0 ? 'primera-accion' : undefined))}
+                {s.procs.map((p) => {
+                  const hijos = s.hijos?.[p.nombre] ?? [];
+                  return (
+                    <Fragment key={p.nombre}>
+                      {enlace(p.nombre, p.titulo, p.descripcion)}
+                      {hijos.length > 0 && (
+                        <li className="sub-opciones">
+                          <ul aria-label={`Acciones de ${p.titulo}`}>{hijos.map((h) => enlace(h.nombre, h.titulo, h.descripcion))}</ul>
+                        </li>
+                      )}
+                    </Fragment>
+                  );
+                })}
                 {extra}
               </ul>
             </div>
@@ -341,9 +371,16 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   );
 }
 
-const CLAVE_CERRADAS = 'smc.menu.cerradas';
+/** Subgrupo de Administración donde va "Restablecer contraseña" (vista propia, no es un procedimiento). */
+const SUBGRUPO_USUARIOS = 'Usuarios y clientes';
+
+// v2: el menú se reorganizó por tarea; Administración empieza plegada hasta que el usuario la abra.
+const CLAVE_CERRADAS = 'smc.menu.cerradas.v2';
 function leerCerradas(): string[] {
-  try { return JSON.parse(localStorage.getItem(CLAVE_CERRADAS) ?? '[]') as string[]; } catch { return []; }
+  try {
+    const guardado = localStorage.getItem(CLAVE_CERRADAS);
+    return guardado === null ? [SECCION_ADMIN] : JSON.parse(guardado) as string[];
+  } catch { return [SECCION_ADMIN]; }
 }
 function guardarCerradas(c: string[]) {
   try { localStorage.setItem(CLAVE_CERRADAS, JSON.stringify(c)); } catch { /* sin almacenamiento */ }

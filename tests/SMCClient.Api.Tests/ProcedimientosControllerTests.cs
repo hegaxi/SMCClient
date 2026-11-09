@@ -73,14 +73,21 @@ public class ProcedimientosControllerTests(ApiFixture bd) : IClassFixture<ApiFix
         Assert.Contains("Mapeo_Establecer", admin.EnumerateArray().Select(p => p.GetProperty("nombre").GetString()));
 
         var buscar = Proc(lector, "Issues_Buscar");
-        Assert.Equal("Buscar historias y tickets", buscar.GetProperty("titulo").GetString());
+        Assert.Equal("Búsqueda rápida", buscar.GetProperty("titulo").GetString());
         Assert.StartsWith("Historias Scrum y tickets", buscar.GetProperty("descripcion").GetString());
         Assert.False(buscar.GetProperty("exentoSync").GetBoolean());
         var proyecto = buscar.GetProperty("parametros").EnumerateArray().Single(p => p.GetProperty("nombre").GetString() == "Proyecto");
         Assert.Equal("varchar", proyecto.GetProperty("tipo").GetString());
         Assert.Equal(50, proyecto.GetProperty("longitud").GetInt32());
         Assert.True(proyecto.GetProperty("opcional").GetBoolean());
-        Assert.Equal("Clave del proyecto (p. ej. SMC26)", proyecto.GetProperty("descripcion").GetString());
+        Assert.Equal("Vacío = todos los proyectos", proyecto.GetProperty("descripcion").GetString());
+        // smc:origen: el proyecto se elige de la lista de Proyectos_Listar (Clave, con el nombre como descripción).
+        var origen = proyecto.GetProperty("origen");
+        Assert.Equal("Proyectos_Listar", origen.GetProperty("procedimiento").GetString());
+        Assert.Equal("Clave", origen.GetProperty("valor").GetString());
+        Assert.Equal("Nombre", origen.GetProperty("descripcion").GetString());
+        Assert.False(origen.GetProperty("libre").GetBoolean());
+        Assert.Equal(JsonValueKind.Null, proyecto.GetProperty("multiple").ValueKind);
         Assert.Contains(buscar.GetProperty("columnas").EnumerateArray(), c => c.GetProperty("nombre").GetString() == "Clave");
 
         var desde = Proc(lector, "Horas_PorPersona").GetProperty("parametros").EnumerateArray().Single(p => p.GetProperty("nombre").GetString() == "Desde");

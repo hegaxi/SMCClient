@@ -17,8 +17,8 @@ INSERT @p VALUES
  ('api.Permisos_Matriz',  N'Permisos por opción',        N'Qué opción del menú tiene cada rol: marque o desmarque cada casilla.',                         'admin',   '1'),
  ('api.Rol_Opcion_Establecer', N'Conceder o quitar una opción', N'Concede o quita una opción del menú a un rol.',                                         'admin',   '1');
 INSERT @p VALUES
- ('api.Issues_Buscar',    N'Buscar historias y tickets', N'Historias Scrum y tickets de mesa de ayuda con filtros por proyecto, estado, responsable y fechas.', 'lectura', '0'),
- ('api.Issue_Detalle',    N'Detalle de un issue',        N'Datos, campos personalizados, tiempo registrado, SLA e historial de un issue.',                   'lectura', '0'),
+ ('api.Issues_Buscar',    N'Búsqueda rápida',           N'Historias Scrum y tickets de mesa de ayuda con filtros por proyecto, estado, responsable y fechas.', 'lectura', '0'),
+ ('api.Issue_Detalle',    N'Detalle de un ticket',      N'Datos, campos personalizados, tiempo registrado, SLA e historial de un ticket o historia.',                   'lectura', '0'),
  ('api.Horas_PorPersona', N'Horas por persona',          N'Horas por persona y proyecto: registradas por personas y automáticas (Automation for Jira) por separado.', 'lectura', '0'),
  ('api.Sla_Resumen',      N'Cumplimiento de SLA',        N'Cumplimiento de SLA por proyecto para los tickets creados en el periodo.',                      'lectura', '0'),
  ('api.Sla_EnRiesgo',     N'SLA por vencer',             N'Tickets abiertos con un SLA que vence pronto o ya venció.',                                     'lectura', '0'),
@@ -47,9 +47,9 @@ INSERT @p VALUES
  ('api.Mapeo_Establecer', N'Asignar campo a un dato',    N'Asigna manualmente el campo de Jira de un dato; vacío lo devuelve a automático.',              'admin',   '1'),
  ('api.Mi_Usuario',       N'Mi usuario',                 N'Su usuario y sus roles.',                                                                       'sesion',  '1'),
  ('api.Usuarios_Listar',  N'Usuarios',                   N'Usuarios de la aplicación y sus roles.',                                                        'admin',   '1'),
- ('api.Usuario_Guardar',  N'Guardar usuario',            N'Da de alta o modifica un usuario y le asigna roles. La contraseña se asigna en Restablecer contraseña.',                         'admin',   '1'),
+ ('api.Usuario_Guardar',  N'Nuevo o editar usuario',     N'Da de alta o modifica un usuario y sus roles. Al editar, deje vacío lo que no quiera cambiar. La contraseña se asigna en Restablecer contraseña.',                         'admin',   '1'),
  ('api.Roles_Listar',     N'Roles',                      N'Roles y sus permisos.',                                                                         'admin',   '1'),
- ('api.Rol_Guardar',      N'Guardar rol',                N'Crea o modifica un rol y sus permisos.',                                                        'admin',   '1'),
+ ('api.Rol_Guardar',      N'Nuevo o editar rol',         N'Crea o modifica un rol. Al editar, deje vacío lo que no quiera cambiar; los permisos se ajustan mejor en Permisos por opción.',                                                        'admin',   '1'),
  ('api.Rol_Eliminar',     N'Eliminar rol',               N'Elimina un rol sin usuarios asignados.',                                                        'admin',   '1'),
  ('api.Auditoria_Listar', N'Auditoría',                  N'Quién hizo qué en la administración y cuándo.',                                                 'admin',   '1'),
  ('api.Filtros_Listar',   N'Mis filtros',                N'Filtros guardados propios y compartidos.',                                                      'usuario', '1'),
@@ -66,6 +66,11 @@ INSERT @p VALUES
  ('api.Issues_Consultar', N'Búsqueda avanzada',          N'Filtros desde cero sobre cualquier campo de Jira (también los personalizados), con columnas y orden a elegir.', 'lectura', '0'),
  ('api.Issues_Campos',    N'Campos de búsqueda',         N'Campos y operadores disponibles en la búsqueda avanzada.',                                      'lectura', '1'),
  ('api.Issues_Resumir',   N'Resumen de una búsqueda',    N'Conteos, sumas o promedios de una búsqueda avanzada agrupados por un campo, sobre todos los issues.', 'lectura', '0'),
+ ('api.Horas_Arbol',         N'Horas por proyecto (épicas y tareas)', N'Tiempo de un proyecto por épica, tarea y subtarea: horas de cada elemento y de todo lo que tiene debajo, contra lo estimado.', 'lectura', '0'),
+ ('api.ProyectosSync_Listar',        N'Proyectos a sincronizar', N'Qué proyectos de Jira se sincronizan: los desactivados no se piden a Jira y se ocultan de los reportes.', 'admin', '1'),
+ ('api.ProyectoSync_Establecer',      N'Activar o desactivar un proyecto', N'Activa o desactiva la sincronización de un proyecto.', 'admin', '1'),
+ ('api.ProyectosSync_Nuevos_Guardar', N'Sincronizar proyectos nuevos', N'Si un proyecto nuevo en Jira se sincroniza solo o queda desactivado.', 'admin', '1'),
+ ('api.Destinatarios_Listar', N'Con quién compartir',   N'Usuarios y roles con quienes se puede compartir un tablero o una consulta.',                  'usuario', '1'),
  ('api.Issues_Valores',   N'Valores de un campo',        N'Valores existentes de un campo, para elegirlos en la búsqueda avanzada.',                       'lectura', '0');
 
 DECLARE @o nvarchar(300), @t nvarchar(100), @d nvarchar(400), @pe varchar(10), @e char(1);
@@ -95,9 +100,9 @@ CLOSE ca; DEALLOCATE ca;
 EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Rol_Eliminar', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Login', N'MS_Description', N'Nombre de usuario para iniciar sesión (p. ej. mbravo)';
-EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Roles', N'MS_Description', N'Separados por coma, p. ej. Consulta o Administrador';
-EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Activo', N'MS_Description', N'No = no puede entrar (se conserva su historial)';
-EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', '@Permisos', N'MS_Description', N'Separados por coma: lectura (todas las consultas), admin (toda la administración), usuario (tableros, filtros y consultas compartidas) o una opción (ver Permisos por opción)';
+EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Roles', N'MS_Description', N'Separados por coma, p. ej. Consulta o Administrador. Al editar, vacío = conservar los roles actuales';
+EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Activo', N'MS_Description', N'No = no puede entrar (se conserva su historial). Al editar, vacío = no cambiar';
+EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', '@Permisos', N'MS_Description', N'Separados por coma: lectura (todas las consultas), admin (toda la administración), usuario (tableros, filtros y consultas compartidas) o una opción (ver Permisos por opción). Al editar, vacío = conservar los permisos actuales';
 EXEC adm.Descripcion_Establecer 'api.Rol_Opcion_Establecer', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Rol_Opcion_Establecer', NULL, N'smc:oculto', N'1';
 EXEC adm.Descripcion_Establecer 'api.Sync_Resumen', NULL, N'smc:oculto', N'1';
@@ -111,6 +116,8 @@ INSERT @opciones VALUES
  ('api.Tableros_Listar', N'tableros'), ('api.Tablero_Obtener', N'tableros'), ('api.Tablero_Inicio', N'tableros'),
  ('api.Tablero_Guardar', N'tableros.editar'), ('api.Tablero_Eliminar', N'tableros.editar'), ('api.Widget_Guardar', N'tableros.editar'),
  ('api.Widget_Eliminar', N'tableros.editar'), ('api.Widget_Mover', N'tableros.editar'),
+ ('api.Destinatarios_Listar', N'tableros.editar'),
+ ('api.ProyectosSync_Listar', N'sync.proyectos'), ('api.ProyectoSync_Establecer', N'sync.proyectos'), ('api.ProyectosSync_Nuevos_Guardar', N'sync.proyectos'),
  ('api.Filtros_Listar', N'filtros'), ('api.Filtro_Guardar', N'filtros'), ('api.Filtro_Eliminar', N'filtros'),
  ('api.Issues_Consultar', N'busqueda_avanzada'), ('api.Issues_Campos', N'busqueda_avanzada'), ('api.Issues_Valores', N'busqueda_avanzada'),
  ('api.Issues_Resumir', N'busqueda_avanzada'),
@@ -122,12 +129,15 @@ OPEN co; FETCH co INTO @oo, @op;
 WHILE @@FETCH_STATUS = 0
 BEGIN
     EXEC adm.Descripcion_Establecer @Objeto = @oo, @Nombre = N'smc:opcion', @Valor = @op;
-    IF @op <> N'busqueda_avanzada' EXEC adm.Descripcion_Establecer @Objeto = @oo, @Nombre = N'smc:oculto', @Valor = N'1';
+    -- Se ven en el menú solo las pantallas principales que no son de "usuario" (búsqueda avanzada, proyectos a sincronizar).
+    IF @oo NOT IN (N'api.Issues_Consultar', N'api.ProyectosSync_Listar') EXEC adm.Descripcion_Establecer @Objeto = @oo, @Nombre = N'smc:oculto', @Valor = N'1';
     FETCH co INTO @oo, @op;
 END;
 CLOSE co; DEALLOCATE co;
 EXEC adm.Descripcion_Establecer 'api.Aviso_Atender', NULL, N'smc:accion', N'1';
 EXEC adm.Descripcion_Establecer 'api.Mapeo_Establecer', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.ProyectoSync_Establecer', NULL, N'smc:accion', N'1';
+EXEC adm.Descripcion_Establecer 'api.ProyectosSync_Nuevos_Guardar', NULL, N'smc:accion', N'1';
 
 EXEC adm.Descripcion_Establecer 'api.Issues_Campos', NULL, N'smc:oculto', N'1';
 EXEC adm.Descripcion_Establecer 'api.Issues_Valores', NULL, N'smc:oculto', N'1';
