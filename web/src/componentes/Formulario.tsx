@@ -1,6 +1,6 @@
 import type { FormEvent, ReactNode } from 'react';
 import type { ParametroInfo, ValoresFormulario } from '../tipos';
-import { etiqueta, tipoControl } from '../formato';
+import { etiqueta, textoOpcionVacia, tipoControl } from '../formato';
 import { ListaOrigen } from './ListaOrigen';
 
 interface Props {
@@ -50,14 +50,14 @@ export function Formulario({ parametros, valores, errores, ocupado, onCambio, on
             const control = tipoControl(p);
             const entrada = control === 'lista' ? (
                   <select {...comunes}>
-                    <option value="">{p.opcional ? (textoSinValor ?? 'Todos') : 'Seleccione…'}</option>
+                    <option value="">{p.opcional ? (textoSinValor ?? textoOpcionVacia(p, 'Todos')) : 'Seleccione…'}</option>
                     {p.opciones!.map((o) => (
                       <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
                     ))}
                   </select>
                 ) : control === 'siNo' ? (
                   <select {...comunes}>
-                    <option value="">{p.opcional ? (textoSinValor ?? 'Sin filtro') : 'Seleccione…'}</option>
+                    <option value="">{p.opcional ? (textoSinValor ?? textoOpcionVacia(p, 'Sin filtro')) : 'Seleccione…'}</option>
                     <option value="true">Sí</option>
                     <option value="false">No</option>
                   </select>

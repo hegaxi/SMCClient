@@ -181,7 +181,8 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
           {resultado.resultados.length === 0 && <p className="vacio">Listo. El procedimiento no devolvió datos.</p>}
           {resultado.resultados.map((c, i) => esArbol(c) ? (
             <ArbolResultados key={`${ejecucion}-${i}`} conjunto={c} titulo={proc.titulosResultados?.[i] ?? null}
-                             nombreArchivo={`${proc.nombre}${resultado.resultados.length > 1 ? `_${i + 1}` : ''}`} onAbrirClave={abrirClave} />
+                             nombreArchivo={`${proc.nombre}${resultado.resultados.length > 1 ? `_${i + 1}` : ''}`} onAbrirClave={abrirClave}
+                             columnasSecundarias={proc.columnasSecundarias} ayudaColumnas={proc.ayudaColumnas} />
           ) : (
             <TablaResultados
               key={i}
@@ -193,6 +194,7 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
               textoVacio={resultado.resultados.length > 1 && i > 0 ? 'Sin registros.' : undefined}
               etiquetasValores={etiquetasValores}
               accionesFila={i === 0 ? botonesFila : undefined}
+              ayudaColumnas={proc.ayudaColumnas}
             />
           ))}
           {tienePaginas && total > tamano && (

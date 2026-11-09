@@ -10,10 +10,10 @@
    - Una fila por elemento: Nodo / PadreNodo / Nivel / NivelNombre arman el árbol en la interfaz (0 total, 1 proyecto,
      2 épica, 3 tarea, 4 subtarea). */
 CREATE OR ALTER PROCEDURE api.Horas_Arbol
+    @Desde        date = NULL,          -- primero el periodo, como en los demás reportes de tiempo
+    @Hasta        date = NULL,
     @Proyecto     varchar(50) = NULL,
     @TipoProyecto varchar(30) = NULL,
-    @Desde        date = NULL,
-    @Hasta        date = NULL,
     @Persona      nvarchar(200) = NULL,
     @SoloConHoras bit = 1
 AS
@@ -120,7 +120,10 @@ BEGIN
     FROM (
         -- Total
         SELECT N'#total' AS Nodo, CAST(NULL AS nvarchar(60)) AS PadreNodo, 0 AS Nivel, CAST(NULL AS varchar(50)) AS Clave,
-               CAST(CASE WHEN @Proyecto IS NULL THEN N'Total' ELSE N'Total del proyecto' END AS nvarchar(400)) AS Elemento,
+               CAST(CONCAT(CASE WHEN @Proyecto IS NULL THEN N'Total' ELSE N'Total del proyecto' END,
+                    CASE WHEN @Desde IS NULL AND @Hasta IS NULL THEN N' (todo el historial)'
+                         ELSE CONCAT(N' del ', ISNULL(CONVERT(nvarchar(10), @Desde, 103), N'inicio'), N' al ', CONVERT(nvarchar(10), ISNULL(@Hasta, CAST(SYSDATETIME() AS date)), 103)) END)
+                    AS nvarchar(400)) AS Elemento,
                CAST(NULL AS nvarchar(255)) AS Tipo, CAST(NULL AS nvarchar(100)) AS Estado, CAST(NULL AS nvarchar(255)) AS Responsable,
                SUM(SegReg) AS SegReg, SUM(SegAut) AS SegAut, SUM(SegCop) AS SegCop, CAST(NULL AS bigint) AS SegPropio,
                SUM(Est) AS Est, MAX(Ultimo) AS Ultimo, SUM(Elementos) AS Elementos, SUM(Abiertos) AS Abiertos, CAST('' AS varchar(400)) AS Ruta

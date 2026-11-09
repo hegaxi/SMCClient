@@ -43,7 +43,9 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:menu') AS nvarchar(200)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:orden') AS nvarchar(20)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:padre') AS nvarchar(128)),
-               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:acciones') AS nvarchar(3750))
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:acciones') AS nvarchar(3750)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:columnasSecundarias') AS nvarchar(1000)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:ayudaColumnas') AS nvarchar(3750))
         FROM sys.procedures p
         WHERE p.schema_id = SCHEMA_ID('api')
         ORDER BY p.name;
@@ -53,7 +55,8 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:opciones') AS nvarchar(3750)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:origen') AS nvarchar(400)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:multiple') AS nvarchar(10)),
-               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:origenLibre') AS nvarchar(10))
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:origenLibre') AS nvarchar(10)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 2 AND major_id = pa.object_id AND minor_id = pa.parameter_id AND name = 'smc:inicial') AS nvarchar(30))
         FROM sys.parameters pa JOIN sys.procedures p ON p.object_id = pa.object_id
         WHERE p.schema_id = SCHEMA_ID('api') AND pa.parameter_id > 0
         ORDER BY pa.object_id, pa.parameter_id;
@@ -108,7 +111,7 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
         await using var cmd = new SqlCommand(SqlMetadatos, cn);
         await using var r = await cmd.ExecuteReaderAsync(ct);
 
-        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion, string? Resultados, string Titulo, bool Accion, bool Oculto, string? Menu, int? Orden, string? Padre, string? Acciones)>();
+        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion, string? Resultados, string Titulo, bool Accion, bool Oculto, string? Menu, int? Orden, string? Padre, string? Acciones, string? Secundarias, string? Ayuda)>();
         while (await r.ReadAsync(ct))
         {
             procs.Add((r.GetInt32(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
@@ -122,11 +125,13 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                        r.IsDBNull(10) ? null : r.GetString(10).Trim(),
                        !r.IsDBNull(11) && int.TryParse(r.GetString(11), out var orden) ? orden : null,
                        r.IsDBNull(12) ? null : r.GetString(12).Trim(),
-                       r.IsDBNull(13) ? null : r.GetString(13)));
+                       r.IsDBNull(13) ? null : r.GetString(13),
+                       r.IsDBNull(14) ? null : r.GetString(14),
+                       r.IsDBNull(15) ? null : r.GetString(15)));
         }
 
         await r.NextResultAsync(ct);
-        var parametros = new Dictionary<int, List<(string Nombre, string Tipo, short MaxLen, byte Prec, byte Escala, bool Salida, string? Desc, string? Opciones, string? Origen, string? Multiple, bool Libre)>>();
+        var parametros = new Dictionary<int, List<(string Nombre, string Tipo, short MaxLen, byte Prec, byte Escala, bool Salida, string? Desc, string? Opciones, string? Origen, string? Multiple, bool Libre, string? Inicial)>>();
         while (await r.ReadAsync(ct))
         {
             var id = r.GetInt32(0);
@@ -134,7 +139,8 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
             lista.Add((r.GetString(1).TrimStart('@'), r.GetString(2), r.GetInt16(3), r.GetByte(4), r.GetByte(5), r.GetBoolean(6),
                        r.IsDBNull(7) ? null : r.GetString(7), r.IsDBNull(8) ? null : r.GetString(8),
                        r.IsDBNull(9) ? null : r.GetString(9), r.IsDBNull(10) ? null : r.GetString(10),
-                       !r.IsDBNull(11) && r.GetString(11).Trim() == "1"));
+                       !r.IsDBNull(11) && r.GetString(11).Trim() == "1",
+                       r.IsDBNull(12) ? null : r.GetString(12).Trim()));
         }
 
         await r.NextResultAsync(ct);
@@ -150,13 +156,14 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
         var resultado = new Dictionary<string, ProcedimientoInfo>(StringComparer.OrdinalIgnoreCase);
         foreach (var p in procs)
         {
-            var conDefault = ParametrosConValorPorOmision(p.Definicion);
+            var conDefault = ValoresPorOmision(p.Definicion);
             var todos = (parametros.GetValueOrDefault(p.Id) ?? new()).Select(x => new ParametroInfo(
                 x.Nombre, x.Tipo,
                 EsTexto(x.Tipo) ? (x.MaxLen == -1 ? -1 : x.Tipo.StartsWith('n') ? x.MaxLen / 2 : x.MaxLen) : null,
                 EsDecimal(x.Tipo) ? x.Prec : null, EsDecimal(x.Tipo) ? x.Escala : null,
-                conDefault.Contains(x.Nombre), x.Salida, x.Desc, Opciones(x.Opciones),
-                Origen(x.Origen, x.Libre), string.IsNullOrEmpty(x.Multiple) ? null : x.Multiple)).ToList();
+                conDefault.ContainsKey(x.Nombre), x.Salida, x.Desc, Opciones(x.Opciones),
+                Origen(x.Origen, x.Libre), string.IsNullOrEmpty(x.Multiple) ? null : x.Multiple,
+                conDefault.GetValueOrDefault(x.Nombre), string.IsNullOrEmpty(x.Inicial) ? null : x.Inicial)).ToList();
 
             resultado[p.Nombre] = new ProcedimientoInfo(
                 p.Nombre, p.Descripcion, p.Permiso, p.Exento,
@@ -169,7 +176,9 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                 p.Menu,
                 p.Orden,
                 p.Padre,
-                Acciones(p.Nombre, p.Acciones))
+                Acciones(p.Nombre, p.Acciones),
+                p.Secundarias?.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries),
+                AyudaColumnas(p.Nombre, p.Ayuda))
             {
                 ParametrosDeContexto = todos.Where(x => deUsuario.Contains(x.Nombre)).ToList(),
             };
@@ -181,15 +190,38 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
     /// SQL Server no guarda en el catálogo qué parámetros de un procedimiento T-SQL tienen valor por omisión,
     /// así que se lee del encabezado (entre CREATE PROCEDURE y AS): "@Proyecto varchar(50) = NULL".
     /// </summary>
-    internal static HashSet<string> ParametrosConValorPorOmision(string definicion)
+    internal static HashSet<string> ParametrosConValorPorOmision(string definicion) =>
+        ValoresPorOmision(definicion).Keys.ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Parámetros con valor por omisión y ese valor como texto: "@Nivel varchar(10) = 'tarea'" -> tarea; "= 1" -> 1;
+    /// "= NULL" -> null. La interfaz lo muestra en la opción vacía ("Sí (por omisión)").
+    /// </summary>
+    internal static Dictionary<string, string?> ValoresPorOmision(string definicion)
     {
         var sinComentarios = Comentarios().Replace(definicion, " ");
         var m = Encabezado().Match(sinComentarios);
         var encabezado = m.Success ? m.Groups[1].Value : "";
-        return Parametro().Matches(encabezado)
-            .Where(x => x.Groups[2].Value.Contains('='))
-            .Select(x => x.Groups[1].Value)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var res = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (Match x in Parametro().Matches(encabezado))
+        {
+            var resto = x.Groups[2].Value;
+            var i = resto.IndexOf('=');
+            if (i < 0) continue;
+            var v = SufijoParametro().Replace(resto[(i + 1)..], "").Trim();
+            if (v.Length > 1 && (v[0] == 'N' || v[0] == 'n') && v[1] == '\'') v = v[1..];
+            res[x.Groups[1].Value] = v.Equals("NULL", StringComparison.OrdinalIgnoreCase) ? null
+                : v.Length >= 2 && v[0] == '\'' && v[^1] == '\'' ? v[1..^1].Replace("''", "'") : v;
+        }
+        return res;
+    }
+
+    /// <summary>smc:ayudaColumnas = {"Columna": "qué significa"}: la interfaz lo muestra al pasar sobre el encabezado.</summary>
+    private IReadOnlyDictionary<string, string>? AyudaColumnas(string procedimiento, string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try { return JsonSerializer.Deserialize<Dictionary<string, string>>(json); }
+        catch (JsonException) { log.LogWarning("smc:ayudaColumnas de {Procedimiento} no es un objeto JSON válido; se ignora.", procedimiento); return null; }
     }
 
     /// <summary>smc:opciones = "software=Scrum|service_desk=Mesa de ayuda" (la etiqueta es opcional).</summary>
@@ -245,6 +277,9 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
 
     [GeneratedRegex(@"--[^\r\n]*|/\*.*?\*/", RegexOptions.Singleline)]
     private static partial Regex Comentarios();
+
+    [GeneratedRegex(@"\s+(OUTPUT|OUT|READONLY)\s*$", RegexOptions.IgnoreCase)]
+    private static partial Regex SufijoParametro();
 
     [GeneratedRegex(@"CREATE\s+(?:OR\s+ALTER\s+)?PROC(?:EDURE)?\s+[^\s(]+\s*\(?(.*?)\)?\s*\bAS\b", RegexOptions.Singleline | RegexOptions.IgnoreCase)]
     private static partial Regex Encabezado();

@@ -622,3 +622,23 @@ td .enlace { font-weight: 500; }
 .matriz-permisos .fila-subgrupo th { background: var(--superficie); color: var(--texto-2); font-size: var(--t-xs); font-weight: 600; padding-top: var(--e-3); }
 .matriz-permisos .fila-categoria th, .matriz-permisos .fila-categoria td { background: color-mix(in srgb, var(--acento) 6%, var(--superficie)); }
 .matriz-permisos .fila-categoria th { font-weight: 600; }
+
+/* Situación (Estimado vs. real): insignia con texto y color; el color no es la única señal. */
+.estado-situacion { display: inline-block; border-radius: 999px; padding: 0 0.55rem; font-size: var(--t-xs); font-weight: 600;
+  white-space: nowrap; border: 1px solid currentColor; }
+.insignia-mal { color: var(--error); background: color-mix(in srgb, var(--error) 9%, transparent); }
+.insignia-alerta { color: var(--aviso); background: color-mix(in srgb, var(--aviso) 10%, transparent); }
+.insignia-bien { color: var(--ok); background: color-mix(in srgb, var(--ok) 9%, transparent); }
+.insignia-neutra { color: var(--texto-2); }
+.insignia-tenue { color: var(--texto-2); border-style: dashed; font-weight: 400; }
+td.desviacion-positiva { color: var(--error); }
+
+/* Árbol: la primera columna queda fija al desplazar a la derecha; guías por nivel; botón de abrir de 24 px. */
+table.arbol th:first-child, table.arbol td.celda-arbol { position: sticky; left: 0; z-index: 1; background: var(--superficie); }
+table.arbol thead th:first-child { z-index: 2; background: var(--superficie-2); }
+table.arbol tr.nivel-0 td.celda-arbol { background: var(--superficie-2); }
+table.arbol td.celda-arbol { box-shadow: inset -1px 0 0 var(--borde); }
+table.arbol tr.nivel-2 td { font-weight: 500; }
+table.arbol tr.nivel-1 td { border-top: 1px solid var(--borde-control); }
+.alternar-nodo { min-width: 24px; min-height: 24px; }
+th abbr.ayuda-columna { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }

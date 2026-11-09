@@ -98,7 +98,7 @@ BEGIN
            x.IssuesConHoras
     FROM (
         SELECT N'#total' AS Nodo, CAST(NULL AS nvarchar(300)) AS PadreNodo, 0 AS Nivel, N'Total' AS NivelNombre,
-               CAST(NULL AS varchar(50)) AS Clave, CAST(N'Total del periodo' AS nvarchar(400)) AS Elemento, CAST(NULL AS nvarchar(255)) AS Tipo,
+               CAST(NULL AS varchar(50)) AS Clave, CAST(CONCAT(N'Total del ', CONVERT(nvarchar(10), @Desde, 103), N' al ', CONVERT(nvarchar(10), @Hasta, 103)) AS nvarchar(400)) AS Elemento, CAST(NULL AS nvarchar(255)) AS Tipo,
                CAST(NULL AS nvarchar(255)) AS Estado, SUM(SegReg) AS SegReg, SUM(SegAut) AS SegAut, CAST(NULL AS bigint) AS SegPropios,
                COUNT(DISTINCT CONCAT(FuenteId, N'|', IssueId)) AS IssuesConHoras, CAST(N'0' AS nvarchar(400)) AS Ruta
         FROM #h

@@ -19,6 +19,10 @@ export interface ParametroInfo {
   origen?: OrigenParametro | null;
   /** Separador si se pueden elegir varios valores (smc:multiple). */
   multiple?: string | null;
+  /** Valor por omisión que declara el procedimiento (null si es NULL). */
+  porOmision?: string | null;
+  /** smc:inicial: con qué se llena el campo al abrir (inicio_mes | hoy). */
+  inicial?: string | null;
 }
 
 export interface OrigenParametro {
@@ -81,6 +85,10 @@ export interface ProcedimientoInfo {
   padre?: string | null;
   /** Botones "Nuevo" y acciones por fila del listado (smc:acciones). */
   acciones?: AccionListado[] | null;
+  /** Columnas que no se muestran hasta "Más columnas" (smc:columnasSecundarias). */
+  columnasSecundarias?: string[] | null;
+  /** Qué significa cada columna (smc:ayudaColumnas): se muestra al pasar sobre el encabezado. */
+  ayudaColumnas?: Record<string, string> | null;
 }
 
 export type Fila = Record<string, unknown>;

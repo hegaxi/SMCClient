@@ -58,8 +58,8 @@ EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', '@Nombre', N'MS_Description',
 EXEC adm.Descripcion_Establecer 'api.Usuario_Organizaciones_Guardar', '@Organizaciones', N'MS_Description', N'Marque las organizaciones cuyos tickets verá el cliente';
 EXEC adm.Descripcion_Establecer 'api.Issues_Buscar', '@Proyecto', N'MS_Description', N'Vacío = todos los proyectos';
 EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', NULL, N'smc:resultados', N'Proyectos, épicas, tareas y subtareas';
-EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@Desde', N'MS_Description', N'Fecha del registro de tiempo. Vacío = desde el inicio';
-EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@Hasta', N'MS_Description', N'Vacío = hasta hoy';
+
+
 EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@Persona', N'MS_Description', N'Parte del nombre de quien registró (o a quien se atribuyen las automáticas)';
 EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@SoloConHoras', N'MS_Description', N'Sí = oculta lo que no tiene horas en el periodo';
 GO

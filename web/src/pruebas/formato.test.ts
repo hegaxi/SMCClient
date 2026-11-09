@@ -1,4 +1,4 @@
-import { aCsv, construirCuerpo, etiqueta, etiquetasDeValores, formatear, opcionesDeColumna, valoresIniciales } from '../formato';
+import { aCsv, claseSituacion, construirCuerpo, etiqueta, etiquetasDeValores, formatear, opcionesDeColumna, textoOpcionVacia, valoresIniciales } from '../formato';
 import { parametro } from './datos';
 
 describe('formato', () => {
@@ -24,7 +24,25 @@ describe('formato', () => {
     expect(formatear(null, 'int')).toBe('—');
     expect(formatear(true, 'bit')).toBe('Sí');
     expect(formatear('2026-11-05T00:00:00', 'date')).toBe('05/11/2026');   // sin correr la zona horaria
-    expect(formatear(1234.5, 'decimal')).toBe('1,234.5');
+    expect(formatear(1234.5, 'decimal')).toBe('1,234.50');   // decimales fijos: se alinean en la columna
+    expect(formatear(6106, 'int')).toBe('6,106');
+    expect(formatear(84.62, 'decimal', 'PorcentajeConsumo')).toBe('84.6 %');
+    expect(formatear(12, 'decimal', 'DesviacionHoras')).toBe('+12.00');
+    expect(formatear(-8, 'decimal', 'DesviacionHoras')).toBe('-8.00');
+  });
+
+  it('marca la situación con una clase de color y dice el valor por omisión en la opción vacía', () => {
+    expect(claseSituacion('Situacion', 'Excedida')).toBe('insignia-mal');
+    expect(claseSituacion('Estado', 'Excedida')).toBeNull();
+    expect(textoOpcionVacia(parametro({ nombre: 'Detalle', tipo: 'bit', porOmision: '1' }), 'Sin filtro')).toBe('Sí (por omisión)');
+    expect(textoOpcionVacia(parametro({ nombre: 'Nivel', tipo: 'varchar', porOmision: 'tarea', opciones: [{ valor: 'tarea', etiqueta: 'Tareas e historias' }] }), 'Todos'))
+      .toBe('Tareas e historias (por omisión)');
+    expect(textoOpcionVacia(parametro({ nombre: 'Proyecto', tipo: 'varchar', porOmision: null }), 'Todos')).toBe('Todos');
+  });
+
+  it('llena los campos con smc:inicial aunque sean opcionales', () => {
+    const ps = [parametro({ nombre: 'Desde', tipo: 'date', inicial: 'inicio_mes' }), parametro({ nombre: 'Hasta', tipo: 'date', inicial: 'hoy' })];
+    expect(valoresIniciales(ps, new Date(2026, 10, 8))).toEqual({ Desde: '2026-11-01', Hasta: '2026-11-08' });
   });
 
   it('arma el cuerpo con tipos y omite los opcionales vacíos', () => {

@@ -166,13 +166,13 @@ EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', NULL, N'smc:resultados'
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Nivel', N'smc:opciones', N'tarea=Tareas e historias|epica=Épicas';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Epica', N'MS_Description', N'Clave de una épica (p. ej. SSM26-56).';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Nivel', N'MS_Description', N'Vacío = tareas e historias (las épicas se comparan aparte para no contar dos veces).';
-EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Sprint', N'MS_Description', N'Parte del nombre del sprint.';
-EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Responsable', N'MS_Description', N'Parte del nombre del responsable.';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Sprint', N'MS_Description', N'Elija el sprint (elija antes el proyecto para ver solo los suyos)';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Responsable', N'MS_Description', N'Responsable de la tarea';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@SoloExcedidas', N'MS_Description', N'Solo los que registraron más horas de las estimadas.';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Detalle', N'MS_Description', N'No = solo el resumen.';
 EXEC adm.Descripcion_Establecer 'api.Epicas_Avance', '@Texto', N'MS_Description', N'Parte de la clave o del resumen de la épica.';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Epica', N'MS_Description', N'Clave de una épica (p. ej. SSM26-56): solo su tiempo, el de sus tareas y subtareas.';
-EXEC adm.Descripcion_Establecer 'api.Horas_PorSprint', '@Sprint', N'MS_Description', N'Parte del nombre del sprint.';
+EXEC adm.Descripcion_Establecer 'api.Horas_PorSprint', '@Sprint', N'MS_Description', N'Elija el sprint (elija antes el proyecto para ver solo los suyos)';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorSprintArbol', '@Estado', N'smc:opciones', N'active=Activo|closed=Cerrado|future=Futuro';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorSprintArbol', NULL, N'smc:resultados', N'Sprints, personas, tareas y subtareas';
 EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@TipoProyecto', N'smc:opciones', @tipoProyecto;

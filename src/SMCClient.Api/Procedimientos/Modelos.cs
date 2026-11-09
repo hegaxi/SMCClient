@@ -15,7 +15,9 @@ public sealed record ProcedimientoInfo(
     string? Menu = null,      // smc:menu: "Sección" o "Sección/Subgrupo"
     int? Orden = null,        // smc:orden
     string? Padre = null,     // smc:padre: aparece como sub-opción de ese procedimiento
-    System.Text.Json.JsonElement? Acciones = null)   // smc:acciones: botones "Nuevo" y acciones por fila de un listado
+    System.Text.Json.JsonElement? Acciones = null,   // smc:acciones: botones "Nuevo" y acciones por fila de un listado
+    IReadOnlyList<string>? ColumnasSecundarias = null,           // smc:columnasSecundarias: ocultas hasta "Más columnas"
+    IReadOnlyDictionary<string, string>? AyudaColumnas = null)   // smc:ayudaColumnas: qué significa cada columna
 {
     /// <summary>Parámetros que llena el servidor (usuario autenticado); no se exponen ni se aceptan del cliente.</summary>
     internal IReadOnlyList<ParametroInfo> ParametrosDeContexto { get; init; } = Array.Empty<ParametroInfo>();
@@ -32,7 +34,9 @@ public sealed record ParametroInfo(
     string Nombre, string Tipo, int? Longitud, byte? Precision, byte? Escala, bool Opcional, bool Salida, string? Descripcion,
     IReadOnlyList<OpcionParametro>? Opciones = null,
     OrigenParametro? Origen = null,
-    string? Multiple = null);
+    string? Multiple = null,
+    string? PorOmision = null,   // valor por omisión declarado en el procedimiento (null si es NULL o no tiene)
+    string? Inicial = null);     // smc:inicial: valor con que la interfaz llena el campo (inicio_mes | hoy)
 
 /// <summary>Lista dinámica de un parámetro (smc:origen): procedimiento del esquema api y columnas de sus filas.</summary>
 /// <param name="Libre">smc:origenLibre = 1: además de elegir, se puede escribir un valor nuevo (p. ej. un usuario nuevo).</param>

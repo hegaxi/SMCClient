@@ -52,14 +52,26 @@ export function opcionesDeColumna(columna: string, etiquetas: Map<string, Map<st
   return undefined;
 }
 
-const numero = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 2 });
+const entero = new Intl.NumberFormat('es-MX', { maximumFractionDigits: 0 });
+// Decimales siempre con 2 cifras: "887.50", "17,829.62" y "6,106.00" se alinean en la columna.
+const decimal = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const porcentaje = new Intl.NumberFormat('es-MX', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const fechaHora = new Intl.DateTimeFormat('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
 
-/** Texto para mostrar un valor de una columna según su tipo de SQL Server. */
-export function formatear(valor: unknown, tipo: string): string {
+/** Columnas de porcentaje (PorcentajeConsumido, PorcentajeConEstimacion…): se muestran con "%". */
+export const esPorcentaje = (columna?: string) => !!columna && /^porcentaje/i.test(columna);
+/** Columnas de desviación: con signo ("+12.00" = se pasó de lo estimado). */
+export const esDesviacion = (columna?: string) => !!columna && /^desviacion/i.test(columna);
+
+/** Texto para mostrar un valor de una columna según su tipo de SQL Server (y su nombre: porcentajes, desviaciones). */
+export function formatear(valor: unknown, tipo: string, columna?: string): string {
   if (valor === null || valor === undefined || valor === '') return '—';
   if (tipo === 'bit') return valor ? 'Sí' : 'No';
-  if (esNumero(tipo) && typeof valor === 'number') return numero.format(valor);
+  if (esNumero(tipo) && typeof valor === 'number') {
+    if (esPorcentaje(columna)) return `${porcentaje.format(valor)} %`;
+    const texto = DECIMALES.has(tipo) ? decimal.format(valor) : entero.format(valor);
+    return esDesviacion(columna) && valor > 0 ? `+${texto}` : texto;
+  }
   if (tipo === 'date' && typeof valor === 'string') {
     // "2026-11-05T00:00:00": se muestra la fecha sin convertir zona horaria.
     const [a, m, d] = valor.slice(0, 10).split('-');
@@ -152,11 +164,40 @@ export function valoresIniciales(parametros: ParametroInfo[], hoy = new Date()):
     `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
   const v: ValoresFormulario = {};
   for (const p of parametros) {
+    // smc:inicial: el procedimiento pide el campo lleno aunque sea opcional (p. ej. el mes en curso en Horas por proyecto).
+    if (p.inicial === 'inicio_mes') { v[p.nombre] = iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)); continue; }
+    if (p.inicial === 'hoy') { v[p.nombre] = iso(hoy); continue; }
     if (p.tipo !== 'date' || p.opcional) continue;
     if (/^desde$/i.test(p.nombre)) v[p.nombre] = iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
     if (/^hasta$/i.test(p.nombre)) v[p.nombre] = iso(hoy);
   }
   return v;
+}
+
+/**
+ * Columna "Situacion" (Estimado vs. real): clase de la insignia de color. El texto siempre se muestra (el color no es
+ * la única señal).
+ */
+export function claseSituacion(columna: string, valor: unknown): string | null {
+  if (!/^situacion$/i.test(columna) || typeof valor !== 'string') return null;
+  switch (valor) {
+    case 'Excedida': return 'insignia-mal';
+    case 'En riesgo': return 'insignia-alerta';
+    case 'Dentro de lo estimado': return 'insignia-bien';
+    case 'Sin estimación': return 'insignia-tenue';
+    default: return 'insignia-neutra';
+  }
+}
+
+/**
+ * Texto de la opción vacía de una lista o un Sí/No opcional. Si el procedimiento declara un valor por omisión, se dice
+ * cuál se aplica ("Sí (por omisión)", "Tareas e historias (por omisión)") en lugar de "Sin filtro".
+ */
+export function textoOpcionVacia(p: ParametroInfo, porDefecto: string): string {
+  if (p.porOmision == null || p.porOmision === '') return porDefecto;
+  if (p.tipo === 'bit') return `${p.porOmision === '1' ? 'Sí' : 'No'} (por omisión)`;
+  const op = p.opciones?.find((o) => o.valor.toLowerCase() === p.porOmision!.toLowerCase());
+  return `${op?.etiqueta ?? p.porOmision} (por omisión)`;
 }
 
 /** Convierte un conjunto de resultados a CSV (separador coma, UTF-8 con BOM para Excel). */
