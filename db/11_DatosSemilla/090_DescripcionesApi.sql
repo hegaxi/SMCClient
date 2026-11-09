@@ -72,6 +72,7 @@ INSERT @p VALUES
  ('api.Epicas_Listar',       N'Épicas',                   N'Épicas para elegir en las consultas, con su resumen y estado.',                               'lectura', '0'),
  ('api.Personas_Listar',     N'Personas',                 N'Personas de Jira (responsables y quienes registran tiempo) para elegir en las consultas.',    'lectura', '0'),
  ('api.Horas_Arbol',         N'Horas por proyecto', N'Tiempo por proyecto, épica, tarea y subtarea (uno o todos los proyectos), con subtotales y total: horas de cada elemento y de todo lo que tiene debajo, contra lo estimado. Las copias de Automation for Jira van aparte y no se suman.', 'lectura', '0'),
+ ('api.Tiempos_Invertidos',  N'Tiempos invertidos', N'Tiempo registrado con una columna por día, semana, mes, trimestre o año y las agrupaciones que elija (persona, proyecto, épica, tarea, ticket, tipo o estado), con subtotales y total. En horas o en días. No suma las copias de Automation for Jira.', 'lectura', '0'),
  ('api.ProyectosSync_Listar',        N'Proyectos a sincronizar', N'Qué proyectos de Jira se sincronizan: los desactivados no se piden a Jira y se ocultan de los reportes.', 'admin', '1'),
  ('api.ProyectoSync_Establecer',      N'Activar o desactivar un proyecto', N'Activa o desactiva la sincronización de un proyecto.', 'admin', '1'),
  ('api.ProyectosSync_Nuevos_Guardar', N'Sincronizar proyectos nuevos', N'Si un proyecto nuevo en Jira se sincroniza solo o queda desactivado.', 'admin', '1'),

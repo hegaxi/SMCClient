@@ -165,6 +165,32 @@ SET @ok = CASE WHEN EXISTS (SELECT 1 FROM @a WHERE Nodo = N'P|FAS' AND Nivel = 1
 EXEC prueba.Afirmar @ok, N'Horas por proyecto sin elegir proyecto: Total → proyecto → (Sin épica) → tarea → subtarea, y el total suma los proyectos';
 GO
 
+/* ===== Tiempos invertidos (una columna por periodo) ===== */
+DECLARE @ok bit;
+DECLARE @t TABLE (Nodo nvarchar(60), PadreNodo nvarchar(60), Nivel int, NivelNombre nvarchar(30), Clave varchar(50), Elemento nvarchar(400),
+                  Total decimal(12,2), Ene decimal(12,2));
+INSERT @t EXEC api.Tiempos_Invertidos @Desde = '2026-01-01', @Hasta = '2026-01-31', @Proyecto = 'FAS', @Periodo = 'mes',
+                                      @Categoria = 'persona', @Grupo = 'tarea';
+SET @ok = CASE WHEN EXISTS (SELECT 1 FROM @t WHERE Nivel = 0 AND Total = 6 AND Ene = 6)
+                AND EXISTS (SELECT 1 FROM @t WHERE Nivel = 1 AND NivelNombre = N'Persona' AND Total = 6)
+                AND EXISTS (SELECT 1 FROM @t WHERE Nivel = 2 AND NivelNombre = N'Tarea' AND Clave = 'FAS-1' AND Total = 2)
+                AND EXISTS (SELECT 1 FROM @t WHERE Nivel = 2 AND Clave = 'FAS-2' AND Total = 4)
+                AND (SELECT COUNT(*) FROM @t) = 4 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Tiempos invertidos: persona → tarea (la subtarea FAS-5 se suma en FAS-1), columna Ene 2026 y Total de 6 h';
+DELETE @t;
+INSERT @t EXEC api.Tiempos_Invertidos @Desde = '2026-01-01', @Hasta = '2026-01-31', @Proyecto = 'FAS', @Periodo = 'mes',
+                                      @Categoria = 'ninguna', @Grupo = 'ninguna', @Unidad = 'dias';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @t) = 1 AND (SELECT Total FROM @t) = 0.75 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Tiempos invertidos en días de 8 h: 6 h = 0.75 días; sin agrupaciones solo queda el total';
+DECLARE @s TABLE (Nodo nvarchar(60), PadreNodo nvarchar(60), Nivel int, NivelNombre nvarchar(30), Clave varchar(50), Elemento nvarchar(400),
+                  Total decimal(12,2), Sem1 decimal(12,2), Sem2 decimal(12,2), Sem3 decimal(12,2));
+INSERT @s EXEC api.Tiempos_Invertidos @Desde = '2026-01-05', @Hasta = '2026-01-21', @Proyecto = 'FAS', @Periodo = 'semana',
+                                      @Categoria = 'issue', @Grupo = 'ninguna', @Sprint = N'FAS Sprint 2';
+SET @ok = CASE WHEN (SELECT Total FROM @s WHERE Nivel = 0) = 2 AND (SELECT Sem2 FROM @s WHERE Nivel = 0) = 2
+                AND EXISTS (SELECT 1 FROM @s WHERE Clave = 'FAS-5' AND NivelNombre = N'Ticket') THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Tiempos invertidos por sprint y semana: solo las 2 h registradas en el Sprint 2 (semana del 12/01), con columnas de semanas vacías';
+GO
+
 /* ===== Limpieza ===== */
 DECLARE @f int = (SELECT FuenteId FROM cfg.Fuente WHERE Codigo = 'fase1');
 DELETE s FROM ops.IssueSla s JOIN ops.Issue i ON i.IssueSk = s.IssueSk WHERE i.FuenteId = @f;

@@ -13,7 +13,8 @@ BEGIN
     FROM ops.Sprint s
     CROSS APPLY (SELECT DISTINCT i.ProyectoClave FROM ops.IssueSprint x JOIN rpt.vIssue i ON i.IssueSk = x.IssueSk
                  WHERE x.FuenteId = s.FuenteId AND x.SprintId = s.SprintId) p
-    WHERE @Proyecto IS NULL OR p.ProyectoClave = @Proyecto
+    -- @Proyecto: una clave o varias separadas por '|' (campos de varios proyectos, como Tiempos invertidos).
+    WHERE @Proyecto IS NULL OR p.ProyectoClave IN (SELECT LTRIM(RTRIM(value)) FROM STRING_SPLIT(@Proyecto, '|'))
     GROUP BY s.SprintId, s.Nombre, s.Estado, s.Inicio, s.Fin
     ORDER BY CASE s.Estado WHEN 'active' THEN 0 WHEN 'future' THEN 1 ELSE 2 END, s.Inicio DESC;
 END;

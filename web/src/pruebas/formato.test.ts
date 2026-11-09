@@ -43,6 +43,7 @@ describe('formato', () => {
   it('llena los campos con smc:inicial aunque sean opcionales', () => {
     const ps = [parametro({ nombre: 'Desde', tipo: 'date', inicial: 'inicio_mes' }), parametro({ nombre: 'Hasta', tipo: 'date', inicial: 'hoy' })];
     expect(valoresIniciales(ps, new Date(2026, 10, 8))).toEqual({ Desde: '2026-11-01', Hasta: '2026-11-08' });
+    expect(valoresIniciales([parametro({ nombre: 'Desde', tipo: 'date', inicial: 'inicio_anio' })], new Date(2026, 10, 8))).toEqual({ Desde: '2026-01-01' });
   });
 
   it('arma el cuerpo con tipos y omite los opcionales vacíos', () => {

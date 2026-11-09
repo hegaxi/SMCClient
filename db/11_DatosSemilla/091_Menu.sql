@@ -14,6 +14,7 @@ INSERT @m VALUES
  ('api.Epicas_Avance',                 N'Proyectos Scrum',                     220, NULL),
 
 
+ ('api.Tiempos_Invertidos',            N'Tiempo',                              300, NULL),
  ('api.Horas_Arbol',                   N'Tiempo',                              305, NULL),
  ('api.Horas_PorPersonaArbol',         N'Tiempo',                              310, NULL),
  ('api.Horas_PorSprintArbol',          N'Tiempo',                              315, NULL),

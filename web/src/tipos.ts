@@ -21,7 +21,7 @@ export interface ParametroInfo {
   multiple?: string | null;
   /** Valor por omisión que declara el procedimiento (null si es NULL). */
   porOmision?: string | null;
-  /** smc:inicial: con qué se llena el campo al abrir (inicio_mes | hoy). */
+  /** smc:inicial: con qué se llena el campo al abrir (inicio_mes | inicio_anio | hoy). */
   inicial?: string | null;
 }
 

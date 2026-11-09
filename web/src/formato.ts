@@ -167,6 +167,7 @@ export function valoresIniciales(parametros: ParametroInfo[], hoy = new Date()):
     // smc:inicial: el procedimiento pide el campo lleno aunque sea opcional (p. ej. el mes en curso en Horas por proyecto).
     if (p.inicial === 'inicio_mes') { v[p.nombre] = iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1)); continue; }
     if (p.inicial === 'hoy') { v[p.nombre] = iso(hoy); continue; }
+    if (p.inicial === 'inicio_anio') { v[p.nombre] = iso(new Date(hoy.getFullYear(), 0, 1)); continue; }
     if (p.tipo !== 'date' || p.opcional) continue;
     if (/^desde$/i.test(p.nombre)) v[p.nombre] = iso(new Date(hoy.getFullYear(), hoy.getMonth(), 1));
     if (/^hasta$/i.test(p.nombre)) v[p.nombre] = iso(hoy);

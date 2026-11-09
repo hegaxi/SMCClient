@@ -36,7 +36,7 @@ public sealed record ParametroInfo(
     OrigenParametro? Origen = null,
     string? Multiple = null,
     string? PorOmision = null,   // valor por omisión declarado en el procedimiento (null si es NULL o no tiene)
-    string? Inicial = null);     // smc:inicial: valor con que la interfaz llena el campo (inicio_mes | hoy)
+    string? Inicial = null);     // smc:inicial: valor con que la interfaz llena el campo (inicio_mes | inicio_anio | hoy)
 
 /// <summary>Lista dinámica de un parámetro (smc:origen): procedimiento del esquema api y columnas de sus filas.</summary>
 /// <param name="Libre">smc:origenLibre = 1: además de elegir, se puede escribir un valor nuevo (p. ej. un usuario nuevo).</param>

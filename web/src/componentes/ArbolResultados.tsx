@@ -111,6 +111,8 @@ export function ArbolResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
   };
 
   const valor = (f: Fila, c: ColumnaInfo) => {
+    // Número vacío = sin tiempo: celda en blanco (con muchas columnas por periodo, los "—" no dejan ver los valores).
+    if (esNumero(c.tipo) && f[c.nombre] == null) return '';
     const texto = formatear(f[c.nombre], c.tipo, c.nombre);
     const situacion = claseSituacion(c.nombre, f[c.nombre]);
     return situacion ? <span className={`estado-situacion ${situacion}`}>{texto}</span> : texto;

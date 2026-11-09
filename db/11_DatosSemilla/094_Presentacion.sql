@@ -1,5 +1,5 @@
 /* Presentación de los reportes de tiempo (la interfaz lo lee de los metadatos; ver CatalogoProcedimientos):
-   smc:inicial              (parámetro) con qué se llena el campo al abrir aunque sea opcional: inicio_mes | hoy.
+   smc:inicial              (parámetro) con qué se llena el campo al abrir aunque sea opcional: inicio_mes | inicio_anio | hoy.
                             Todos los reportes de horas abren con el mes en curso.
    smc:columnasSecundarias  columnas que no se muestran hasta "Más columnas" (siguen en el CSV).
    smc:ayudaColumnas        JSON {"Columna": "qué significa"}: se ve al pasar sobre el encabezado. */
@@ -45,3 +45,32 @@ EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', NULL, N'smc:ayudaColumn
  "TareasSinEstimacion": "Tareas e historias debajo que no tienen estimación."
 }';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', NULL, N'smc:columnasSecundarias', N'Tipo,Responsable,HorasRestantes,HorasProyectadas,Tareas';
+
+-- Tiempos invertidos (reporte dinámico con una columna por periodo).
+DECLARE @agrupar nvarchar(400) = N'persona=Persona|proyecto=Proyecto|epica=Épica|tarea=Tarea (con sus subtareas)|issue=Ticket|tipo=Tipo de ticket|estado=Estado|ninguna=Ninguna';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', NULL, N'smc:resultados', N'Tiempo por periodo';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Desde', N'smc:inicial', N'inicio_anio';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Hasta', N'smc:inicial', N'hoy';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Desde', N'MS_Description', N'Fecha del registro de tiempo (inclusive)';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Hasta', N'MS_Description', N'Fecha final (inclusive)';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Proyecto', N'smc:origen', N'Proyectos_Listar:Clave:Clave:Nombre';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Proyecto', N'smc:multiple', N'|';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Proyecto', N'MS_Description', N'Uno o varios. Vacío = todos';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Persona', N'smc:origen', N'Personas_Listar(Proyecto=@Proyecto):Nombre:Nombre:Detalle';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Persona', N'smc:multiple', N'|';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Persona', N'MS_Description', N'Una o varias (a quien se atribuye el tiempo). Vacío = todas';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Sprint', N'smc:origen', N'Sprints_Listar(Proyecto=@Proyecto):Valor:Etiqueta:Detalle';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Sprint', N'MS_Description', N'Solo el tiempo de los tickets del sprint registrado mientras estuvo abierto';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Periodo', N'smc:opciones', N'dia=Día|semana=Semana|mes=Mes|trimestre=Trimestre|anio=Año|ninguno=Sin columnas por periodo';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Periodo', N'MS_Description', N'Una columna por cada periodo del rango (máximo 120)';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Categoria', N'smc:opciones', @agrupar;
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Categoria', N'MS_Description', N'Primer nivel de filas';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Grupo', N'smc:opciones', @agrupar;
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Grupo', N'MS_Description', N'Segundo nivel, dentro de cada categoría';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Secundaria', N'smc:opciones', @agrupar;
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Secundaria', N'MS_Description', N'Tercer nivel, dentro de cada grupo';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@Unidad', N'smc:opciones', N'horas=Horas|dias=Días';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', '@HorasPorDia', N'MS_Description', N'Horas de un día cuando la unidad es Días';
+EXEC adm.Descripcion_Establecer 'api.Tiempos_Invertidos', NULL, N'smc:ayudaColumnas', N'{
+ "Total": "Tiempo de todo el rango de fechas (registrado por personas y automático real; sin las copias de Automation for Jira)."
+}';
