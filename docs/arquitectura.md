@@ -181,7 +181,7 @@ En smco están excluidos `TS25`, `TSM26` y `TSSM26` (`db/instancias/smco.sql`).
 6. Respuesta                  todos los conjuntos de resultados + salidas    tope de Api:MaxFilas por conjunto
 ```
 
-- **Metadatos.** `sys.procedures`, `sys.parameters`, `sys.dm_exec_describe_first_result_set_for_object` y las propiedades extendidas. SQL Server no registra qué parámetros de un procedimiento T-SQL tienen valor por omisión, así que se lee del encabezado del procedimiento. Se recargan solos cuando cambia algo en la base (una firma de fechas de modificación y propiedades), así un procedimiento nuevo aparece sin reiniciar.
+- **Metadatos.** `sys.procedures`, `sys.parameters`, `sys.dm_exec_describe_first_result_set_for_object` y las propiedades extendidas. SQL Server no registra qué parámetros de un procedimiento T-SQL tienen valor por omisión, así que se lee del encabezado del procedimiento. Se recargan solos cuando cambia algo en la base (una firma de fechas de modificación y propiedades), así un procedimiento nuevo aparece sin reiniciar. Excepción: si cambian las COLUMNAS que devuelve un procedimiento ya cargado (no su firma), la firma puede no detectarlo; después de desplegar, reiniciar la API es lo seguro.
 - **Nada de SQL dinámico.** El nombre que se ejecuta sale del catálogo, nunca del texto del cliente; los valores viajan como parámetros tipados.
 - **Parámetros de contexto.** Los listados en `Api:ParametrosDeUsuario` (hoy `@SolicitadoPor`) los llena el servidor con el usuario autenticado; no se exponen ni se aceptan del cliente.
 - **Permisos mínimos.** La cuenta de la API solo tiene el rol `smc_api` (`EXECUTE` y `VIEW DEFINITION` sobre `api`); las pruebas corren con un login así.

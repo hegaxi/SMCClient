@@ -95,13 +95,12 @@ También verifica la atribución de worklogs automáticos, la exclusión de proy
 Se corre sobre una base **recién desplegada**:
 
 ```bash
-sqlcmd -S localhost -d SMCClient -b -I -x -i tests/010_prueba_integracion.sql
-sqlcmd -S localhost -d SMCClient -b -I -x -i tests/020_prueba_seguridad.sql
-sqlcmd -S localhost -d SMCClient -b -I -x -i tests/030_prueba_tableros.sql
-sqlcmd -S localhost -d SMCClient -b -I -x -i tests/040_prueba_buscador.sql
-sqlcmd -S localhost -d SMCClient -b -I -x -i tests/050_prueba_tiempos_scrum.sql
-sqlcmd -S localhost -d SMCClient -b -I -x -i tests/060_prueba_pendientes_sync.sql
-sqlcmd -S localhost -d SMCClient -b -I -x -i tests/070_prueba_consultas_clientes.sql
+# Todas, en orden, sobre una base desechable que se crea y se borra (no toca la base de trabajo):
+powershell -File tests/run.ps1                 # -Server sql01 -SqlUser smc_ci -TrustServerCertificate; -Conservar
+
+# Una por una, sobre una base recién desplegada (el orden importa: 050/060/070 usan datos de 010; 080, de 020):
+sqlcmd -S localhost -d SMCClient -b -I -x -f 65001 -i tests/010_prueba_integracion.sql
+# ... 020 a 100 igual
 ```
 
 ## Contrato con el worker (qué documento JSON va en cada entidad)

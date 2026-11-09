@@ -217,7 +217,7 @@ Detalle técnico y seguridad del SQL dinámico: [`docs/arquitectura.md` §5.9](d
 
 ```bash
 ./db/deploy.sh -S localhost -d SMCClient -U sa -C --crear-bd          # SQLCMDPASSWORD en el entorno
-sqlcmd -S localhost -d SMCClient -U sa -C -b -I -x -i db/tests/010_prueba_integracion.sql
+powershell -File db/tests/run.ps1 -Server localhost -SqlUser sa -TrustServerCertificate   # todas las pruebas SQL en una base desechable
 SMC_TEST_SQL="Server=localhost;User Id=sa;Password=...;TrustServerCertificate=true" dotnet test
 ```
 
