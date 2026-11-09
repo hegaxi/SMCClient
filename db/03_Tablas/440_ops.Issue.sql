@@ -19,7 +19,8 @@ CREATE TABLE ops.Issue (
     ResponsableId           varchar(128)   NULL,
     InformanteId            varchar(128)   NULL,
     Resumen                 nvarchar(1000) NULL,
-    PadreClave              varchar(50)    NULL,
+    PadreClave              varchar(50)    NULL,       -- solo para mostrar: cambia si el padre se mueve de proyecto
+    PadreId                 varchar(30)    NULL,       -- id de Jira del padre (no cambia): la jerarquía se une por aquí
     EsSubtarea              bit            NOT NULL CONSTRAINT DF_ops_Issue_EsSubtarea DEFAULT 0,   -- issuetype.subtask: sus horas se suman en el padre
     NivelJerarquia          smallint       NOT NULL CONSTRAINT DF_ops_Issue_Nivel DEFAULT 0,        -- issuetype.hierarchyLevel: 1 épica, 0 estándar, -1 subtarea
     TipoSolicitudId         varchar(30)    NULL,       -- JSM: request type

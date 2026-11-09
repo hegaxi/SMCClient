@@ -23,6 +23,7 @@ BEGIN
     CREATE TABLE #vistos (DocumentoId bigint NOT NULL PRIMARY KEY);
 
     DECLARE @f int, @ent varchar(40), @proc sysname, @cierre sysname, @n int, @tomar int, @err nvarchar(2000), @nProcesados int = 0;
+    DECLARE @inicio datetimeoffset(3) = SYSDATETIMEOFFSET();   -- para saber qué documentos se integraron en esta pasada
 
     DECLARE c CURSOR LOCAL FAST_FORWARD FOR
         SELECT e.FuenteId, e.Entidad, e.Procedimiento, e.ProcedimientoCierre
@@ -96,6 +97,16 @@ BEGIN
                 EXEC sync.Evento_Registrar @f, @EjecucionId, 'error', 'cierre.error', @err;
             END CATCH;
         END;
+
+        -- Datos derivados (atribución de worklogs, horas y épica por issue) de los issues tocados en esta pasada.
+        BEGIN TRY
+            EXEC sync.Derivados_Actualizar @FuenteId = @f, @Entidad = @ent, @Desde = @inicio;
+        END TRY
+        BEGIN CATCH
+            IF @@TRANCOUNT > 0 ROLLBACK;
+            SET @err = LEFT(CONCAT(ERROR_PROCEDURE(), N': ', ERROR_MESSAGE()), 2000);
+            EXEC sync.Evento_Registrar @f, @EjecucionId, 'error', 'derivados.error', @err;
+        END CATCH;
 
         FETCH c INTO @f, @ent, @proc, @cierre;
     END;

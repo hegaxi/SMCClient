@@ -11,7 +11,8 @@ BEGIN
     IF @IssueSk IS NULL THROW 50404, 'No existe el issue.', 1;
 
     SELECT Clave, ProyectoClave, ProyectoNombre, TipoProyecto, TipoIssue, TipoSolicitud, Resumen, Estado, CategoriaEstado,
-           Prioridad, Resolucion, Responsable, Informante, PadreClave, e.Epica, StoryPoints,
+           Prioridad, Resolucion, Responsable, Informante,
+           COALESCE((SELECT p.Clave FROM ops.Issue p WHERE p.FuenteId = i.FuenteId AND p.IssueId = i.PadreId), i.PadreClave) AS PadreClave, e.Epica, StoryPoints,
            CAST(TiempoInvertidoSeg / 3600.0 AS decimal(12,2)) AS HorasInvertidas,
            CAST(EstimacionOriginalSeg / 3600.0 AS decimal(12,2)) AS HorasEstimadas,
            CAST(EstimacionRestanteSeg / 3600.0 AS decimal(12,2)) AS HorasRestantes,
@@ -19,22 +20,22 @@ BEGIN
            Creado, Actualizado, Resuelto, Vencimiento
     FROM rpt.vIssue i
     OUTER APPLY rpt.fn_HorasIssue(i.FuenteId, i.IssueId, i.Clave) h
-    OUTER APPLY rpt.fn_EpicaIssue(i.FuenteId, i.Clave, i.PadreClave, i.NivelJerarquia) e
+    OUTER APPLY rpt.fn_EpicaIssue(i.FuenteId, i.IssueId, i.PadreId, i.NivelJerarquia) e
     WHERE i.IssueSk = @IssueSk;
 
     SELECT CampoId, Campo, TipoSchema, CampoActivo, Orden, ValorId, ValorTexto, ValorNumero, ValorFecha, ValorJson
     FROM rpt.vIssueCampoValor WHERE IssueSk = @IssueSk ORDER BY Campo, Orden;
 
     WITH arbol AS (
-        SELECT IssueSk, FuenteId, Clave, 0 AS Nivel FROM ops.Issue WHERE IssueSk = @IssueSk
+        SELECT IssueSk, FuenteId, IssueId, 0 AS Nivel FROM ops.Issue WHERE IssueSk = @IssueSk
         UNION ALL
-        SELECT h.IssueSk, h.FuenteId, h.Clave, a.Nivel + 1
-        FROM arbol a JOIN ops.Issue h ON h.FuenteId = a.FuenteId AND h.PadreClave = a.Clave
+        SELECT h.IssueSk, h.FuenteId, h.IssueId, a.Nivel + 1
+        FROM arbol a JOIN ops.Issue h ON h.FuenteId = a.FuenteId AND h.PadreId = a.IssueId
         WHERE h.Eliminado = 0 AND a.Nivel < 5
     )
     SELECT w.Clave, w.WorklogId, w.Inicio, w.Horas, w.Origen, w.AtribuidoA, w.MetodoAtribucion, w.Autor
-    FROM rpt.vWorklog w
-    WHERE w.IssueSk IN (SELECT IssueSk FROM arbol)
+    FROM arbol a
+    JOIN rpt.vWorklog w ON w.FuenteId = a.FuenteId AND w.IssueId = a.IssueId
     ORDER BY w.Inicio;
 
     SELECT Sla, Ciclo, EnCurso, Inicio, Fin, Vencimiento, ObjetivoMs, TranscurridoMs, Pausado, Incumplido, MinutosParaVencer

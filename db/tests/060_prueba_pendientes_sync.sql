@@ -114,8 +114,8 @@ EXEC prueba.Afirmar @ok, N'Carga inicial sin límite de fecha (DiasCargaInicial 
 UPDATE ops.Issue SET PadreClave = 'TST-9' WHERE FuenteId = @f AND Clave = 'MDA-1';
 DECLARE @t TABLE (IssueId varchar(50), Clave varchar(50), TipoProyecto varchar(30));
 INSERT @t EXEC sync.Padres_Pendientes @Fuente = 'prueba';
-SET @ok = CASE WHEN (SELECT COUNT(*) FROM @t) = 1 AND (SELECT IssueId FROM @t) = 'SCR-1' THEN 1 ELSE 0 END;
-EXEC prueba.Afirmar @ok, N'Padres faltantes: se pide la épica SCR-1; no el padre de un proyecto excluido';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @t) = 1 AND (SELECT IssueId FROM @t) = '4999' AND (SELECT Clave FROM @t) = 'SCR-1' THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Padres faltantes: se pide la épica SCR-1 por su id (4999); no el padre de un proyecto excluido';
 
 -- Llega la épica: deja de estar pendiente.
 DECLARE @d sync.DocumentoTipo;

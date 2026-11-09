@@ -226,6 +226,7 @@ parte del total: también registran Automation (en la épica y en las tareas) y 
 | Pieza | Qué hace |
 |---|---|
 | `ops.Issue.NivelJerarquia` | `issuetype.hierarchyLevel` (1 épica, 0 estándar, -1 subtarea); si Jira no lo manda se deduce. Migración `0002` |
+| `ops.Issue.PadreId` | Id de Jira del padre: **toda la jerarquía se une por id**, porque la clave cambia si el padre se mueve de proyecto (`PadreClave` queda solo para mostrar; la interfaz muestra la clave actual del padre). Migración `0004` |
 | `rpt.fn_HorasIssue` | Horas registradas y automáticas, estimación y último registro de un issue **y todos sus descendientes** (hasta 5 niveles): una épica suma sus tareas y las subtareas de éstas |
 | `rpt.fn_EpicaIssue` | Épica de un issue: él mismo, su padre o su abuelo (subtareas) |
 | Búsqueda avanzada | Columna y criterio *Épica* (como `parent = X`, también para subtareas) y *Nivel* (épica / estándar / subtarea) |
@@ -317,6 +318,12 @@ La prueba `db/tests/040` crea 1 200 issues y verifica que el resumen da 600 h do
 | **Usuarios de la API** | La API no guarda estado: se pueden poner varias instancias detrás de IIS / balanceador. Las consultas pesadas pueden ir a una réplica de solo lectura. |
 | **Nuevas consultas** | Un procedimiento nuevo en `api` aparece solo en la interfaz (metadatos). No se toca el controlador. |
 | **Nuevas columnas canónicas** | Rol nuevo en `cfg.RolCampo` + columna en `ops.Issue` (migración) + una línea en `sync.Procesar_Issues`. |
+| **Cálculos caros (horas, épica, atribución)** | Se calculan **al integrar**, no al consultar: `sync.Worklog_Atribuir` guarda en cada worklog su origen y a quién se atribuye; `sync.Resumen_Recalcular` guarda en `ops.IssueResumen` las horas propias y del árbol, la estimación, el último registro y la épica. `sync.Derivados_Actualizar` los mantiene al final de cada corrida, solo para los issues tocados (~1 s). Las consultas leen columnas. |
+
+**Prueba de carga** (`db/tests/carga`, ver su README): 8 000 issues, 515 000 worklogs (450 000 de Automation), 300 épicas,
+26 sprints. Antes de calcular al integrar, varias consultas tardaban de 6 a 31 s y *Avance de sprints* más de 10 min; ahora
+las 18 consultas medidas tardan de 4 a 538 ms (presupuesto: 1,5 s interactivas, 3 s reportes). Un recálculo completo de la
+atribución de 515 000 worklogs tarda ~31 s (solo tras una migración o un reproceso).
 
 ---
 

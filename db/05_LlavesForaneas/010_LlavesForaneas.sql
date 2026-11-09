@@ -28,6 +28,7 @@ INSERT @fk VALUES
  ('FK_dash_Widget_Filtro',         'ALTER TABLE dash.Widget ADD CONSTRAINT FK_dash_Widget_Filtro FOREIGN KEY (FiltroId) REFERENCES dash.Filtro (FiltroId);'),
  ('FK_dash_Preferencia_Usuario',   'ALTER TABLE dash.Preferencia ADD CONSTRAINT FK_dash_Preferencia_Usuario FOREIGN KEY (UsuarioId) REFERENCES seg.Usuario (UsuarioId) ON DELETE CASCADE;'),
  ('FK_dash_Preferencia_Tablero',   'ALTER TABLE dash.Preferencia ADD CONSTRAINT FK_dash_Preferencia_Tablero FOREIGN KEY (TableroInicioId) REFERENCES dash.Tablero (TableroId) ON DELETE SET NULL;'),
+ ('FK_ops_IssueResumen_Issue', 'ALTER TABLE ops.IssueResumen ADD CONSTRAINT FK_ops_IssueResumen_Issue FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;'),
  ('FK_ops_IssueSla_Issue',     'ALTER TABLE ops.IssueSla    ADD CONSTRAINT FK_ops_IssueSla_Issue     FOREIGN KEY (IssueSk) REFERENCES ops.Issue (IssueSk) ON DELETE CASCADE;');
 
 DECLARE @n sysname, @s nvarchar(max);

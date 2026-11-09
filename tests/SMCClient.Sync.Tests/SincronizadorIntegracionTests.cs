@@ -154,7 +154,7 @@ public class SincronizadorIntegracionTests(BaseDatosPrueba bd) : IClassFixture<B
                   "issuetype":{"id":"10007","name":"Task","subtask":false,"hierarchyLevel":0},"parent":{"id":"4999","key":"SCR-1"},
                   "status":{"id":"10001","name":"Done","statusCategory":{"key":"done"}},"updated":"2026-11-02T12:00:00.000-0600"}}],"isLast":true}
                 """, url => !url.Contains("fields=id"))
-            .Post("/rest/api/3/issue/bulkfetch", cuerpo => cuerpo.Contains("SCR-1") ? """
+            .Post("/rest/api/3/issue/bulkfetch", cuerpo => cuerpo.Contains("4999") ? """
                 {"issues":[{"id":"4999","key":"SCR-1","fields":{"summary":"Épica de 2024","project":{"id":"901","key":"SCR","projectTypeKey":"software"},
                   "issuetype":{"id":"10000","name":"Epic","subtask":false,"hierarchyLevel":1},
                   "status":{"id":"3","name":"In Progress","statusCategory":{"key":"indeterminate"}},"updated":"2024-03-01T08:00:00.000-0600"}}],
@@ -165,7 +165,7 @@ public class SincronizadorIntegracionTests(BaseDatosPrueba bd) : IClassFixture<B
 
         Assert.Equal(1, await Escalar<int>("SELECT COUNT(*) FROM ops.Issue i JOIN cfg.Fuente f ON f.FuenteId = i.FuenteId WHERE f.Codigo = @f AND i.Clave = 'SCR-1' AND i.NivelJerarquia = 1", fuente));
         Assert.Equal("SCR-1", await Escalar<string>("SELECT i.PadreClave FROM ops.Issue i JOIN cfg.Fuente f ON f.FuenteId = i.FuenteId WHERE f.Codigo = @f AND i.Clave = 'SCR-7'", fuente));
-        Assert.Contains(jira.Peticiones, p => p.Url.StartsWith("/rest/api/3/issue/bulkfetch") && p.Cuerpo.Contains("\"SCR-1\"") && p.Cuerpo.Contains("*all"));
+        Assert.Contains(jira.Peticiones, p => p.Url.StartsWith("/rest/api/3/issue/bulkfetch") && p.Cuerpo.Contains("\"4999\"") && p.Cuerpo.Contains("*all"));
         // La épica también entra a la cola de historial y se pide en la misma corrida.
         Assert.Contains(jira.Peticiones, p => p.Url.StartsWith("/rest/api/3/changelog/bulkfetch") && p.Cuerpo.Contains("4999"));
         // La fecha vieja de la épica no mueve la marca de agua de issues.

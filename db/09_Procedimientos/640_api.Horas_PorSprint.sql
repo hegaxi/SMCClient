@@ -9,27 +9,35 @@ CREATE OR ALTER PROCEDURE api.Horas_PorSprint
 AS
 BEGIN
     SET NOCOUNT ON;
-    WITH s AS (
-        SELECT s.FuenteId, s.SprintId, s.Nombre, s.Estado, s.Inicio, s.Fin,
-               COALESCE(s.Completado, CASE WHEN s.Estado = 'active' AND SYSDATETIMEOFFSET() > s.Fin THEN SYSDATETIMEOFFSET() END, s.Fin) AS FinEfectivo
-        FROM ops.Sprint s
-        WHERE (@Estado IS NULL OR s.Estado = @Estado) AND (@Sprint IS NULL OR CHARINDEX(@Sprint, s.Nombre) > 0)
-    ),
-    iss AS (
-        SELECT x.FuenteId, x.SprintId, i.IssueSk, i.Clave
-        FROM ops.IssueSprint x JOIN rpt.vIssue i ON i.IssueSk = x.IssueSk
-        WHERE @Proyecto IS NULL OR i.ProyectoClave = @Proyecto
-    )
+    SELECT s.FuenteId, s.SprintId, s.Nombre, s.Estado, s.Inicio, s.Fin,
+           COALESCE(s.Completado, CASE WHEN s.Estado = 'active' AND SYSDATETIMEOFFSET() > s.Fin THEN SYSDATETIMEOFFSET() END, s.Fin) AS FinEfectivo
+    INTO #s FROM ops.Sprint s
+    WHERE (@Estado IS NULL OR s.Estado = @Estado) AND (@Sprint IS NULL OR CHARINDEX(@Sprint, s.Nombre) > 0);
+
+    SELECT x.FuenteId, x.SprintId, i.IssueSk, i.IssueId
+    INTO #iss
+    FROM ops.IssueSprint x
+    JOIN #s s ON s.FuenteId = x.FuenteId AND s.SprintId = x.SprintId
+    JOIN rpt.vIssue i ON i.IssueSk = x.IssueSk
+    WHERE @Proyecto IS NULL OR i.ProyectoClave = @Proyecto;
+
+    SELECT DISTINCT FuenteId, SprintId, IssueId INTO #m FROM (
+        SELECT FuenteId, SprintId, IssueId FROM #iss
+        UNION ALL
+        SELECT st.FuenteId, i.SprintId, st.IssueId
+        FROM #iss i JOIN ops.Issue st ON st.FuenteId = i.FuenteId AND st.PadreId = i.IssueId AND st.EsSubtarea = 1 AND st.Eliminado = 0
+    ) u;
+    CREATE CLUSTERED INDEX ix ON #m (FuenteId, IssueId, SprintId);
+
     SELECT s.Nombre AS Sprint, s.Estado, s.Inicio, s.Fin, w.AtribuidoA AS Persona,
            COUNT(DISTINCT w.IssueSk) AS Issues,
            CAST(SUM(CASE WHEN w.Origen = 'manual' THEN w.Horas ELSE 0 END) AS decimal(12,2)) AS HorasRegistradas,
            CAST(SUM(CASE WHEN w.Origen = 'automatico' THEN w.Horas ELSE 0 END) AS decimal(12,2)) AS HorasAutomaticas,
            CAST(SUM(w.Horas) AS decimal(12,2)) AS HorasTotales
-    FROM s
-    JOIN rpt.vWorklog w ON w.FuenteId = s.FuenteId AND w.Inicio >= s.Inicio AND w.Inicio < s.FinEfectivo
-    JOIN ops.Issue wi ON wi.IssueSk = w.IssueSk
-    WHERE EXISTS (SELECT 1 FROM iss WHERE iss.FuenteId = s.FuenteId AND iss.SprintId = s.SprintId AND iss.IssueSk = w.IssueSk)
-       OR (wi.EsSubtarea = 1 AND EXISTS (SELECT 1 FROM iss WHERE iss.FuenteId = s.FuenteId AND iss.SprintId = s.SprintId AND iss.Clave = wi.PadreClave))
+    FROM #m m
+    JOIN #s s ON s.FuenteId = m.FuenteId AND s.SprintId = m.SprintId
+    -- Por (FuenteId, IssueId): es lo que indexa ops.Worklog (unir por IssueSk recorría todos los worklogs).
+    JOIN rpt.vWorklog w ON w.FuenteId = m.FuenteId AND w.IssueId = m.IssueId AND w.Inicio >= s.Inicio AND w.Inicio < s.FinEfectivo
     GROUP BY s.SprintId, s.Nombre, s.Estado, s.Inicio, s.Fin, w.AtribuidoA
     ORDER BY s.Inicio DESC, HorasRegistradas DESC, HorasTotales DESC;
 END;

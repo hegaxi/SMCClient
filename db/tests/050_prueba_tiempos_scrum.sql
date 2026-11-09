@@ -128,6 +128,19 @@ INSERT @h EXEC api.Horas_PorPersona @Desde = '2026-10-01', @Hasta = '2026-11-30'
 SET @ok = CASE WHEN (SELECT Reg FROM @h WHERE Persona = N'Dev Uno') = 8 AND (SELECT Aut FROM @h WHERE Persona = N'Dev Uno') = 16
                 AND (SELECT Reg FROM @h WHERE Persona = N'Dev Dos') = 9 AND (SELECT SUM(Total) FROM @h) = 33 THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Horas por persona de una épica: Dev Uno 8 h + 16 automáticas, Dev Dos 9 h (sin el tiempo de la mesa de ayuda)';
+
+-- La épica se mueve de proyecto en Jira: cambia su clave (SCR-1 -> NEW-1), no su id. Sus hijos todavía dicen "SCR-1".
+DECLARE @f int = (SELECT FuenteId FROM cfg.Fuente WHERE Codigo = 'prueba');
+UPDATE ops.Issue SET Clave = 'NEW-1' WHERE FuenteId = @f AND IssueId = '4999';
+DELETE @e; INSERT @e EXEC api.Epicas_Avance @Proyecto = 'SCR';
+DELETE @r; INSERT @r EXEC api.Issues_Consultar @Columnas = N'epica,jerarquia', @OrdenarPor = 'clave', @Descendente = 0;
+DECLARE @p TABLE (Clave nvarchar(50), Padre nvarchar(50), TotalFilas int);
+INSERT @p EXEC api.Issues_Consultar @Columnas = N'padre', @Criterios = N'[{"campo":"clave","operador":"igual","valor":"SCR-7"}]';
+SET @ok = CASE WHEN (SELECT Epica FROM @e) = 'NEW-1' AND (SELECT Reg FROM @e) = 17 AND (SELECT Issues FROM @e) = 2
+                AND (SELECT Epica FROM @r WHERE Clave = N'SCR-8') = N'NEW-1 · Épica: reportes'
+                AND (SELECT Padre FROM @p) = N'NEW-1' AND (SELECT PadreClave FROM ops.Issue WHERE FuenteId = @f AND Clave = 'SCR-7') = 'SCR-1' THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Épica movida de proyecto: la jerarquía se une por id y sigue completa (horas, tareas, épica de la subtarea, padre con la clave nueva)';
+UPDATE ops.Issue SET Clave = 'SCR-1' WHERE FuenteId = @f AND IssueId = '4999';
 GO
 
 /* ===== Horas por sprint ===== */

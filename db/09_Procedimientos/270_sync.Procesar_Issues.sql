@@ -43,9 +43,13 @@ BEGIN
     DECLARE @rutaSubtarea nvarchar(300) = CONCAT(N'$.fields."', @campoTipo, N'".subtask');
     DECLARE @rutaNivel nvarchar(300) = CONCAT(N'$.fields."', @campoTipo, N'".hierarchyLevel');
     DECLARE @rutaNombreTipo nvarchar(300) = CONCAT(N'$.fields."', @campoTipo, N'".name');
+    -- Id del padre (la clave cambia si el padre se mueve de proyecto; el id no).
+    DECLARE @rutaPadreId nvarchar(300) = CONCAT(N'$.fields."',
+        ISNULL((SELECT CampoId FROM cfg.MapeoCampo WHERE FuenteId = @FuenteId AND Rol = 'padre'), 'parent'), N'".id');
 
     SELECT d.DocumentoId, d.IssueId, d.Clave,
         CAST(MAX(CASE WHEN JSON_VALUE(d.Json, @rutaSubtarea) = 'true' THEN 1 ELSE 0 END) AS bit) AS EsSubtarea,
+        MAX(CAST(JSON_VALUE(d.Json, @rutaPadreId) AS varchar(30))) AS PadreId,
         CAST(MAX(COALESCE(TRY_CAST(JSON_VALUE(d.Json, @rutaNivel) AS smallint),
                           CASE WHEN JSON_VALUE(d.Json, @rutaSubtarea) = 'true' THEN -1
                                WHEN JSON_VALUE(d.Json, @rutaNombreTipo) IN (N'Epic', N'Épica', N'Epica') THEN 1 ELSE 0 END)) AS smallint) AS NivelJerarquia,
@@ -93,7 +97,7 @@ BEGIN
                LEFT(PrioridadId, 30) AS PrioridadId, LEFT(Prioridad, 100) AS Prioridad,
                LEFT(ResolucionId, 30) AS ResolucionId, LEFT(Resolucion, 100) AS Resolucion,
                LEFT(ResponsableId, 128) AS ResponsableId, LEFT(InformanteId, 128) AS InformanteId,
-               LEFT(Resumen, 1000) AS Resumen, LEFT(PadreClave, 50) AS PadreClave, EsSubtarea, NivelJerarquia,
+               LEFT(Resumen, 1000) AS Resumen, LEFT(PadreClave, 50) AS PadreClave, PadreId, EsSubtarea, NivelJerarquia,
                LEFT(TipoSolicitudId, 30) AS TipoSolicitudId, LEFT(TipoSolicitud, 255) AS TipoSolicitud,
                TRY_CAST(TRY_CAST(StoryPoints AS float) AS decimal(9,2)) AS StoryPoints,
                TRY_CAST(TRY_CAST(TiempoInvertido AS float) AS bigint) AS TiempoInvertidoSeg,
@@ -107,17 +111,17 @@ BEGIN
         Clave = s.Clave, ProyectoId = s.ProyectoId, TipoIssueId = s.TipoIssueId, TipoIssue = s.TipoIssue,
         EstadoId = s.EstadoId, CategoriaEstado = s.CategoriaEstado, PrioridadId = s.PrioridadId, Prioridad = s.Prioridad,
         ResolucionId = s.ResolucionId, Resolucion = s.Resolucion, ResponsableId = s.ResponsableId, InformanteId = s.InformanteId,
-        Resumen = s.Resumen, PadreClave = s.PadreClave, EsSubtarea = s.EsSubtarea, NivelJerarquia = s.NivelJerarquia, TipoSolicitudId = s.TipoSolicitudId, TipoSolicitud = s.TipoSolicitud,
+        Resumen = s.Resumen, PadreClave = s.PadreClave, PadreId = s.PadreId, EsSubtarea = s.EsSubtarea, NivelJerarquia = s.NivelJerarquia, TipoSolicitudId = s.TipoSolicitudId, TipoSolicitud = s.TipoSolicitud,
         StoryPoints = s.StoryPoints, TiempoInvertidoSeg = s.TiempoInvertidoSeg, EstimacionOriginalSeg = s.EstimacionOriginalSeg,
         EstimacionRestanteSeg = s.EstimacionRestanteSeg, Creado = s.Creado, Actualizado = s.Actualizado, Resuelto = s.Resuelto,
         Vencimiento = s.Vencimiento, Eliminado = 0, DocumentoId = s.DocumentoId, Integrado = SYSDATETIMEOFFSET()
     WHEN NOT MATCHED THEN INSERT (
         FuenteId, IssueId, Clave, ProyectoId, TipoIssueId, TipoIssue, EstadoId, CategoriaEstado, PrioridadId, Prioridad,
-        ResolucionId, Resolucion, ResponsableId, InformanteId, Resumen, PadreClave, EsSubtarea, NivelJerarquia, TipoSolicitudId, TipoSolicitud,
+        ResolucionId, Resolucion, ResponsableId, InformanteId, Resumen, PadreClave, PadreId, EsSubtarea, NivelJerarquia, TipoSolicitudId, TipoSolicitud,
         StoryPoints, TiempoInvertidoSeg, EstimacionOriginalSeg, EstimacionRestanteSeg, Creado, Actualizado, Resuelto, Vencimiento, DocumentoId)
     VALUES (
         @FuenteId, s.IssueId, s.Clave, s.ProyectoId, s.TipoIssueId, s.TipoIssue, s.EstadoId, s.CategoriaEstado, s.PrioridadId, s.Prioridad,
-        s.ResolucionId, s.Resolucion, s.ResponsableId, s.InformanteId, s.Resumen, s.PadreClave, s.EsSubtarea, s.NivelJerarquia, s.TipoSolicitudId, s.TipoSolicitud,
+        s.ResolucionId, s.Resolucion, s.ResponsableId, s.InformanteId, s.Resumen, s.PadreClave, s.PadreId, s.EsSubtarea, s.NivelJerarquia, s.TipoSolicitudId, s.TipoSolicitud,
         s.StoryPoints, s.TiempoInvertidoSeg, s.EstimacionOriginalSeg, s.EstimacionRestanteSeg, s.Creado, s.Actualizado, s.Resuelto, s.Vencimiento, s.DocumentoId)
     OUTPUT $action, inserted.IssueId, deleted.Actualizado, inserted.Actualizado INTO #cambio;
 
