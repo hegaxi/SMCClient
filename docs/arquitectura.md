@@ -114,6 +114,10 @@ Las entidades `changelog` y `sla` son **dependientes**: se piden solo para los i
 - Al arrancar la API, el `BackgroundService` hace la primera corrida y después revisa cada minuto qué entidades vencieron.
 - El controlador ejecuta `api.Sync_Estado` antes de cualquier procedimiento. Si `DatosVigentes = 0` responde **503 `sync.pendiente`**,
   salvo para los procedimientos marcados con la propiedad extendida `smc:exentoSync = 1` (estado, avisos, catálogo).
+- **`DatosVigentes` = la fuente ya completó su primera carga** (todas sus entidades no dependientes terminaron bien al menos una vez).
+  Después, si Jira o el worker fallan, la aplicación **no se bloquea**: sigue respondiendo con lo que ya tiene y `DatosAtrasados = 1`
+  (última sincronización correcta más vieja que `cfg.Fuente.MaxAntiguedadMin`) hace que la interfaz muestre un aviso con el atraso.
+  Antes cualquier atraso de 30 min dejaba sin servicio a todos (hallazgo del diagnóstico de arquitectura).
 - React consulta `api.Sync_Estado` cada pocos segundos y muestra la pantalla de sincronización hasta que los datos estén vigentes.
 
 ### 5.3 El worker (C#)
@@ -135,6 +139,15 @@ Detalles que cuidan la operación:
 - **Reintentos con espera.** Si una entidad falla, no se reintenta en cada ciclo sino tras `MinutosReintentoTrasError`; los datos dejan de estar vigentes y el aviso queda en `sync.Ejecucion`.
 - **Paro ordenado.** Al detener el servicio se cierra la ejecución en curso y se libera el candado. Si el proceso muere, la siguiente ejecución que tome el candado cierra la abandonada.
 - **Cola por fuente.** Cada worker solo toma solicitudes de las fuentes que tiene configuradas, así varias instancias no se bloquean entre sí.
+- **Historial y SLA pendientes en la base (`sync.IssuePendiente`).** `sync.Procesar_Issues` encola el historial (y el SLA, en mesa de
+  ayuda) de cada issue nuevo o cuya fecha de actualización cambió; un reproceso o backfill sin cambios no encola nada. El worker toma
+  los pendientes (`sync.IssuePendiente_Tomar`) y los borra solo cuando ya los guardó (`sync.IssuePendiente_Completar`): si Jira falla
+  o el worker se cae, se retoman en la siguiente corrida. Lo que falla 5 veces se reintenta una vez al día. La migración `0003` encoló
+  los issues que nunca recibieron su historial. `api.Sync_Estado` muestra cuántos quedan (`IssuesPendientes`).
+- **Carga inicial completa y padres faltantes.** `DiasCargaInicial = 0` (por omisión) trae todo, sin filtro de fecha. Además, después
+  de cada corrida de issues, `sync.Padres_Pendientes` entrega las claves de padres o épicas que los issues mencionan y no están en la
+  base (por ejemplo, de una carga inicial anterior limitada por fecha), y el worker los trae por clave (`/rest/api/3/issue/bulkfetch`,
+  modo `padres`, que no mueve la marca de agua). Hasta 3 rondas por corrida, porque un padre traído puede tener su propio padre.
 
 ### 5.4 Proyectos excluidos
 

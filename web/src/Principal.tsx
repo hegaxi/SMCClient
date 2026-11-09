@@ -128,6 +128,9 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
   const proc = procs.find((p) => p.nombre.toLowerCase() === seleccion.nombre?.toLowerCase()) ?? null;
   const ultima = sync.fuentes.map((f) => f.UltimaSincronizacion).filter((x): x is string => typeof x === 'string').sort()[0];
   const avisos = sync.fuentes.reduce((n, f) => n + Number(f.AvisosAbiertos ?? 0), 0);
+  // Después de la primera carga la aplicación no se bloquea si Jira o el worker fallan: se avisa del atraso.
+  const atrasadas = sync.fuentes.filter((f) => f.DatosAtrasados === true);
+  const minutosAtraso = Math.max(0, ...atrasadas.map((f) => Number(f.MinutosDesdeSincronizacion ?? 0)));
   const verAvisos = procs.some((p) => p.nombre === 'Avisos_Listar');
 
   const tableroInicio = tableros.find((t) => t.EsInicio === true);
@@ -219,7 +222,23 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
         ))}
         <button type="button" className="boton secundario-btn sync-menu" onClick={() => void sync.solicitar()}>Sincronizar ahora</button>
       </nav>
-      <main className="contenido">{contenido}</main>
+      <main className="contenido">
+        {atrasadas.length > 0 && (
+          <p className="aviso-atraso" role="status">
+            Los datos de Jira tienen {textoAtraso(minutosAtraso)} sin actualizarse: la sincronización está fallando o detenida.
+            Puede seguir consultando; lo más reciente de Jira todavía no aparece.
+            {verAvisos && <> <button type="button" className="enlace" onClick={() => navegar('Avisos_Listar')}>Ver avisos</button></>}
+          </p>
+        )}
+        {contenido}
+      </main>
     </div>
   );
+}
+
+/** 45 -> "45 minutos"; 130 -> "2 horas"; 3000 -> "2 días". */
+export function textoAtraso(minutos: number): string {
+  if (minutos < 120) return `${minutos} minutos`;
+  if (minutos < 48 * 60) return `${Math.floor(minutos / 60)} horas`;
+  return `${Math.floor(minutos / 1440)} días`;
 }

@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import App from '../App';
+import { textoAtraso } from '../Principal';
 import { parametro, procedimiento, simularFetch } from './datos';
 
 const procs = [
@@ -40,6 +41,29 @@ const issues = {
 };
 
 describe('App', () => {
+  it('con datos atrasados no bloquea: avisa y deja consultar', async () => {
+    simularFetch({
+      'GET /api/sesion': () => sesionLector,
+      'GET /api/procedimientos': () => ({ json: procs }),
+      'POST /api/procedimientos/Sync_Estado': () => ({ json: { resultados: [
+        { columnas: [], truncado: false, filas: [{ Fuente: 'smco', DatosVigentes: true, DatosAtrasados: true, MinutosDesdeSincronizacion: 190,
+          UltimaSincronizacion: '2026-11-08T07:00:00-06:00', AvisosAbiertos: 0 }] },
+        { columnas: [], truncado: false, filas: [] },
+      ] } }),
+    });
+    render(<App intervaloSyncMs={50} />);
+
+    expect(await screen.findByRole('heading', { name: 'Scrum y mesa de ayuda' })).toBeInTheDocument();
+    expect(screen.getByText(/Los datos de Jira tienen 3 horas sin actualizarse/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Buscar historias y tickets' })).toBeInTheDocument();
+  });
+
+  it('describe el atraso en minutos, horas o días', () => {
+    expect(textoAtraso(45)).toBe('45 minutos');
+    expect(textoAtraso(190)).toBe('3 horas');
+    expect(textoAtraso(4000)).toBe('2 días');
+  });
+
   it('muestra la pantalla de sincronización hasta que los datos están vigentes', async () => {
     let vigentes = false;
     simularFetch({

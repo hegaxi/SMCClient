@@ -2,7 +2,8 @@
 // Uso: BASE_URL=http://127.0.0.1:5080 E2E_USUARIO=admin E2E_CONTRASENA=... node e2e/flujo.mjs
 //   E2E_USUARIO / E2E_CONTRASENA: un administrador existente (p. ej. creado con "crear-administrador").
 //   E2E_PENDIENTE / E2E_LISTO: comandos de shell opcionales que dejan los datos sin sincronizar / sincronizados,
-//   para verificar la pantalla de sincronización. E2E_CAPTURAS: carpeta para las capturas.
+//   para verificar la pantalla de sincronización. E2E_ATRASAR / E2E_AL_DIA: comandos opcionales que dejan los datos
+//   atrasados (sin sincronizar hace horas) y los regresan, para verificar el aviso. E2E_CAPTURAS: carpeta para las capturas.
 import { execSync } from 'node:child_process';
 import { mkdirSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -65,6 +66,21 @@ try {
     await paso('Inicio', async () => {
       await iniciarSesion(USUARIO, CONTRASENA);
       await titulo('Scrum y mesa de ayuda').waitFor();
+    });
+  }
+
+  if (process.env.E2E_ATRASAR) {
+    await paso('Datos atrasados: avisa sin bloquear', async () => {
+      execSync(process.env.E2E_ATRASAR, { stdio: 'inherit' });
+      await pagina.waitForTimeout(6000);   // la API guarda el estado de la sincronización unos segundos
+      await pagina.reload();
+      await pagina.getByText(/Los datos de Jira tienen .* sin actualizarse/).waitFor();
+      await pagina.getByRole('link', { name: 'Buscar historias y tickets' }).waitFor();   // la aplicación sigue disponible
+      execSync(process.env.E2E_AL_DIA, { stdio: 'inherit' });
+      await pagina.waitForTimeout(6000);
+      await pagina.reload();
+      await pagina.getByRole('link', { name: 'Buscar historias y tickets' }).waitFor();
+      if (await pagina.getByText(/sin actualizarse/).count()) throw new Error('El aviso de atraso sigue visible con datos al día.');
     });
   }
 

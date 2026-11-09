@@ -14,4 +14,7 @@ public interface ISyncRepositorio
     Task<SolicitudSync?> TomarSolicitudAsync(string propietario, IReadOnlyCollection<string> fuentes, CancellationToken ct);
     Task TerminarSolicitudAsync(long solicitudId, string estado, CancellationToken ct);
     Task<int> ConciliarIdsAsync(long ejecucionId, string proyectoId, IReadOnlyCollection<string> ids, CancellationToken ct);
+    Task<PendientesTomados> TomarPendientesAsync(string fuente, string entidad, int max, CancellationToken ct);
+    Task CompletarPendientesAsync(string fuente, string entidad, IReadOnlyCollection<string> ids, DateTimeOffset tomadoEn, CancellationToken ct);
+    Task<IReadOnlyList<string>> PadresPendientesAsync(string fuente, int max, CancellationToken ct);
 }

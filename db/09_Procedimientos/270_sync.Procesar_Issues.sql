@@ -84,6 +84,7 @@ BEGIN
     DELETE d FROM #d d WHERE NOT EXISTS (SELECT 1 FROM #i i WHERE i.DocumentoId = d.DocumentoId);
 
     /* 2. ops.Issue ---------------------------------------------------------------------------- */
+    CREATE TABLE #cambio (Accion nvarchar(10), IssueId varchar(30), ActualizadoAntes datetimeoffset(3), ActualizadoNuevo datetimeoffset(3));
     MERGE ops.Issue AS t
     USING (
         SELECT DocumentoId, IssueId, Clave,
@@ -117,7 +118,26 @@ BEGIN
     VALUES (
         @FuenteId, s.IssueId, s.Clave, s.ProyectoId, s.TipoIssueId, s.TipoIssue, s.EstadoId, s.CategoriaEstado, s.PrioridadId, s.Prioridad,
         s.ResolucionId, s.Resolucion, s.ResponsableId, s.InformanteId, s.Resumen, s.PadreClave, s.EsSubtarea, s.NivelJerarquia, s.TipoSolicitudId, s.TipoSolicitud,
-        s.StoryPoints, s.TiempoInvertidoSeg, s.EstimacionOriginalSeg, s.EstimacionRestanteSeg, s.Creado, s.Actualizado, s.Resuelto, s.Vencimiento, s.DocumentoId);
+        s.StoryPoints, s.TiempoInvertidoSeg, s.EstimacionOriginalSeg, s.EstimacionRestanteSeg, s.Creado, s.Actualizado, s.Resuelto, s.Vencimiento, s.DocumentoId)
+    OUTPUT $action, inserted.IssueId, deleted.Actualizado, inserted.Actualizado INTO #cambio;
+
+    /* Historial y SLA pendientes (entidades 'dependiente'): para los issues nuevos o cuya fecha de actualización cambió.
+       Un reproceso o un backfill de un issue sin cambios no vuelve a pedirlos. Quedan en sync.IssuePendiente hasta que
+       el worker los guarde: si falla, se reintentan en la siguiente corrida. */
+    MERGE sync.IssuePendiente AS t
+    USING (
+        SELECT DISTINCT e.Entidad, c.IssueId, i.Clave, p.TipoProyecto
+        FROM #cambio c
+        JOIN ops.Issue i ON i.FuenteId = @FuenteId AND i.IssueId = c.IssueId
+        LEFT JOIN ops.Proyecto p ON p.FuenteId = i.FuenteId AND p.ProyectoId = i.ProyectoId
+        JOIN cfg.EntidadSync e ON e.FuenteId = @FuenteId AND e.Activa = 1 AND e.Modo = 'dependiente'
+        WHERE (c.Accion = N'INSERT' OR c.ActualizadoAntes IS NULL OR c.ActualizadoNuevo IS NULL OR c.ActualizadoNuevo <> c.ActualizadoAntes)
+          -- p. ej. el SLA solo para mesa de ayuda; si el proyecto aún no se conoce, se pide (Jira responde 404 si no aplica).
+          AND (JSON_VALUE(e.Parametros, '$.soloTipoProyecto') IS NULL OR p.TipoProyecto IS NULL
+               OR p.TipoProyecto = JSON_VALUE(e.Parametros, '$.soloTipoProyecto'))
+    ) AS s ON t.FuenteId = @FuenteId AND t.Entidad = s.Entidad AND t.IssueId = s.IssueId
+    WHEN MATCHED THEN UPDATE SET Clave = s.Clave, TipoProyecto = s.TipoProyecto, Agregado = SYSDATETIMEOFFSET(), Intentos = 0, UltimoIntento = NULL
+    WHEN NOT MATCHED THEN INSERT (FuenteId, Entidad, IssueId, Clave, TipoProyecto) VALUES (@FuenteId, s.Entidad, s.IssueId, s.Clave, s.TipoProyecto);
 
     SELECT d.DocumentoId, i.IssueSk, d.Json
     INTO #k

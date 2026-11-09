@@ -185,6 +185,26 @@ public class ProcedimientosControllerTests(ApiFixture bd) : IClassFixture<ApiFix
     }
 
     [FactSiSql]
+    public async Task Despues_de_la_primera_carga_los_datos_atrasados_no_bloquean()
+    {
+        // Jira o el worker llevan dos días sin sincronizar: la API sigue respondiendo con lo que tiene y avisa del atraso.
+        const string mover = "UPDATE e SET Inicio = DATEADD(DAY, {0}, Inicio), Fin = DATEADD(DAY, {0}, Fin) FROM sync.Ejecucion e JOIN cfg.Fuente f ON f.FuenteId = e.FuenteId WHERE f.Codigo = 'prueba';";
+        await bd.EjecutarAsync(string.Format(mover, -2));
+        try
+        {
+            Assert.Equal(HttpStatusCode.OK, (await Post(bd.Cliente(), "Issues_Buscar", null)).StatusCode);
+            var estado = await Json(await Post(bd.Cliente(), "Sync_Estado", null));
+            var fila = estado.GetProperty("resultados")[0].GetProperty("filas").EnumerateArray().Single(f => f.GetProperty("Fuente").GetString() == "prueba");
+            Assert.True(fila.GetProperty("DatosVigentes").GetBoolean());
+            Assert.True(fila.GetProperty("DatosAtrasados").GetBoolean());
+        }
+        finally
+        {
+            await bd.EjecutarAsync(string.Format(mover, 2));
+        }
+    }
+
+    [FactSiSql]
     public async Task El_usuario_de_la_solicitud_lo_pone_el_servidor()
     {
         Assert.Equal(HttpStatusCode.OK, (await Post(bd.Cliente("ana"), "Sync_Solicitar", """{"Fuente":"prueba"}""")).StatusCode);

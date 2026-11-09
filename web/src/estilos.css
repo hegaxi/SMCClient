@@ -287,3 +287,9 @@ tbody tr:hover { background: var(--fondo); }
 .editor-columnas .mover { display: inline-flex; gap: 0.25rem; }
 .icono { font: inherit; width: 1.9rem; height: 1.9rem; border: 1px solid var(--borde); border-radius: 6px; background: var(--superficie); color: var(--texto); cursor: pointer; }
 .icono:disabled { opacity: 0.35; cursor: default; }
+
+/* Datos de Jira atrasados (la aplicación sigue funcionando con lo que ya tiene). */
+.aviso-atraso {
+  margin: 0 0 1rem; padding: 0.6rem 0.9rem; border-radius: var(--radio);
+  border: 1px solid var(--aviso); border-left-width: 4px; background: var(--superficie); color: var(--texto);
+}

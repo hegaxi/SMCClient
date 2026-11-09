@@ -2,7 +2,7 @@
 MERGE cfg.Parametro AS t
 USING (VALUES
     ('TraslapeMin',           N'5',   N'Minutos que se restan a la marca de agua al pedir cambios a Jira.'),
-    ('DiasCargaInicial',      N'730', N'Días hacia atrás en la primera carga de una entidad incremental.'),
+    ('DiasCargaInicial',      N'0',   N'Días hacia atrás en la primera carga de una entidad incremental; 0 = todo (recomendado: así llegan las épicas y padres viejos).'),
     ('TamanoLoteProceso',     N'200', N'Documentos por transacción al integrar raw -> ops.'),
     ('MaxIntentosDocumento',  N'3',   N'Fallos antes de dejar un documento en cuarentena.'),
     ('UmbralBajaCatalogoPct', N'50',  N'Porcentaje mínimo del catálogo que debe llegar para dar de baja campos, proyectos o issues.'),

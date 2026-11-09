@@ -17,7 +17,8 @@ public sealed class SlaExtractor : IExtractor
     public async IAsyncEnumerable<IReadOnlyList<DocumentoJira>> ExtraerAsync(ContextoExtraccion ctx, [EnumeratorCancellation] CancellationToken ct)
     {
         var tipo = ctx.ParametroEntidad("soloTipoProyecto");
-        var issues = ctx.Issues.Todos.Where(i => tipo is null || string.Equals(i.TipoProyecto, tipo, StringComparison.OrdinalIgnoreCase)).ToList();
+        // Un issue cuyo proyecto aún no se conoce también se pide (si no es de mesa de ayuda, Jira responde 404 y se omite).
+        var issues = ctx.Issues.Todos.Where(i => tipo is null || i.TipoProyecto is null || string.Equals(i.TipoProyecto, tipo, StringComparison.OrdinalIgnoreCase)).ToList();
         var opciones = new ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, ctx.MaxConcurrencia), CancellationToken = ct };
 
         foreach (var bloque in issues.Chunk(Math.Max(1, ctx.Entidad.TamanoLote)))

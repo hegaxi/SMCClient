@@ -16,6 +16,11 @@ public sealed record ConfiguracionFuente(
 
 public sealed record MarcaAgua(DateTimeOffset? Valor, DateTimeOffset Desde, bool EsCargaInicial);
 
+/// <summary>Un issue pendiente de historial, SLA o (Entidad = padre) de traerse por clave. Ver sync.IssuePendiente.</summary>
+public sealed record IssuePendiente(string IssueId, string? Clave, string? TipoProyecto);
+
+public sealed record PendientesTomados(IReadOnlyList<IssuePendiente> Issues, DateTimeOffset TomadoEn);
+
 public sealed record SolicitudSync(long SolicitudId, string? Fuente, string? Entidad, string Modo, string? Parametros);
 
 /// <summary>Otra instancia tiene vigente el candado de la fuente (error 50010 de sync.Ejecucion_Iniciar).</summary>

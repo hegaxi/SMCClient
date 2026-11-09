@@ -164,6 +164,7 @@ GO
 DECLARE @f int = (SELECT FuenteId FROM cfg.Fuente WHERE Codigo = 'prueba');
 DELETE ops.Worklog WHERE FuenteId = @f AND WorklogId IN ('7010', '7011', '7012', '7013', '7014');
 DELETE ops.Issue WHERE FuenteId = @f AND IssueId IN ('5010', '5011', '4999');
+DELETE sync.IssuePendiente WHERE FuenteId = @f AND IssueId IN ('5010', '5011', '4999', 'SCR-1');
 DELETE raw.Documento WHERE FuenteId = @f AND ((Entidad = 'worklog' AND IdExterno IN ('7010', '7011', '7012', '7013', '7014')) OR (Entidad = 'issue' AND IdExterno IN ('5010', '5011', '4999')));
 GO
 

@@ -34,7 +34,7 @@ DECLARE @ok bit;
 DECLARE @x TABLE (FuenteId int);
 INSERT @x EXEC sync.Fuente_Registrar @Codigo = 'prueba', @UrlBase = N'https://prueba.atlassian.net';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 8 THEN 1 ELSE 0 END FROM cfg.EntidadSync e JOIN cfg.Fuente f ON f.FuenteId = e.FuenteId WHERE f.Codigo = 'prueba'); EXEC prueba.Afirmar @ok, N'Fuente registrada con 8 entidades';
-DECLARE @estado TABLE (Fuente varchar(50), Ultima datetimeoffset, Min int, Vigentes bit, Sinc bit, Pend int, Cuar int, Avisos int);
+DECLARE @estado TABLE (Fuente varchar(50), Ultima datetimeoffset, Min int, Vigentes bit, Sinc bit, Pend int, Cuar int, Avisos int, Atrasados bit, MaxMin int, IssuesPend int);
 INSERT @estado EXEC api.Sync_Estado @Detalle = 0;
 SET @ok = (SELECT CASE WHEN Vigentes = 0 THEN 1 ELSE 0 END FROM @estado WHERE Fuente = 'prueba'); EXEC prueba.Afirmar @ok, N'Sin sincronizar: DatosVigentes = 0 (el controlador respondería 503)';
 GO
@@ -266,7 +266,7 @@ SET @ok = (SELECT CASE WHEN Estado = 'error' AND Mensaje LIKE N'Abandonada%' THE
 EXEC sync.Ejecucion_Finalizar @EjecucionId = @nueva, @Estado = 'ok';
 EXEC sync.Candado_Liberar @Fuente = 'prueba', @Propietario = N'worker-1';
 
-DECLARE @estado TABLE (Fuente varchar(50), Ultima datetimeoffset, Min int, Vigentes bit, Sinc bit, Pend int, Cuar int, Avisos int);
+DECLARE @estado TABLE (Fuente varchar(50), Ultima datetimeoffset, Min int, Vigentes bit, Sinc bit, Pend int, Cuar int, Avisos int, Atrasados bit, MaxMin int, IssuesPend int);
 INSERT @estado EXEC api.Sync_Estado @Detalle = 0;
 SET @ok = (SELECT CASE WHEN Vigentes = 1 THEN 1 ELSE 0 END FROM @estado WHERE Fuente = 'prueba'); EXEC prueba.Afirmar @ok, N'Después de sincronizar: DatosVigentes = 1';
 

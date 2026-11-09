@@ -61,6 +61,8 @@ Si el token falta, el worker no arranca y lo dice. Al arrancar hace la sincroniz
 |---|---|---|
 | `IntervaloRevisionSegundos` | 60 | Cada cuánto revisa qué entidades vencieron y la cola de solicitudes |
 | `MinutosReintentoTrasError` | 5 | Espera antes de reintentar una entidad que falló (no insiste contra un Jira caído) |
+| `MaxPendientesPorCorrida` | 2000 | Issues pendientes de historial / SLA (`sync.IssuePendiente`) que se piden por corrida |
+| `MaxPadresPorCorrida` | 500 | Padres o épicas faltantes que se traen por clave en cada ronda |
 | `DuracionCandadoSegundos` | 900 | Vigencia del candado por fuente (se renueva durante cargas largas) |
 | `ConciliacionCadaHoras` | 24 | Cada cuánto se detectan issues borrados en Jira |
 | `Fuentes[n].MaxConcurrencia` | 4 | Peticiones simultáneas a Jira para los SLA |

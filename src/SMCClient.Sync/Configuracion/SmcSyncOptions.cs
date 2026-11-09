@@ -29,6 +29,12 @@ public sealed class SmcSyncOptions
     /// <summary>Solicitudes (botón "Sincronizar", backfill...) que se atienden por ciclo.</summary>
     public int MaxSolicitudesPorCiclo { get; set; } = 20;
 
+    /// <summary>Issues pendientes de historial / SLA (sync.IssuePendiente) que se piden por corrida de cada entidad.</summary>
+    public int MaxPendientesPorCorrida { get; set; } = 2000;
+
+    /// <summary>Padres o épicas faltantes que se traen por corrida (en rondas: un padre traído puede tener su propio padre).</summary>
+    public int MaxPadresPorCorrida { get; set; } = 500;
+
     public List<FuenteJiraOptions> Fuentes { get; set; } = new();
 }
 

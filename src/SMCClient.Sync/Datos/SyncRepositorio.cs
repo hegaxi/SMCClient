@@ -173,6 +173,46 @@ public sealed class SyncRepositorio(string cadenaConexion, int timeoutSegundos) 
         return resultado is int n ? n : 0;
     }
 
+    public async Task<PendientesTomados> TomarPendientesAsync(string fuente, string entidad, int max, CancellationToken ct)
+    {
+        await using var cn = await AbrirAsync(ct);
+        await using var cmd = Comando(cn, "sync.IssuePendiente_Tomar");
+        cmd.Parameters.Add(new SqlParameter("@Fuente", SqlDbType.VarChar, 50) { Value = fuente });
+        cmd.Parameters.Add(new SqlParameter("@Entidad", SqlDbType.VarChar, 40) { Value = entidad });
+        cmd.Parameters.Add(new SqlParameter("@Max", SqlDbType.Int) { Value = max });
+        var tomado = new SqlParameter("@TomadoEn", SqlDbType.DateTimeOffset) { Direction = ParameterDirection.Output, Scale = 3 };
+        cmd.Parameters.Add(tomado);
+        var issues = new List<IssuePendiente>();
+        await using (var r = await cmd.ExecuteReaderAsync(ct))
+            while (await r.ReadAsync(ct))
+                issues.Add(new IssuePendiente(r.GetString(0), r.IsDBNull(1) ? null : r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2)));
+        return new PendientesTomados(issues, (DateTimeOffset)tomado.Value);
+    }
+
+    public async Task CompletarPendientesAsync(string fuente, string entidad, IReadOnlyCollection<string> ids, DateTimeOffset tomadoEn, CancellationToken ct)
+    {
+        if (ids.Count == 0) return;
+        await using var cn = await AbrirAsync(ct);
+        await using var cmd = Comando(cn, "sync.IssuePendiente_Completar");
+        cmd.Parameters.Add(new SqlParameter("@Fuente", SqlDbType.VarChar, 50) { Value = fuente });
+        cmd.Parameters.Add(new SqlParameter("@Entidad", SqlDbType.VarChar, 40) { Value = entidad });
+        cmd.Parameters.Add(new SqlParameter("@Ids", SqlDbType.Structured) { TypeName = "sync.IdTipo", Value = RegistrosId(ids) });
+        cmd.Parameters.Add(new SqlParameter("@TomadoEn", SqlDbType.DateTimeOffset) { Value = tomadoEn, Scale = 3 });
+        await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<string>> PadresPendientesAsync(string fuente, int max, CancellationToken ct)
+    {
+        await using var cn = await AbrirAsync(ct);
+        await using var cmd = Comando(cn, "sync.Padres_Pendientes");
+        cmd.Parameters.Add(new SqlParameter("@Fuente", SqlDbType.VarChar, 50) { Value = fuente });
+        cmd.Parameters.Add(new SqlParameter("@Max", SqlDbType.Int) { Value = max });
+        var claves = new List<string>();
+        await using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct)) claves.Add(r.GetString(0));
+        return claves;
+    }
+
     private async Task<SqlConnection> AbrirAsync(CancellationToken ct)
     {
         var cn = new SqlConnection(cadenaConexion);

@@ -1,7 +1,9 @@
 /* Estado de la sincronización por fuente. El controlador lo consulta antes de ejecutar cualquier
    otro procedimiento: si DatosVigentes = 0 responde 503 y la interfaz muestra "Sincronizando...".
-   Una fuente está vigente cuando TODAS sus entidades activas (no dependientes) terminaron bien
-   dentro de cfg.Fuente.MaxAntiguedadMin. Segundo resultado: detalle por entidad. */
+   DatosVigentes = la fuente ya completó su PRIMERA carga (todas sus entidades activas no dependientes terminaron
+   bien al menos una vez). Después, si Jira o el worker fallan, la aplicación sigue funcionando con los datos que ya
+   tiene: DatosAtrasados = 1 cuando la última sincronización correcta es más vieja que cfg.Fuente.MaxAntiguedadMin,
+   y la interfaz lo avisa sin bloquear. Segundo resultado: detalle por entidad. */
 CREATE OR ALTER PROCEDURE api.Sync_Estado
     @Detalle bit = 1          -- 0 = solo el primer resultado (resumen por fuente)
 AS
@@ -20,16 +22,21 @@ BEGIN
     WHERE e.Activa = 1;
 
     SELECT f.Codigo AS Fuente,
-           MIN(e.UltimaOk) AS UltimaSincronizacion,
-           DATEDIFF(MINUTE, MIN(e.UltimaOk), @ahora) AS MinutosDesdeSincronizacion,
-           CAST(CASE WHEN COUNT(CASE WHEN e.Modo <> 'dependiente' AND e.UltimaOk IS NULL THEN 1 END) = 0
-                      AND DATEDIFF(MINUTE, MIN(CASE WHEN e.Modo <> 'dependiente' THEN e.UltimaOk END), @ahora) <= f.MaxAntiguedadMin
+           -- Las dependientes (historial, SLA) solo corren cuando hay issues pendientes: no cuentan para la antigüedad.
+           MIN(CASE WHEN e.Modo <> 'dependiente' THEN e.UltimaOk END) AS UltimaSincronizacion,
+           DATEDIFF(MINUTE, MIN(CASE WHEN e.Modo <> 'dependiente' THEN e.UltimaOk END), @ahora) AS MinutosDesdeSincronizacion,
+           CAST(CASE WHEN COUNT(CASE WHEN e.Modo <> 'dependiente' THEN 1 END) > 0
+                      AND COUNT(CASE WHEN e.Modo <> 'dependiente' AND e.UltimaOk IS NULL THEN 1 END) = 0
                      THEN 1 ELSE 0 END AS bit) AS DatosVigentes,
            CAST(CASE WHEN EXISTS (SELECT 1 FROM sync.Candado c WHERE c.FuenteId = f.FuenteId AND c.ExpiraEn > @ahora AND c.Propietario IS NOT NULL)
                      THEN 1 ELSE 0 END AS bit) AS Sincronizando,
            (SELECT COUNT(*) FROM raw.Documento d WHERE d.FuenteId = f.FuenteId AND d.Procesado = 0 AND d.Intentos < @maxIntentos) AS DocumentosPendientes,
            (SELECT COUNT(*) FROM raw.Documento d WHERE d.FuenteId = f.FuenteId AND d.Procesado = 0 AND d.Intentos >= @maxIntentos) AS DocumentosEnCuarentena,
-           (SELECT COUNT(*) FROM sync.Evento v WHERE v.FuenteId = f.FuenteId AND v.Atendido = 0 AND v.Nivel IN ('advertencia', 'error')) AS AvisosAbiertos
+           (SELECT COUNT(*) FROM sync.Evento v WHERE v.FuenteId = f.FuenteId AND v.Atendido = 0 AND v.Nivel IN ('advertencia', 'error')) AS AvisosAbiertos,
+           CAST(CASE WHEN DATEDIFF(MINUTE, MIN(CASE WHEN e.Modo <> 'dependiente' THEN e.UltimaOk END), @ahora) > f.MaxAntiguedadMin
+                     THEN 1 ELSE 0 END AS bit) AS DatosAtrasados,
+           f.MaxAntiguedadMin,
+           (SELECT COUNT(*) FROM sync.IssuePendiente p WHERE p.FuenteId = f.FuenteId) AS IssuesPendientes
     FROM cfg.Fuente f
     LEFT JOIN #e e ON e.FuenteId = f.FuenteId
     WHERE f.Activa = 1

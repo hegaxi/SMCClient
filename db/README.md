@@ -65,6 +65,9 @@ dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administr
 
 ## Pruebas
 
+`tests/060_prueba_pendientes_sync.sql` verifica 14 reglas de robustez de la sincronización (la compuerta solo bloquea antes de
+la primera carga, historial y SLA pendientes persistidos y reintentados, carga inicial sin límite de fecha, padres faltantes).
+
 `tests/050_prueba_tiempos_scrum.sql` verifica 19 reglas del tiempo en Scrum (jerarquía épica / tarea / subtarea, horas de una
 historia o épica con todos sus descendientes, avance de épicas, criterios por worklog y por épica, horas dentro de cada sprint
 y por persona). Agrega una épica, una tarea y una subtarea y las borra al final.
@@ -90,6 +93,7 @@ sqlcmd -S localhost -d SMCClient -b -I -x -i tests/020_prueba_seguridad.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/030_prueba_tableros.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/040_prueba_buscador.sql
 sqlcmd -S localhost -d SMCClient -b -I -x -i tests/050_prueba_tiempos_scrum.sql
+sqlcmd -S localhost -d SMCClient -b -I -x -i tests/060_prueba_pendientes_sync.sql
 ```
 
 ## Contrato con el worker (qué documento JSON va en cada entidad)

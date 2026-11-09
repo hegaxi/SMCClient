@@ -105,6 +105,75 @@ public class SincronizadorIntegracionTests(BaseDatosPrueba bd) : IClassFixture<B
         Assert.Contains("500", await Escalar<string>("SELECT TOP (1) e.Mensaje FROM sync.Ejecucion e JOIN cfg.Fuente f ON f.FuenteId = e.FuenteId WHERE f.Codigo = @f AND e.Entidad = 'campo' ORDER BY e.EjecucionId DESC", fuente));
     }
 
+    [FactSiSql]
+    public async Task Si_falla_el_historial_lo_retoma_en_la_siguiente_corrida()
+    {
+        var fuente = "it" + Guid.NewGuid().ToString("N")[..8];
+        await Ejecutar("EXEC sync.Fuente_Registrar @Codigo = @f, @UrlBase = N'https://jira.prueba'; EXEC sync.Proyecto_Excluir @Fuente = @f, @Clave = 'TST';", fuente);
+        var fallas = 1;
+        var jira = JiraSimulado(j => j.Responder((r, url) => r.Method == HttpMethod.Post && url.StartsWith("/rest/api/3/changelog/bulkfetch") && fallas-- > 0,
+            (_, _) => new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.InternalServerError) { Content = new System.Net.Http.StringContent("{}") }));
+        var sincronizador = Crear(fuente, jira);
+
+        // 1. Jira falla al pedir el historial: los issues siguen pendientes en la base (antes se perdían).
+        await sincronizador.SincronizarFuenteAsync(fuente, forzar: false, CancellationToken.None);
+        Assert.Equal(0, await Escalar<int>("SELECT COUNT(*) FROM ops.IssueCambio c JOIN cfg.Fuente f ON f.FuenteId = c.FuenteId WHERE f.Codigo = @f", fuente));
+        Assert.Equal(3, await Escalar<int>("SELECT COUNT(*) FROM sync.IssuePendiente p JOIN cfg.Fuente f ON f.FuenteId = p.FuenteId WHERE f.Codigo = @f AND p.Entidad = 'changelog'", fuente));
+        Assert.Equal(0, await Escalar<int>("SELECT COUNT(*) FROM sync.IssuePendiente p JOIN cfg.Fuente f ON f.FuenteId = p.FuenteId WHERE f.Codigo = @f AND p.Entidad = 'sla'", fuente));
+        Assert.True(await DatosVigentes(fuente));   // la primera carga terminó; el historial no bloquea la aplicación
+
+        // 2. Siguiente corrida: los issues no cambiaron (no se vuelven a buscar), pero el historial pendiente sí se pide.
+        var busquedas = jira.Peticiones.Count(p => p.Url.StartsWith("/rest/api/3/search/jql") && !p.Url.Contains("fields=id"));
+        await sincronizador.SincronizarFuenteAsync(fuente, forzar: false, CancellationToken.None);
+        Assert.Equal(busquedas, jira.Peticiones.Count(p => p.Url.StartsWith("/rest/api/3/search/jql") && !p.Url.Contains("fields=id")));
+        Assert.Equal(1, await Escalar<int>("SELECT COUNT(*) FROM ops.IssueCambio c JOIN cfg.Fuente f ON f.FuenteId = c.FuenteId WHERE f.Codigo = @f", fuente));
+        Assert.Equal(0, await Escalar<int>("SELECT COUNT(*) FROM sync.IssuePendiente p JOIN cfg.Fuente f ON f.FuenteId = p.FuenteId WHERE f.Codigo = @f", fuente));
+
+        // 3. Sin pendientes no se vuelve a pedir el historial.
+        var historiales = jira.Contar("/rest/api/3/changelog/bulkfetch");
+        await sincronizador.SincronizarFuenteAsync(fuente, forzar: false, CancellationToken.None);
+        Assert.Equal(historiales, jira.Contar("/rest/api/3/changelog/bulkfetch"));
+    }
+
+    [FactSiSql]
+    public async Task Trae_por_clave_la_epica_que_la_busqueda_no_trajo()
+    {
+        var fuente = "it" + Guid.NewGuid().ToString("N")[..8];
+        await Ejecutar("EXEC sync.Fuente_Registrar @Codigo = @f, @UrlBase = N'https://jira.prueba'; EXEC sync.Proyecto_Excluir @Fuente = @f, @Clave = 'TST';", fuente);
+        var jira = JiraSimulado(j => j
+            .Get("/rest/api/3/field", """
+                [{"id":"summary","name":"Summary","custom":false,"schema":{"type":"string","system":"summary"}},
+                 {"id":"status","name":"Status","custom":false,"schema":{"type":"status","system":"status"}},
+                 {"id":"project","name":"Project","custom":false,"schema":{"type":"project","system":"project"}},
+                 {"id":"issuetype","name":"Issue Type","custom":false,"schema":{"type":"issuetype","system":"issuetype"}},
+                 {"id":"parent","name":"Parent","custom":false,"schema":{"type":"issuelink","system":"parent"}},
+                 {"id":"updated","name":"Updated","custom":false,"schema":{"type":"datetime","system":"updated"}}]
+                """)
+            .Get("/rest/api/3/search/jql", """
+                {"issues":[{"id":"5002","key":"SCR-7","fields":{"summary":"Historia","project":{"id":"901","key":"SCR","projectTypeKey":"software"},
+                  "issuetype":{"id":"10007","name":"Task","subtask":false,"hierarchyLevel":0},"parent":{"id":"4999","key":"SCR-1"},
+                  "status":{"id":"10001","name":"Done","statusCategory":{"key":"done"}},"updated":"2026-11-02T12:00:00.000-0600"}}],"isLast":true}
+                """, url => !url.Contains("fields=id"))
+            .Post("/rest/api/3/issue/bulkfetch", cuerpo => cuerpo.Contains("SCR-1") ? """
+                {"issues":[{"id":"4999","key":"SCR-1","fields":{"summary":"Épica de 2024","project":{"id":"901","key":"SCR","projectTypeKey":"software"},
+                  "issuetype":{"id":"10000","name":"Epic","subtask":false,"hierarchyLevel":1},
+                  "status":{"id":"3","name":"In Progress","statusCategory":{"key":"indeterminate"}},"updated":"2024-03-01T08:00:00.000-0600"}}],
+                 "issueErrors":[]}
+                """ : """{"issues":[],"issueErrors":[]}"""));
+
+        await Crear(fuente, jira).SincronizarFuenteAsync(fuente, forzar: false, CancellationToken.None);
+
+        Assert.Equal(1, await Escalar<int>("SELECT COUNT(*) FROM ops.Issue i JOIN cfg.Fuente f ON f.FuenteId = i.FuenteId WHERE f.Codigo = @f AND i.Clave = 'SCR-1' AND i.NivelJerarquia = 1", fuente));
+        Assert.Equal("SCR-1", await Escalar<string>("SELECT i.PadreClave FROM ops.Issue i JOIN cfg.Fuente f ON f.FuenteId = i.FuenteId WHERE f.Codigo = @f AND i.Clave = 'SCR-7'", fuente));
+        Assert.Contains(jira.Peticiones, p => p.Url.StartsWith("/rest/api/3/issue/bulkfetch") && p.Cuerpo.Contains("\"SCR-1\"") && p.Cuerpo.Contains("*all"));
+        // La épica también entra a la cola de historial y se pide en la misma corrida.
+        Assert.Contains(jira.Peticiones, p => p.Url.StartsWith("/rest/api/3/changelog/bulkfetch") && p.Cuerpo.Contains("4999"));
+        // La fecha vieja de la épica no mueve la marca de agua de issues.
+        Assert.Equal(new DateTimeOffset(2026, 11, 2, 12, 0, 0, TimeSpan.FromHours(-6)),
+                     await Escalar<DateTimeOffset>("SELECT m.Valor FROM sync.MarcaAgua m JOIN cfg.Fuente f ON f.FuenteId = m.FuenteId WHERE f.Codigo = @f AND m.Entidad = 'issue'", fuente));
+        Assert.Equal(0, await Escalar<int>("SELECT COUNT(*) FROM sync.IssuePendiente p JOIN cfg.Fuente f ON f.FuenteId = p.FuenteId WHERE f.Codigo = @f AND p.Entidad = 'padre'", fuente));
+    }
+
     private Sincronizador Crear(string fuente, FakeJira jira)
     {
         var opciones = Options.Create(new SmcSyncOptions
@@ -126,7 +195,8 @@ public class SincronizadorIntegracionTests(BaseDatosPrueba bd) : IClassFixture<B
         public IJiraCliente Crear(string codigoFuente) => jira.Cliente();
     }
 
-    private static FakeJira JiraSimulado() => new FakeJira()
+    /// <summary>Jira simulado completo. <paramref name="antes"/> registra rutas que tienen prioridad sobre las de siempre.</summary>
+    private static FakeJira JiraSimulado(Func<FakeJira, FakeJira>? antes = null) => (antes?.Invoke(new FakeJira()) ?? new FakeJira())
         .Get("/rest/api/3/myself", """{"timeZone":"America/Mexico_City"}""")
         .Get("/rest/api/3/field", """
             [{"id":"summary","name":"Summary","custom":false,"schema":{"type":"string","system":"summary"}},

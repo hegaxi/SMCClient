@@ -3,6 +3,7 @@
    el catálogo de su estado o proyecto; una FK rechazaría el issue y frenaría la sincronización. */
 DECLARE @fk TABLE (Nombre sysname, Sql nvarchar(max));
 INSERT @fk VALUES
+ ('FK_sync_IssuePendiente_Fuente', 'ALTER TABLE sync.IssuePendiente ADD CONSTRAINT FK_sync_IssuePendiente_Fuente FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
  ('FK_cfg_EntidadSync_Fuente', 'ALTER TABLE cfg.EntidadSync ADD CONSTRAINT FK_cfg_EntidadSync_Fuente FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
  ('FK_cfg_MapeoCampo_Fuente',  'ALTER TABLE cfg.MapeoCampo  ADD CONSTRAINT FK_cfg_MapeoCampo_Fuente  FOREIGN KEY (FuenteId) REFERENCES cfg.Fuente (FuenteId);'),
  ('FK_cfg_MapeoCampo_Rol',     'ALTER TABLE cfg.MapeoCampo  ADD CONSTRAINT FK_cfg_MapeoCampo_Rol     FOREIGN KEY (Rol) REFERENCES cfg.RolCampo (Rol);'),

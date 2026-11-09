@@ -59,23 +59,21 @@ public sealed class Sincronizador
         var cfg = await _repo.ObtenerConfiguracionAsync(fuente, ct);
         var jira = _jira.Crear(fuente);
         var issues = new IssuesCambiados();
-        var issueOk = false;
         try
         {
             foreach (var e in cfg.Entidades)
             {
                 if (e.Modo == "dependiente")
                 {
-                    // changelog y SLA se piden solo para los issues que cambiaron en esta corrida.
-                    if (!issueOk || issues.Cantidad == 0) continue;
-                }
-                else if (!forzar && !Vencida(e))
-                {
+                    // Historial y SLA: los issues pendientes viven en la base (sync.IssuePendiente), no en memoria.
+                    // Si una corrida anterior falló o el worker se cayó, aquí se retoman.
+                    await EjecutarPendientesAsync(cfg, e, jira, ct);
                     continue;
                 }
+                if (!forzar && !Vencida(e)) continue;
 
                 var ok = await EjecutarEntidadAsync(cfg, e, jira, modoForzado: null, parametros: null, issues, ct);
-                if (e.Entidad == "issue") issueOk = ok;
+                if (ok && e.Entidad == "issue") await TraerPadresAsync(cfg, e, jira, ct);
             }
 
             if (ConciliacionVencida(cfg)) await ConciliarAsync(cfg, jira, ct);
@@ -141,11 +139,16 @@ public sealed class Sincronizador
         {
             var eIssue = cfg.Entidades.FirstOrDefault(e => e.Entidad == "issue") ?? throw new InvalidOperationException("La entidad issue no está activa.");
             if (!await EjecutarEntidadAsync(cfg, eIssue, jira, "backfill", parametros.RootElement, issues, ct)) return true;
+            await TraerPadresAsync(cfg, eIssue, jira, ct);
 
-            // Un proyecto que vuelve a incluirse necesita también su historial, worklogs y SLA.
+            // Un proyecto que vuelve a incluirse necesita también su historial, worklogs y SLA. Sus issues son nuevos en
+            // ops.Issue, así que la base ya encoló el historial y el SLA; los worklogs se piden por issue.
             if (esProyecto && issues.Cantidad > 0)
                 foreach (var e in cfg.Entidades.Where(e => e.Entidad is "changelog" or "worklog" or "sla"))
-                    await EjecutarEntidadAsync(cfg, e, jira, "backfill", parametros.RootElement, issues, ct);
+                {
+                    if (e.Modo == "dependiente") await EjecutarPendientesAsync(cfg, e, jira, ct);
+                    else await EjecutarEntidadAsync(cfg, e, jira, "backfill", parametros.RootElement, issues, ct);
+                }
             return true;
         }
         catch (CandadoOcupadoException)
@@ -177,6 +180,35 @@ public sealed class Sincronizador
             }
         }
         return true;
+    }
+
+    /// <summary>
+    /// Entidad dependiente (historial, SLA): pide a la base los issues pendientes, los trae de Jira y, solo si todo quedó
+    /// guardado en raw, los da por completados. Si algo falla, siguen pendientes para la siguiente corrida.
+    /// </summary>
+    private async Task EjecutarPendientesAsync(ConfiguracionFuente cfg, EntidadConfig e, IJiraCliente jira, CancellationToken ct)
+    {
+        var tomados = await _repo.TomarPendientesAsync(cfg.Codigo, e.Entidad, Math.Max(1, _op.MaxPendientesPorCorrida), ct);
+        if (tomados.Issues.Count == 0) return;
+        var issues = new IssuesCambiados();
+        foreach (var p in tomados.Issues) issues.Agregar(new IssueCambiado(p.IssueId, p.Clave ?? p.IssueId, p.TipoProyecto));
+        if (await EjecutarEntidadAsync(cfg, e, jira, modoForzado: null, parametros: null, issues, ct))
+            await _repo.CompletarPendientesAsync(cfg.Codigo, e.Entidad, tomados.Issues.Select(i => i.IssueId).ToList(), tomados.TomadoEn, ct);
+    }
+
+    /// <summary>
+    /// Padres y épicas que los issues mencionan y que no están en la base (p. ej. épicas sin cambios desde antes de la
+    /// carga inicial): se traen por clave. Hasta 3 rondas, porque un padre traído puede tener a su vez su propio padre.
+    /// </summary>
+    private async Task TraerPadresAsync(ConfiguracionFuente cfg, EntidadConfig eIssue, IJiraCliente jira, CancellationToken ct)
+    {
+        for (var ronda = 0; ronda < 3; ronda++)
+        {
+            var claves = await _repo.PadresPendientesAsync(cfg.Codigo, Math.Max(1, _op.MaxPadresPorCorrida), ct);
+            if (claves.Count == 0) return;
+            using var parametros = JsonDocument.Parse(JsonSerializer.Serialize(new { claves }));
+            if (!await EjecutarEntidadAsync(cfg, eIssue, jira, "padres", parametros.RootElement.Clone(), new IssuesCambiados(), ct)) return;
+        }
     }
 
     /// <summary>Ejecuta una entidad completa. Devuelve false si falló (ya quedó registrado en sync.Ejecucion).</summary>

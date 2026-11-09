@@ -11,7 +11,9 @@ BEGIN
     DECLARE @dias int = ISNULL(TRY_CAST((SELECT Valor FROM cfg.Parametro WHERE Clave = 'DiasCargaInicial') AS int), 365);
 
     SELECT f.FuenteId, @Entidad AS Entidad, m.Valor AS MarcaAgua,
-           CASE WHEN m.Valor IS NULL THEN DATEADD(DAY, -@dias, SYSDATETIMEOFFSET())
+           -- DiasCargaInicial <= 0: la carga inicial trae TODO (épicas y padres viejos también).
+           CASE WHEN m.Valor IS NULL AND @dias <= 0 THEN CAST('2000-01-01T00:00:00+00:00' AS datetimeoffset(3))
+                WHEN m.Valor IS NULL THEN DATEADD(DAY, -@dias, SYSDATETIMEOFFSET())
                 ELSE DATEADD(MINUTE, -@traslape, m.Valor) END AS Desde,
            CAST(CASE WHEN m.Valor IS NULL THEN 1 ELSE 0 END AS bit) AS EsCargaInicial
     FROM cfg.Fuente f
