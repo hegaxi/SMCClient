@@ -36,7 +36,7 @@ fi
 
 [[ -n "$SERVER" && -n "$DB" ]] || { echo "Faltan -S y -d" >&2; exit 2; }
 AUTH=(-E); [[ -n "$USER_SQL" ]] && AUTH=(-U "$USER_SQL")
-BASE=("$SQLCMD" -S "$SERVER" "${AUTH[@]}" $TRUST -b -I -x)
+BASE=("$SQLCMD" -S "$SERVER" "${AUTH[@]}" $TRUST -b -I -x -f 65001)   # scripts en UTF-8
 
 if [[ $CREAR -eq 1 ]]; then
   "${BASE[@]}" -d master -Q "IF DB_ID(N'${DB//\'/\'\'}') IS NULL CREATE DATABASE [${DB//]/]]}];"

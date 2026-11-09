@@ -20,7 +20,7 @@ La arquitectura, cómo resiste cambios en Jira y cómo funciona la sincronizaci�
 ```powershell
 cd db
 ./deploy.ps1 -Server . -Database SMCClient -CrearBd
-sqlcmd -S . -d SMCClient -E -i instancias/smco.sql     # registra smco.atlassian.net y excluye los proyectos de prueba
+sqlcmd -S . -d SMCClient -E -f 65001 -i instancias/smco.sql     # registra smco.atlassian.net y excluye los proyectos de prueba
 ```
 
 ### 2. Worker

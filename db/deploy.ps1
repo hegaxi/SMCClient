@@ -31,7 +31,9 @@ $scripts = Get-ChildItem -Path $dir -Directory | Where-Object Name -match '^\d\d
 if ($Listar) { $scripts; return }
 if (-not $Server -or -not $Database) { throw 'Faltan -Server y -Database.' }
 
-$base = @('-S', $Server, '-b', '-I', '-x')
+# -f 65001: los scripts están en UTF-8 sin BOM; sin esto sqlcmd los lee con la página de códigos de Windows
+# y los acentos quedan mal en la base (p. ej. "sincronizaciÃ³n").
+$base = @('-S', $Server, '-b', '-I', '-x', '-f', '65001')
 if ($SqlUser) { $base += @('-U', $SqlUser) } else { $base += '-E' }
 if ($TrustServerCertificate) { $base += '-C' }
 

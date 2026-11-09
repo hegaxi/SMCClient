@@ -47,7 +47,7 @@ Después del primer despliegue se configura la instancia de Jira. Lo propio de c
 `instancias/` (fuera del despliegue ordenado) y se puede repetir:
 
 ```bash
-sqlcmd -S . -d SMCClient -E -i instancias/smco.sql   # registra smco y excluye TS25, TSM26, TSSM26
+sqlcmd -S . -d SMCClient -E -f 65001 -i instancias/smco.sql   # registra smco y excluye TS25, TSM26, TSSM26
 dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administrador" --cadena "<conexión de administración>"
 ```
 
