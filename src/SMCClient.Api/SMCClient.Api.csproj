@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>SMCClient.Api</RootNamespace>
+    <UserSecretsId>smcclient-api</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SMCClient.Sync\SMCClient.Sync.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SMCClient.Api.Tests" />
+  </ItemGroup>
+
+  <!-- Al publicar se construye la interfaz de React (web/) dentro de wwwroot: una sola aplicación para IIS. -->
+  <Target Name="ConstruirInterfaz" BeforeTargets="ComputeFilesToPublish" Condition="Exists('..\..\web\package.json')">
+    <Exec WorkingDirectory="..\..\web" Command="npm ci" />
+    <Exec WorkingDirectory="..\..\web" Command="npm run build" />
+    <ItemGroup>
+      <ArchivosInterfaz Include="wwwroot\**" />
+      <ResolvedFileToPublish Include="@(ArchivosInterfaz->'%(FullPath)')" Exclude="@(ResolvedFileToPublish)">
+        <RelativePath>%(ArchivosInterfaz.Identity)</RelativePath>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </ResolvedFileToPublish>
+    </ItemGroup>
+  </Target>
+</Project>
