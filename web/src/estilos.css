@@ -371,6 +371,7 @@ input.bloqueado { background: var(--superficie-2); color: var(--texto-2); cursor
 @keyframes brillo { to { background-position: -200% 0; } }
 /* Una tabla que se vuelve a consultar no es un esqueleto: se atenúa y conserva su tamaño. */
 .contenedor-tabla.cargando { height: auto; background: none; animation: none; opacity: 0.55; transition: opacity 0.15s; border-radius: 0; }
+.resultados.consultando { opacity: 0.55; transition: opacity 0.15s; }
 
 /* ---------- 6. resultados ---------- */
 .resultados { display: flex; flex-direction: column; gap: var(--e-4); }

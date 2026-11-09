@@ -38,6 +38,9 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
   const [mensaje, setMensaje] = useState<string | null>(null);
   const [resultado, setResultado] = useState<ResultadoEjecucion | null>(null);
   const [ocupado, setOcupado] = useState(false);
+  // Cambia en cada consulta: el árbol se vuelve a montar y no arrastra los nodos abiertos de la consulta anterior
+  // (sus Nodo pueden ser posicionales y apuntar ya a otra persona o sprint).
+  const [ejecucion, setEjecucion] = useState(0);
   const tituloResultados = useRef<HTMLHeadingElement>(null);
 
   const ejecutar = useCallback(
@@ -49,6 +52,7 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
       onNavegar(proc.nombre, Object.fromEntries(Object.entries(v).filter(([, x]) => x !== '')), true);
       try {
         setResultado(await api.ejecutar(proc.nombre, construirCuerpo(proc.parametros, v)));
+        setEjecucion((n) => n + 1);
         // Una acción pudo cambiar lo que ofrecen las listas (p. ej. un rol nuevo): se vuelven a pedir.
         if (proc.accion) limpiarCacheListas();
         if (enfocar) setTimeout(() => tituloResultados.current?.focus(), 0);
@@ -172,11 +176,11 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
       {mensaje && <p className="alerta" role="alert">{mensaje}</p>}
 
       {resultado && (
-        <div className="resultados" aria-busy={ocupado}>
+        <div className={`resultados${ocupado ? ' consultando' : ''}`} aria-busy={ocupado}>
           <h2 ref={tituloResultados} tabIndex={-1} className="solo-lectores">Resultados</h2>
           {resultado.resultados.length === 0 && <p className="vacio">Listo. El procedimiento no devolvió datos.</p>}
           {resultado.resultados.map((c, i) => esArbol(c) ? (
-            <ArbolResultados key={i} conjunto={c} titulo={proc.titulosResultados?.[i] ?? null}
+            <ArbolResultados key={`${ejecucion}-${i}`} conjunto={c} titulo={proc.titulosResultados?.[i] ?? null}
                              nombreArchivo={`${proc.nombre}${resultado.resultados.length > 1 ? `_${i + 1}` : ''}`} onAbrirClave={abrirClave} />
           ) : (
             <TablaResultados
