@@ -17,7 +17,9 @@ INSERT @l (Objeto, Parametro, Origen, Multiple, Libre) VALUES
  ('api.Horas_Arbol',                    '@Proyecto',       N'Proyectos_Listar:Clave:Clave:Nombre',         NULL, 0),
  ('api.Issues_Buscar',                  '@Proyecto',       N'Proyectos_Listar:Clave:Clave:Nombre',         NULL, 0),
  ('api.Horas_PorPersona',               '@Proyecto',       N'Proyectos_Listar:Clave:Clave:Nombre',         NULL, 0),
+ ('api.Horas_PorPersonaArbol',          '@Proyecto',       N'Proyectos_Listar:Clave:Clave:Nombre',         NULL, 0),
  ('api.Horas_PorSprint',                '@Proyecto',       N'Proyectos_Listar:Clave:Clave:Nombre',         NULL, 0),
+ ('api.Horas_PorSprintArbol',           '@Proyecto',       N'Proyectos_Listar:Clave:Clave:Nombre',         NULL, 0),
  ('api.Estimacion_VsReal',              '@Proyecto',       N'Proyectos_Listar:Clave:Clave:Nombre',         NULL, 0),
  ('api.Sprint_Avance',                  '@Proyecto',       N'Proyectos_Listar:Clave:Clave:Nombre',         NULL, 0),
  ('api.Epicas_Avance',                  '@Proyecto',       N'Proyectos_Listar:Clave:Clave:Nombre',         NULL, 0),
@@ -55,7 +57,7 @@ EXEC adm.Descripcion_Establecer 'api.Usuario_Guardar', '@Roles', N'MS_Descriptio
 EXEC adm.Descripcion_Establecer 'api.Rol_Guardar', '@Nombre', N'MS_Description', N'Elija un rol para editarlo o escriba uno nuevo';
 EXEC adm.Descripcion_Establecer 'api.Usuario_Organizaciones_Guardar', '@Organizaciones', N'MS_Description', N'Marque las organizaciones cuyos tickets verá el cliente';
 EXEC adm.Descripcion_Establecer 'api.Issues_Buscar', '@Proyecto', N'MS_Description', N'Vacío = todos los proyectos';
-EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', NULL, N'smc:resultados', N'Épicas, tareas y subtareas';
+EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', NULL, N'smc:resultados', N'Proyectos, épicas, tareas y subtareas';
 EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@Desde', N'MS_Description', N'Fecha del registro de tiempo. Vacío = desde el inicio';
 EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@Hasta', N'MS_Description', N'Vacío = hasta hoy';
 EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@Persona', N'MS_Description', N'Parte del nombre de quien registró (o a quien se atribuyen las automáticas)';

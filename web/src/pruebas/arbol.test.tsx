@@ -12,13 +12,13 @@ const col = (nombre: string, tipo = 'nvarchar') => ({ nombre, tipo, nulo: true }
 
 const arbol: ConjuntoResultados = {
   truncado: false,
-  columnas: [col('Nodo'), col('PadreNodo'), col('Nivel', 'int'), col('Clave'), col('Elemento'), col('HorasRegistradas', 'decimal')],
+  columnas: [col('Nodo'), col('PadreNodo'), col('Nivel', 'int'), col('NivelNombre'), col('Clave'), col('Elemento'), col('HorasRegistradas', 'decimal')],
   filas: [
-    { Nodo: '#proyecto', PadreNodo: null, Nivel: 0, Clave: null, Elemento: 'SSM26 · Scrum', HorasRegistradas: 128 },
-    { Nodo: 'SSM26-1', PadreNodo: '#proyecto', Nivel: 1, Clave: 'SSM26-1', Elemento: 'Épica uno', HorasRegistradas: 120 },
-    { Nodo: 'SSM26-2', PadreNodo: 'SSM26-1', Nivel: 2, Clave: 'SSM26-2', Elemento: 'Tarea', HorasRegistradas: 120 },
-    { Nodo: 'SSM26-3', PadreNodo: 'SSM26-2', Nivel: 3, Clave: 'SSM26-3', Elemento: 'Subtarea', HorasRegistradas: 40 },
-    { Nodo: '#sin-epica', PadreNodo: '#proyecto', Nivel: 1, Clave: null, Elemento: '(Sin épica)', HorasRegistradas: 8 },
+    { Nodo: '#proyecto', PadreNodo: null, Nivel: 0, NivelNombre: 'Proyecto', Clave: null, Elemento: 'SSM26 · Scrum', HorasRegistradas: 128 },
+    { Nodo: 'SSM26-1', PadreNodo: '#proyecto', Nivel: 1, NivelNombre: 'Épica', Clave: 'SSM26-1', Elemento: 'Épica uno', HorasRegistradas: 120 },
+    { Nodo: 'SSM26-2', PadreNodo: 'SSM26-1', Nivel: 2, NivelNombre: 'Tarea', Clave: 'SSM26-2', Elemento: 'Tarea', HorasRegistradas: 120 },
+    { Nodo: 'SSM26-3', PadreNodo: 'SSM26-2', Nivel: 3, NivelNombre: 'Subtarea', Clave: 'SSM26-3', Elemento: 'Subtarea', HorasRegistradas: 40 },
+    { Nodo: '#sin-epica', PadreNodo: '#proyecto', Nivel: 1, NivelNombre: 'Épica', Clave: null, Elemento: '(Sin épica)', HorasRegistradas: 8 },
   ],
 };
 
@@ -30,7 +30,7 @@ describe('árbol de resultados (Horas por proyecto)', () => {
 
   it('abre con el proyecto y sus épicas; cada nivel se abre y la clave lleva al detalle', async () => {
     const abrir = vi.fn();
-    render(<ArbolResultados conjunto={arbol} titulo="Épicas, tareas y subtareas" nombreArchivo="x" onAbrirClave={abrir} />);
+    render(<ArbolResultados conjunto={arbol} titulo="Épicas, tareas y subtareas" nombreArchivo="x" onAbrirClave={abrir} nivelesAbiertos={1} />);
     const tabla = screen.getByRole('treegrid');
     expect(within(tabla).getByText('Épica uno')).toBeInTheDocument();
     expect(within(tabla).getByText('(Sin épica)')).toBeInTheDocument();
@@ -44,6 +44,29 @@ describe('árbol de resultados (Horas por proyecto)', () => {
     expect(abrir).toHaveBeenCalledWith('SSM26-3');
     await userEvent.click(screen.getByRole('button', { name: 'Ver épicas' }));
     expect(within(tabla).queryByText('Tarea')).not.toBeInTheDocument();
+  });
+});
+
+describe('árbol de horas por persona', () => {
+  const filas = [
+    { Nodo: '#total', PadreNodo: null, Nivel: 0, NivelNombre: 'Total', Clave: null, Elemento: 'Total del periodo', HorasRegistradas: 50 },
+    { Nodo: 'p1', PadreNodo: '#total', Nivel: 1, NivelNombre: 'Persona', Clave: null, Elemento: 'Ana', HorasRegistradas: 30 },
+    { Nodo: 'p1|SSM26', PadreNodo: 'p1', Nivel: 2, NivelNombre: 'Proyecto', Clave: null, Elemento: 'SSM26 · Scrum', HorasRegistradas: 30 },
+    { Nodo: 'p1|SSM26|SSM26-1', PadreNodo: 'p1|SSM26', Nivel: 3, NivelNombre: 'Épica', Clave: 'SSM26-1', Elemento: 'Épica', HorasRegistradas: 30 },
+    { Nodo: 'p1|SSM26|SSM26-2', PadreNodo: 'p1|SSM26|SSM26-1', Nivel: 4, NivelNombre: 'Tarea', Clave: 'SSM26-2', Elemento: 'Tarea de Ana', HorasRegistradas: 30 },
+    { Nodo: 'p2', PadreNodo: '#total', Nivel: 1, NivelNombre: 'Persona', Clave: null, Elemento: 'Beto', HorasRegistradas: 20 },
+    { Nodo: 'p2|SMC26', PadreNodo: 'p2', Nivel: 2, NivelNombre: 'Proyecto', Clave: null, Elemento: 'SMC26 · Mesa', HorasRegistradas: 20 },
+  ];
+  it('botones por nivel con su nombre y, al abrir, los niveles que quepan', async () => {
+    render(<ArbolResultados conjunto={{ ...arbol, filas }} nombreArchivo="x" />);
+    expect(screen.getByRole('button', { name: 'Ver personas' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver proyectos' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Ver épicas' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ver tareas' })).not.toBeInTheDocument(); // es el último nivel: "Abrir todo"
+    expect(screen.getByText('Tarea de Ana')).toBeInTheDocument();                           // 7 filas: caben todas
+    await userEvent.click(screen.getByRole('button', { name: 'Ver personas' }));
+    expect(screen.getByText('Ana')).toBeInTheDocument();
+    expect(screen.queryByText('SSM26 · Scrum')).not.toBeInTheDocument();
   });
 });
 

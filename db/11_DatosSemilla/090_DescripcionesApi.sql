@@ -19,9 +19,10 @@ INSERT @p VALUES
 INSERT @p VALUES
  ('api.Issues_Buscar',    N'Búsqueda rápida',           N'Historias Scrum y tickets de mesa de ayuda con filtros por proyecto, estado, responsable y fechas.', 'lectura', '0'),
  ('api.Issue_Detalle',    N'Detalle de un ticket',      N'Datos, campos personalizados, tiempo registrado, SLA e historial de un ticket o historia.',                   'lectura', '0'),
- ('api.Horas_PorPersona', N'Horas por persona',          N'Horas por persona y proyecto: registradas por personas y automáticas (Automation for Jira) por separado.', 'lectura', '0'),
- ('api.Sla_Resumen',      N'Cumplimiento de SLA',        N'Cumplimiento de SLA por proyecto para los tickets creados en el periodo.',                      'lectura', '0'),
- ('api.Sla_EnRiesgo',     N'SLA por vencer',             N'Tickets abiertos con un SLA que vence pronto o ya venció.',                                     'lectura', '0'),
+ ('api.Horas_PorPersonaArbol', N'Horas por persona',     N'Horas de cada persona por proyecto, épica, tarea y subtarea, con subtotales y total: registradas por personas y automáticas por separado. No suma las copias que Automation for Jira hace hacia la tarea, la épica y la OC.', 'lectura', '0'),
+ ('api.Horas_PorPersona', N'Horas por persona (tabla)',  N'Horas por persona y proyecto en una tabla (para descargar o usar en tableros): registradas por personas y automáticas (Automation for Jira) por separado, sin las copias automáticas.', 'lectura', '0'),
+ ('api.Sla_Resumen',      N'Cumplimiento de SLA',        N'Cumplimiento de SLA por proyecto, medido como JSM: ciclos terminados o vencidos en el periodo. Incluye los tickets que quedaron sin SLA.',                      'lectura', '0'),
+ ('api.Sla_EnRiesgo',     N'SLA por vencer',             N'Tickets abiertos con un SLA que vence pronto o que venció en los últimos días, con la prioridad ITIL.',                                     'lectura', '0'),
  ('api.Sprint_Avance',    N'Avance de sprints',          N'Issues, story points y horas registradas dentro de cada sprint (incluye subtareas).',          'lectura', '0'),
  ('api.Epicas_Avance',    N'Avance de épicas',           N'Tareas terminadas, story points, estimación y horas de cada épica (con sus tareas y subtareas).', 'lectura', '0'),
  ('api.Estimacion_VsReal', N'Estimado vs. real',          N'Horas estimadas contra las registradas por personas (con subtareas), desviación, % consumido y tareas sin estimar.', 'lectura', '0'),
@@ -36,7 +37,8 @@ INSERT @p VALUES
  ('api.Sync_Frecuencias_Listar',        N'Configuración de la sincronización', N'Cada cuántos minutos se sincroniza cada tipo de dato y el margen para avisar de datos atrasados.', 'admin', '1'),
  ('api.Sync_Frecuencia_Guardar',        N'Cambiar frecuencia de sincronización', N'Cada cuántos minutos se pide a Jira un tipo de dato de una fuente.',        'admin',   '1'),
  ('api.Sync_Antiguedad_Guardar',        N'Cambiar margen de datos atrasados', N'Minutos de tolerancia, además de la frecuencia, antes de avisar que los datos están atrasados.', 'admin', '1'),
- ('api.Horas_PorSprint',  N'Horas por sprint',           N'Tiempo reportado en Scrum: horas por sprint y persona, registradas y automáticas (incluye subtareas).', 'lectura', '0'),
+ ('api.Horas_PorSprintArbol', N'Horas por sprint',      N'Tiempo de cada sprint por persona, tarea y subtarea, con subtotales y total: registradas por personas y automáticas (sin copias).', 'lectura', '0'),
+ ('api.Horas_PorSprint',  N'Horas por sprint (tabla)',   N'Horas por sprint y persona en una tabla (para descargar o usar en tableros): registradas y automáticas, incluye subtareas.', 'lectura', '0'),
  ('api.Proyectos_Listar', N'Proyectos',                  N'Proyectos Scrum y de mesa de ayuda que se sincronizan.',                                        'lectura', '0'),
  ('api.Sync_Estado',      N'Estado de la sincronización', N'Cuándo se sincronizó cada fuente y cada tipo de dato.',                                        'lectura', '1'),
  ('api.Sync_Solicitar',   N'Sincronizar ahora',          N'Pide una sincronización inmediata con Jira.',                                                   'lectura', '1'),
@@ -66,7 +68,10 @@ INSERT @p VALUES
  ('api.Issues_Consultar', N'Búsqueda avanzada',          N'Filtros desde cero sobre cualquier campo de Jira (también los personalizados), con columnas y orden a elegir.', 'lectura', '0'),
  ('api.Issues_Campos',    N'Campos de búsqueda',         N'Campos y operadores disponibles en la búsqueda avanzada.',                                      'lectura', '1'),
  ('api.Issues_Resumir',   N'Resumen de una búsqueda',    N'Conteos, sumas o promedios de una búsqueda avanzada agrupados por un campo, sobre todos los issues.', 'lectura', '0'),
- ('api.Horas_Arbol',         N'Horas por proyecto (épicas y tareas)', N'Tiempo de un proyecto por épica, tarea y subtarea: horas de cada elemento y de todo lo que tiene debajo, contra lo estimado.', 'lectura', '0'),
+ ('api.Sprints_Listar',      N'Sprints',                  N'Sprints para elegir en las consultas, con su proyecto, estado y fechas.',                       'lectura', '0'),
+ ('api.Epicas_Listar',       N'Épicas',                   N'Épicas para elegir en las consultas, con su resumen y estado.',                               'lectura', '0'),
+ ('api.Personas_Listar',     N'Personas',                 N'Personas de Jira (responsables y quienes registran tiempo) para elegir en las consultas.',    'lectura', '0'),
+ ('api.Horas_Arbol',         N'Horas por proyecto', N'Tiempo por proyecto, épica, tarea y subtarea (uno o todos los proyectos), con subtotales y total: horas de cada elemento y de todo lo que tiene debajo, contra lo estimado. Las copias de Automation for Jira van aparte y no se suman.', 'lectura', '0'),
  ('api.ProyectosSync_Listar',        N'Proyectos a sincronizar', N'Qué proyectos de Jira se sincronizan: los desactivados no se piden a Jira y se ocultan de los reportes.', 'admin', '1'),
  ('api.ProyectoSync_Establecer',      N'Activar o desactivar un proyecto', N'Activa o desactiva la sincronización de un proyecto.', 'admin', '1'),
  ('api.ProyectosSync_Nuevos_Guardar', N'Sincronizar proyectos nuevos', N'Si un proyecto nuevo en Jira se sincroniza solo o queda desactivado.', 'admin', '1'),
@@ -117,6 +122,7 @@ INSERT @opciones VALUES
  ('api.Tablero_Guardar', N'tableros.editar'), ('api.Tablero_Eliminar', N'tableros.editar'), ('api.Widget_Guardar', N'tableros.editar'),
  ('api.Widget_Eliminar', N'tableros.editar'), ('api.Widget_Mover', N'tableros.editar'),
  ('api.Destinatarios_Listar', N'tableros.editar'),
+ ('api.Sprints_Listar', N'listas'), ('api.Epicas_Listar', N'listas'), ('api.Personas_Listar', N'listas'),
  ('api.ProyectosSync_Listar', N'sync.proyectos'), ('api.ProyectoSync_Establecer', N'sync.proyectos'), ('api.ProyectosSync_Nuevos_Guardar', N'sync.proyectos'),
  ('api.Filtros_Listar', N'filtros'), ('api.Filtro_Guardar', N'filtros'), ('api.Filtro_Eliminar', N'filtros'),
  ('api.Issues_Consultar', N'busqueda_avanzada'), ('api.Issues_Campos', N'busqueda_avanzada'), ('api.Issues_Valores', N'busqueda_avanzada'),
@@ -156,9 +162,10 @@ EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Origen', N'smc:opcione
 EXEC adm.Descripcion_Establecer 'api.Sprint_Avance', '@Estado', N'smc:opciones', N'active=Activo|closed=Cerrado|future=Futuro';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorSprint', '@Estado', N'smc:opciones', N'active=Activo|closed=Cerrado|future=Futuro';
 EXEC adm.Descripcion_Establecer 'api.Epicas_Avance', '@Categoria', N'smc:opciones', N'new=Por hacer|indeterminate=En curso|done=Terminada';
-EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', NULL, N'smc:resultados', N'Resumen|Detalle por issue';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', NULL, N'smc:resultados', N'Resumen|Proyectos, épicas, tareas y subtareas';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Nivel', N'smc:opciones', N'tarea=Tareas e historias|epica=Épicas';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Epica', N'MS_Description', N'Clave de una épica (p. ej. SSM26-56).';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Nivel', N'MS_Description', N'Vacío = tareas e historias (las épicas se comparan aparte para no contar dos veces).';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Sprint', N'MS_Description', N'Parte del nombre del sprint.';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Responsable', N'MS_Description', N'Parte del nombre del responsable.';
 EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@SoloExcedidas', N'MS_Description', N'Solo los que registraron más horas de las estimadas.';
@@ -166,14 +173,27 @@ EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Detalle', N'MS_Descri
 EXEC adm.Descripcion_Establecer 'api.Epicas_Avance', '@Texto', N'MS_Description', N'Parte de la clave o del resumen de la épica.';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Epica', N'MS_Description', N'Clave de una épica (p. ej. SSM26-56): solo su tiempo, el de sus tareas y subtareas.';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorSprint', '@Sprint', N'MS_Description', N'Parte del nombre del sprint.';
+EXEC adm.Descripcion_Establecer 'api.Horas_PorSprintArbol', '@Estado', N'smc:opciones', N'active=Activo|closed=Cerrado|future=Futuro';
+EXEC adm.Descripcion_Establecer 'api.Horas_PorSprintArbol', NULL, N'smc:resultados', N'Sprints, personas, tareas y subtareas';
+EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@TipoProyecto', N'smc:opciones', @tipoProyecto;
+EXEC adm.Descripcion_Establecer 'api.Horas_Arbol', '@Proyecto', N'MS_Description', N'Vacío = todos los proyectos';
 EXEC adm.Descripcion_Establecer 'api.Avisos_Listar', '@Nivel', N'smc:opciones', N'info=Información|advertencia=Advertencia|error=Error';
 
 EXEC adm.Descripcion_Establecer 'api.Issues_Buscar', '@Proyecto', N'MS_Description', N'Clave del proyecto (p. ej. SMC26)';
 EXEC adm.Descripcion_Establecer 'api.Issues_Buscar', '@Texto', N'MS_Description', N'Busca en el resumen o por clave exacta';
 EXEC adm.Descripcion_Establecer 'api.Sla_EnRiesgo', '@Horas', N'MS_Description', N'Vence en las próximas N horas (4 por omisión)';
+EXEC adm.Descripcion_Establecer 'api.Sla_EnRiesgo', '@DiasVencido', N'MS_Description', N'Incluye lo vencido en los últimos N días (7 por omisión)';
+EXEC adm.Descripcion_Establecer 'api.Sla_Resumen', '@TicketsSinSla', N'MS_Description', N'Sí = muestra también los tickets que quedaron sin SLA';
+EXEC adm.Descripcion_Establecer 'api.Sla_Resumen', NULL, N'smc:resultados', N'Cumplimiento por SLA|Tickets sin SLA';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Desde', N'MS_Description', N'Fecha inicial (inclusive)';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Hasta', N'MS_Description', N'Fecha final (inclusive)';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Origen', N'MS_Description', N'Vacío = ambas';
+EXEC adm.Descripcion_Establecer 'api.Horas_PorPersonaArbol', '@TipoProyecto', N'smc:opciones', @tipoProyecto;
+EXEC adm.Descripcion_Establecer 'api.Horas_PorPersonaArbol', '@Origen', N'smc:opciones', N'manual=Registradas por personas|automatico=Automáticas (Automation for Jira)';
+EXEC adm.Descripcion_Establecer 'api.Horas_PorPersonaArbol', '@Desde', N'MS_Description', N'Fecha inicial (inclusive)';
+EXEC adm.Descripcion_Establecer 'api.Horas_PorPersonaArbol', '@Hasta', N'MS_Description', N'Fecha final (inclusive)';
+EXEC adm.Descripcion_Establecer 'api.Horas_PorPersonaArbol', '@Origen', N'MS_Description', N'Vacío = ambas';
+EXEC adm.Descripcion_Establecer 'api.Horas_PorPersonaArbol', NULL, N'smc:resultados', N'Personas, proyectos, épicas, tareas y subtareas';
 
 -- Consultas personalizadas, clientes y configuración de la sincronización.
 EXEC adm.Descripcion_Establecer 'api.ConsultaPersonalizada_Guardar', NULL, N'smc:accion', N'1';

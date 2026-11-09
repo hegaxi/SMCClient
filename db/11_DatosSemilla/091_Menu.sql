@@ -12,11 +12,14 @@ INSERT @m VALUES
 
  ('api.Sprint_Avance',                 N'Proyectos Scrum',                     210, NULL),
  ('api.Epicas_Avance',                 N'Proyectos Scrum',                     220, NULL),
- ('api.Horas_PorSprint',               N'Proyectos Scrum',                     230, NULL),
+
 
  ('api.Horas_Arbol',                   N'Tiempo',                              305, NULL),
- ('api.Horas_PorPersona',              N'Tiempo',                              310, NULL),
+ ('api.Horas_PorPersonaArbol',         N'Tiempo',                              310, NULL),
+ ('api.Horas_PorSprintArbol',          N'Tiempo',                              315, NULL),
  ('api.Estimacion_VsReal',             N'Tiempo',                              320, NULL),
+ ('api.Horas_PorPersona',              N'Tiempo',                              330, NULL),   -- tablas planas (descargas y tableros)
+ ('api.Horas_PorSprint',               N'Tiempo',                              332, NULL),
 
  ('api.Sla_Resumen',                   N'Mesa de ayuda',                       410, NULL),
  ('api.Sla_EnRiesgo',                  N'Mesa de ayuda',                       420, NULL),

@@ -319,6 +319,34 @@ table.arbol tr.nivel-3 td, table.arbol tr.nivel-4 td { color: var(--texto-2); }
 .resumen-proyectos { margin: 0 0 0 auto; }
 tr.fila-inactiva td { color: var(--texto-2); }
 
+/* catálogos: botón "Nuevo" arriba y acciones en cada fila */
+.barra-acciones { display: flex; flex-wrap: wrap; gap: var(--e-2); margin-top: var(--e-3); }
+th.col-acciones, td.col-acciones { position: sticky; right: 0; background: var(--superficie); text-align: right; }
+.acciones-fila { display: flex; gap: var(--e-1); justify-content: flex-end; flex-wrap: nowrap; }
+.acciones-fila .boton { white-space: nowrap; }
+
+/* ventana de una acción (Nuevo / Editar) */
+.velo-dialogo { position: fixed; inset: 0; z-index: 50; display: flex; align-items: flex-start; justify-content: center;
+  padding: 6vh var(--e-4) var(--e-4); background: color-mix(in srgb, #000 40%, transparent); overflow-y: auto; }
+.dialogo { width: min(46rem, 100%); background: var(--superficie); border-radius: var(--radio); padding: var(--e-5);
+  box-shadow: 0 20px 50px color-mix(in srgb, #000 30%, transparent); }
+.dialogo-encabezado { display: flex; align-items: center; justify-content: space-between; gap: var(--e-3); margin-bottom: var(--e-2); }
+.dialogo-encabezado h2 { margin: 0; font-size: var(--t-lg, 1.25rem); }
+.cerrar-dialogo { font-size: 1.1rem; text-decoration: none; }
+input.bloqueado { background: var(--superficie-2); color: var(--texto-2); cursor: not-allowed; }
+
+/* autocompletado (combobox) */
+.combobox { position: relative; }
+.combobox input { width: 100%; }
+.combobox-lista { position: absolute; z-index: 20; left: 0; right: 0; top: calc(100% + 2px); max-height: 18rem; overflow-y: auto;
+  margin: 0; padding: var(--e-1) 0; list-style: none; background: var(--superficie); border: 1px solid var(--borde-control);
+  border-radius: var(--radio-sm); box-shadow: 0 8px 24px color-mix(in srgb, #000 15%, transparent); min-width: 18rem; }
+.combobox-lista li { padding: 0.35rem var(--e-3); cursor: pointer; display: flex; flex-direction: column; gap: 0.1rem; }
+.combobox-lista li small { font-size: var(--t-xs); }
+.combobox-lista li.activa, .combobox-lista li:hover { background: var(--acento-suave); }
+.combobox-lista li[aria-selected="true"] span { font-weight: 600; }
+.combobox-lista li[aria-disabled="true"] { cursor: default; background: none; }
+
 /* ---------- 5. mensajes y estados ---------- */
 .alerta, .aviso, .aviso-atraso, .nota {
   display: block; padding: var(--e-3) var(--e-4); border-radius: var(--radio-sm); margin: var(--e-3) 0;

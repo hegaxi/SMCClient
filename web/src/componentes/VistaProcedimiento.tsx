@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ErrorApi } from '../api';
 import { construirCuerpo, valoresIniciales } from '../formato';
-import type { ProcedimientoInfo, ResultadoEjecucion, ValoresFormulario } from '../tipos';
+import { accionDisponible, accionVisibleEnFila, reemplazar, valoresDeAccion } from '../acciones';
+import type { AccionListado, Fila, ProcedimientoInfo, ResultadoEjecucion, ValoresFormulario } from '../tipos';
+import { DialogoAccion } from './DialogoAccion';
 import { Formulario } from './Formulario';
 import { limpiarCacheListas } from './ListaOrigen';
 import { GuardarFiltro } from './GuardarFiltro';
@@ -18,12 +20,17 @@ interface Props {
   etiquetasValores?: Map<string, Map<string, string>>;
   /** Muestra "Guardar como filtro" (si el usuario tiene filtros y la consulta no es una acción). */
   puedeGuardarFiltro?: boolean;
+  /** Catálogo del usuario: las acciones del listado solo aparecen si puede ejecutarlas. */
+  catalogo?: ProcedimientoInfo[];
+  /** Vistas propias de la interfaz a las que puede llevar una acción (p. ej. _restablecer). */
+  vistasPropias?: string[];
 }
 
 /** Los maneja la paginación (botones Anterior / Siguiente), no el formulario. */
 const PARAMETROS_PAGINACION = new Set(['Pagina', 'TamanoPagina']);
 
-export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetalle, onSyncPendiente, etiquetasValores, puedeGuardarFiltro }: Props) {
+export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetalle, onSyncPendiente, etiquetasValores, puedeGuardarFiltro, catalogo = [], vistasPropias = [] }: Props) {
+  const [dialogo, setDialogo] = useState<{ accion: AccionListado; proc: ProcedimientoInfo; inicial: ValoresFormulario } | null>(null);
   const [guardando, setGuardando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [valores, setValores] = useState<ValoresFormulario>(() => ({ ...valoresIniciales(proc.parametros), ...valoresUrl }));
@@ -94,6 +101,33 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
     void ejecutar(v);
   };
 
+  // Acciones del listado (smc:acciones): "Nuevo …" arriba y Editar / Eliminar… en cada fila.
+  const acciones = (proc.acciones ?? []).filter((a) => accionDisponible(a, catalogo, vistasPropias));
+  const refrescar = () => void ejecutar(valores, false);
+  const lanzar = async (a: AccionListado, fila?: Fila) => {
+    const inicial = valoresDeAccion(a, fila);
+    if (a.vista) { onNavegar(a.vista, inicial); return; }
+    const destino = catalogo.find((p) => p.nombre === a.proc);
+    if (!destino) return;
+    if (!a.directo) { setDialogo({ accion: a, proc: destino, inicial }); return; }
+    if (!window.confirm(a.confirmar ? reemplazar(a.confirmar, fila ?? {}) : `¿${a.etiqueta}?`)) return;
+    setMensaje(null); setAviso(null);
+    try {
+      await api.ejecutar(destino.nombre, construirCuerpo(destino.parametros, inicial));
+      limpiarCacheListas();
+      setAviso(a.exito ? reemplazar(a.exito, { ...fila, ...inicial }) : 'Listo.');
+      refrescar();
+    } catch (e) {
+      setMensaje(e instanceof Error ? e.message : 'No se pudo completar la acción.');
+    }
+  };
+  const botonesFila = acciones.some((a) => a.fila)
+    ? (f: Fila) => acciones.filter((a) => a.fila && accionVisibleEnFila(a, f)).map((a) => (
+        <button key={a.etiqueta} type="button" className={a.peligro ? 'boton secundario-btn pequeno peligro' : 'boton secundario-btn pequeno'}
+                onClick={() => void lanzar(a, f)}>{a.etiqueta}</button>
+      ))
+    : undefined;
+
   const abrirClave = puedeVerDetalle && proc.nombre !== 'Issue_Detalle'
     ? (clave: string) => onNavegar('Issue_Detalle', { Clave: clave })
     : undefined;
@@ -103,6 +137,15 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
       <header>
         <h1>{proc.titulo}</h1>
         {proc.descripcion && <p className="secundario">{proc.descripcion}</p>}
+        {acciones.some((a) => !a.fila) && (
+          <div className="barra-acciones">
+            {acciones.filter((a) => !a.fila).map((a, i) => (
+              <button key={a.etiqueta} type="button" className={i === 0 && a.proc ? 'boton' : 'boton secundario-btn'} onClick={() => void lanzar(a)}>
+                {i === 0 && a.proc ? `+ ${a.etiqueta}` : a.etiqueta}
+              </button>
+            ))}
+          </div>
+        )}
       </header>
 
       <Formulario
@@ -145,6 +188,7 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
               permitirFicha={i === 0 && proc.parametros.some((p) => !p.opcional && !p.salida)}
               textoVacio={resultado.resultados.length > 1 && i > 0 ? 'Sin registros.' : undefined}
               etiquetasValores={etiquetasValores}
+              accionesFila={i === 0 ? botonesFila : undefined}
             />
           ))}
           {tienePaginas && total > tamano && (
@@ -155,6 +199,10 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
             </nav>
           )}
         </div>
+      )}
+      {dialogo && (
+        <DialogoAccion accion={dialogo.accion} proc={dialogo.proc} inicial={dialogo.inicial} onCerrar={() => setDialogo(null)}
+                       onListo={(m) => { setDialogo(null); setAviso(m); refrescar(); }} />
       )}
     </article>
   );

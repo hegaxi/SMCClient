@@ -2,8 +2,15 @@ import { useMemo, useState } from 'react';
 import { aCsv, esNumero, etiqueta, formatear } from '../formato';
 import type { ColumnaInfo, ConjuntoResultados, Fila } from '../tipos';
 
-/** Columnas que arman el árbol y no se muestran. */
+/** Columnas que arman el árbol y no se muestran (NivelNombre: "Persona", "Épica"… para los botones "Ver …"). */
 const COLUMNAS_ARBOL = ['Nodo', 'PadreNodo', 'Nivel'];
+const COLUMNAS_OCULTAS = [...COLUMNAS_ARBOL, 'NivelNombre', 'Clave'];
+/** Al abrir, se despliegan niveles mientras quepan en esta cantidad de filas. */
+// Filas que se muestran al cargar: se abren niveles completos mientras quepan (un periodo corto abre todo el árbol).
+const FILAS_AL_ABRIR = 150;
+
+/** "Épica" -> "épicas", "Proyecto" -> "proyectos". */
+const plural = (s: string) => { const x = s.toLocaleLowerCase('es-MX'); return /[aeiouáéíóú]$/.test(x) ? `${x}s` : `${x}es`; };
 
 /** Un conjunto de resultados es un árbol si trae Nodo, PadreNodo y Nivel (p. ej. api.Horas_Arbol). */
 export const esArbol = (c: ConjuntoResultados) => COLUMNAS_ARBOL.every((n) => c.columnas.some((x) => x.nombre === n));
@@ -13,7 +20,7 @@ interface Props {
   titulo?: string | null;
   nombreArchivo: string;
   onAbrirClave?: (clave: string) => void;
-  /** Niveles que se ven abiertos al cargar (por omisión, el primero y el segundo: proyecto y épicas). */
+  /** Niveles abiertos al cargar; por omisión, los que quepan en unas 150 filas. */
   nivelesAbiertos?: number;
 }
 
@@ -21,8 +28,8 @@ interface Props {
  * Árbol con columnas (treegrid): cada fila se abre o se cierra para ver lo que tiene debajo. La primera columna visible
  * lleva la sangría, el botón para abrir y la clave (que abre el detalle).
  */
-export function ArbolResultados({ conjunto, titulo, nombreArchivo, onAbrirClave, nivelesAbiertos = 1 }: Props) {
-  const columnas = conjunto.columnas.filter((c) => !COLUMNAS_ARBOL.includes(c.nombre) && c.nombre !== 'Clave');
+export function ArbolResultados({ conjunto, titulo, nombreArchivo, onAbrirClave, nivelesAbiertos }: Props) {
+  const columnas = conjunto.columnas.filter((c) => !COLUMNAS_OCULTAS.includes(c.nombre));
   const [principal, ...resto] = columnas;
 
   const { hijos, raices, nivelDe } = useMemo(() => {
@@ -39,7 +46,24 @@ export function ArbolResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
     return { hijos, raices, nivelDe: (f: Fila) => Number(f.Nivel ?? 0) };
   }, [conjunto.filas]);
 
-  const inicial = () => new Set(conjunto.filas.filter((f) => nivelDe(f) < nivelesAbiertos).map((f) => String(f.Nodo)));
+  // Niveles presentes (con su nombre, si viene NivelNombre) y cuántas filas tiene cada uno.
+  const niveles = useMemo(() => {
+    const m = new Map<number, { nombre: string | null; filas: number }>();
+    for (const f of conjunto.filas) {
+      const n = nivelDe(f);
+      const x = m.get(n) ?? { nombre: f.NivelNombre == null ? null : String(f.NivelNombre), filas: 0 };
+      x.filas += 1;
+      m.set(n, x);
+    }
+    return [...m.entries()].sort(([a], [b]) => a - b);
+  }, [conjunto.filas, nivelDe]);
+  const abiertosAlCargar = () => {
+    if (nivelesAbiertos !== undefined) return nivelesAbiertos;
+    let n = 1, visibles = niveles[0]?.[1].filas ?? 0;
+    while (n < niveles.length && visibles + niveles[n][1].filas <= FILAS_AL_ABRIR) { visibles += niveles[n][1].filas; n += 1; }
+    return niveles[n - 1]?.[0] ?? 0;
+  };
+  const inicial = () => { const hasta = abiertosAlCargar(); return new Set(conjunto.filas.filter((f) => nivelDe(f) < hasta).map((f) => String(f.Nodo))); };
   const [abiertos, setAbiertos] = useState<Set<string>>(inicial);
   const alternar = (n: string) => setAbiertos((a) => { const x = new Set(a); if (x.has(n)) x.delete(n); else x.add(n); return x; });
   const abrirHasta = (nivel: number) => setAbiertos(new Set(conjunto.filas.filter((f) => nivelDe(f) < nivel).map((f) => String(f.Nodo))));
@@ -74,8 +98,12 @@ export function ArbolResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
         {titulo && <h3>{titulo}</h3>}
         <span className="contador">{conjunto.filas.length.toLocaleString('es-MX')} elementos</span>
         <div className="acciones-arbol">
-          <button type="button" className="boton secundario-btn pequeno" onClick={() => abrirHasta(1)}>Ver épicas</button>
-          <button type="button" className="boton secundario-btn pequeno" onClick={() => abrirHasta(2)}>Ver tareas</button>
+          {/* "Ver épicas": abre hasta que se vean las épicas (sin pasar del penúltimo nivel). */}
+          {niveles.slice(1, -1).map(([n, x]) => (
+            <button key={n} type="button" className="boton secundario-btn pequeno" onClick={() => abrirHasta(n)}>
+              Ver {x.nombre ? plural(x.nombre) : `nivel ${n}`}
+            </button>
+          ))}
           <button type="button" className="boton secundario-btn pequeno" onClick={() => abrirHasta(99)}>Abrir todo</button>
           <button type="button" className="boton secundario-btn pequeno" onClick={() => abrirHasta(0)}>Cerrar todo</button>
           <button type="button" className="boton secundario-btn pequeno" onClick={descargar}>Descargar CSV</button>
