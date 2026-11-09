@@ -26,7 +26,8 @@ INSERT @casos (Caso, Sql, Presupuesto) VALUES
  (N'Horas por persona: una épica, último año',            N'EXEC api.Horas_PorPersona @Desde = ''' + @anio + N''', @Hasta = ''' + @h + N''', @Epica = ''CSCR-2''', 3000),
  (N'Horas por sprint (todos)',                            N'EXEC api.Horas_PorSprint @Proyecto = ''CSCR''', 3000),
  (N'Avance de sprints',                                   N'EXEC api.Sprint_Avance @Proyecto = ''CSCR''', 3000),
- (N'Avance de épicas',                                    N'EXEC api.Epicas_Avance', 3000);
+ (N'Avance de épicas',                                    N'EXEC api.Epicas_Avance', 3000),
+ (N'Estimado vs. real (tareas)',                          N'EXEC api.Estimacion_VsReal', 3000);
 
 DECLARE @i int = 1, @k int, @caso nvarchar(80), @sql nvarchar(max), @pres int, @t0 datetime2, @ms int, @primera int;
 DECLARE @t TABLE (ms int);

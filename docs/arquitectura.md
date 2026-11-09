@@ -217,7 +217,24 @@ trae lo propio, así que no refleja el trabajo de sus subtareas. Por eso:
 El tiempo registrado fuera de las fechas de cualquier sprint (antes de empezar o después de cerrar) no se asigna a
 ningún sprint; sigue apareciendo en *Horas por persona* y en las horas del issue.
 
-### 5.6.2 Épicas
+### 5.6.2 Estimaciones (estimado vs. real)
+
+Decisión del proyecto: **no se manejan tarifas ni costos**; **sí se capturarán estimaciones** en Jira (estimación original;
+hoy casi no se usan: 4 de 40 issues en la muestra, y los story points no se usan). La sincronización ya trae la estimación
+original y la restante; no hubo que cambiar el worker.
+
+- **Siempre contra horas registradas por personas**: las automáticas (Automation for Jira) no son esfuerzo.
+- **Con todo el árbol**: la estimación de una tarea incluye la de sus subtareas, y la de una épica la de sus tareas
+  (como `aggregatetimeoriginalestimate` de Jira).
+- `api.Estimacion_VsReal`: resumen (issues con y sin estimación, % capturado, horas estimadas y registradas, desviación,
+  % consumido, excedidas) y detalle por issue con su situación (sin estimación, excedida, en curso, dentro de lo estimado);
+  filtros por proyecto, épica, sprint, responsable y nivel.
+- *Avance de épicas* agrega desviación, % consumido y tareas sin estimar; *Avance de sprints*, horas estimadas e issues sin
+  estimar (un issue que pasa de sprint cuenta su estimación en cada uno: es lo comprometido en cada sprint).
+- Búsqueda avanzada: horas estimadas (propias y con hijos), horas restantes, desviación y % consumido (p. ej. "tareas sin
+  estimación" o "más del 100 % consumido").
+
+### 5.6.3 Épicas
 
 En el Jira real (197 épicas en los proyectos Scrum) las tareas cuelgan de la épica con el campo `parent` y las subtareas
 de las tareas; las épicas no están en sprints y no tienen padre. El tiempo propio de una épica o de una tarea es solo una

@@ -29,16 +29,25 @@ BEGIN
     ) u;
     CREATE CLUSTERED INDEX ix ON #m (FuenteId, IssueId, SprintId);
 
+    -- Primero los ids de los worklogs, buscando por (FuenteId, IssueId) en su índice (forzado: con estadísticas recién
+    -- cargadas el optimizador llegó a recorrer todos los worklogs de la fuente por cada issue); luego la vista por llave.
+    SELECT m.FuenteId, m.SprintId, w.WorklogId INTO #w
+    FROM #m m
+    JOIN #s s ON s.FuenteId = m.FuenteId AND s.SprintId = m.SprintId
+    JOIN ops.Worklog w WITH (FORCESEEK(IX_ops_Worklog_IssueDet(FuenteId, IssueId))) ON w.FuenteId = m.FuenteId AND w.IssueId = m.IssueId
+    WHERE w.Eliminado = 0 AND w.Inicio >= s.Inicio AND w.Inicio < s.FinEfectivo;
+    CREATE CLUSTERED INDEX ix ON #w (FuenteId, WorklogId, SprintId);
+
     SELECT s.Nombre AS Sprint, s.Estado, s.Inicio, s.Fin, w.AtribuidoA AS Persona,
            COUNT(DISTINCT w.IssueSk) AS Issues,
            CAST(SUM(CASE WHEN w.Origen = 'manual' THEN w.Horas ELSE 0 END) AS decimal(12,2)) AS HorasRegistradas,
            CAST(SUM(CASE WHEN w.Origen = 'automatico' THEN w.Horas ELSE 0 END) AS decimal(12,2)) AS HorasAutomaticas,
            CAST(SUM(w.Horas) AS decimal(12,2)) AS HorasTotales
-    FROM #m m
-    JOIN #s s ON s.FuenteId = m.FuenteId AND s.SprintId = m.SprintId
-    -- Por (FuenteId, IssueId): es lo que indexa ops.Worklog (unir por IssueSk recorría todos los worklogs).
-    JOIN rpt.vWorklog w ON w.FuenteId = m.FuenteId AND w.IssueId = m.IssueId AND w.Inicio >= s.Inicio AND w.Inicio < s.FinEfectivo
+    FROM #w x
+    JOIN #s s ON s.FuenteId = x.FuenteId AND s.SprintId = x.SprintId
+    JOIN rpt.vWorklog w ON w.FuenteId = x.FuenteId AND w.WorklogId = x.WorklogId
     GROUP BY s.SprintId, s.Nombre, s.Estado, s.Inicio, s.Fin, w.AtribuidoA
-    ORDER BY s.Inicio DESC, HorasRegistradas DESC, HorasTotales DESC;
+    ORDER BY s.Inicio DESC, HorasRegistradas DESC, HorasTotales DESC
+    OPTION (FORCE ORDER);   -- ver api.Issue_Detalle
 END;
 GO

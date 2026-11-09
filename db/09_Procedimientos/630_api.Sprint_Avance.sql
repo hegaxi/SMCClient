@@ -1,4 +1,6 @@
-/* Avance por sprint: issues (sin contar subtareas), terminados, story points y horas.
+/* Avance por sprint: issues (sin contar subtareas), terminados, story points, estimación y horas.
+   Estimación = suma de la estimación original de los issues del sprint (con sus subtareas); un issue que pasa de un
+   sprint a otro cuenta su estimación en cada uno (es lo que se comprometió en cada sprint).
    Horas = worklogs registrados DENTRO de las fechas del sprint (de su inicio a su cierre; si sigue activo después de
    su fecha de fin, hasta hoy) en los issues del sprint y en sus subtareas, cada worklog una sola vez. Así un issue que
    pasa de un sprint a otro no repite horas, y se separan las que registraron las personas de las automáticas.
@@ -13,7 +15,7 @@ BEGIN
            COALESCE(s.Completado, CASE WHEN s.Estado = 'active' AND SYSDATETIMEOFFSET() > s.Fin THEN SYSDATETIMEOFFSET() END, s.Fin) AS FinEfectivo
     INTO #s FROM ops.Sprint s WHERE @Estado IS NULL OR s.Estado = @Estado;
 
-    SELECT x.FuenteId, x.SprintId, i.IssueId, i.CategoriaEstado, i.StoryPoints, i.EsSubtarea
+    SELECT x.FuenteId, x.SprintId, i.IssueId, i.CategoriaEstado, i.StoryPoints, i.EsSubtarea, i.HorasEstimadasArbol
     INTO #iss
     FROM ops.IssueSprint x
     JOIN #s s ON s.FuenteId = x.FuenteId AND s.SprintId = x.SprintId
@@ -35,7 +37,7 @@ BEGIN
     INTO #horas
     FROM #m m
     JOIN #s s ON s.FuenteId = m.FuenteId AND s.SprintId = m.SprintId
-    JOIN ops.Worklog w ON w.FuenteId = m.FuenteId AND w.IssueId = m.IssueId AND w.Eliminado = 0 AND w.Inicio >= s.Inicio AND w.Inicio < s.FinEfectivo
+    JOIN ops.Worklog w WITH (FORCESEEK(IX_ops_Worklog_IssueDet(FuenteId, IssueId))) ON w.FuenteId = m.FuenteId AND w.IssueId = m.IssueId AND w.Eliminado = 0 AND w.Inicio >= s.Inicio AND w.Inicio < s.FinEfectivo
     LEFT JOIN ops.Usuario u ON u.FuenteId = w.FuenteId AND u.AccountId = w.AutorId
     GROUP BY m.FuenteId, m.SprintId;
 
@@ -45,7 +47,9 @@ BEGIN
            SUM(iss.StoryPoints) AS StoryPoints,
            SUM(CASE WHEN iss.CategoriaEstado = 'done' THEN iss.StoryPoints END) AS StoryPointsTerminados,
            CAST(MAX(h.Registradas) AS decimal(12,2)) AS HorasRegistradas,
-           CAST(MAX(h.Automaticas) AS decimal(12,2)) AS HorasAutomaticas
+           CAST(MAX(h.Automaticas) AS decimal(12,2)) AS HorasAutomaticas,
+           SUM(CASE WHEN iss.EsSubtarea = 0 THEN iss.HorasEstimadasArbol END) AS HorasEstimadas,
+           SUM(CASE WHEN iss.EsSubtarea = 0 AND iss.HorasEstimadasArbol IS NULL THEN 1 ELSE 0 END) AS IssuesSinEstimacion
     FROM #s s
     JOIN #iss iss ON iss.FuenteId = s.FuenteId AND iss.SprintId = s.SprintId
     LEFT JOIN #horas h ON h.FuenteId = s.FuenteId AND h.SprintId = s.SprintId

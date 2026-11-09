@@ -290,7 +290,7 @@ INSERT @b EXEC api.Issues_Buscar @TipoProyecto = 'service_desk';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 1 AND MAX(Clave) = 'MDA-1' AND MAX(Estado) = N'In Progress' THEN 1 ELSE 0 END FROM @b); EXEC prueba.Afirmar @ok, N'api.Issues_Buscar filtra mesa de ayuda';
 
 DECLARE @sp TABLE (SprintId bigint, Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Comp datetimeoffset,
-                   Issues int, Terminados int, SP decimal(9,2), SPT decimal(9,2), HorasReg decimal(12,2), HorasAut decimal(12,2));
+                   Issues int, Terminados int, SP decimal(9,2), SPT decimal(9,2), HorasReg decimal(12,2), HorasAut decimal(12,2), HorasEst decimal(12,2), SinEst int);
 INSERT @sp EXEC api.Sprint_Avance @Proyecto = 'SCR';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 2 AND SUM(SPT) = 16 THEN 1 ELSE 0 END FROM @sp); EXEC prueba.Afirmar @ok, N'api.Sprint_Avance (8 SP terminados en cada sprint)';
 

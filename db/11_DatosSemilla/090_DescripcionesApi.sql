@@ -17,6 +17,7 @@ INSERT @p VALUES
  ('api.Sla_EnRiesgo',     N'SLA por vencer',             N'Tickets abiertos con un SLA que vence pronto o ya venció.',                                     'lectura', '0'),
  ('api.Sprint_Avance',    N'Avance de sprints',          N'Issues, story points y horas registradas dentro de cada sprint (incluye subtareas).',          'lectura', '0'),
  ('api.Epicas_Avance',    N'Avance de épicas',           N'Tareas terminadas, story points, estimación y horas de cada épica (con sus tareas y subtareas).', 'lectura', '0'),
+ ('api.Estimacion_VsReal', N'Estimado vs. real',          N'Horas estimadas contra las registradas por personas (con subtareas), desviación, % consumido y tareas sin estimar.', 'lectura', '0'),
  ('api.Horas_PorSprint',  N'Horas por sprint',           N'Tiempo reportado en Scrum: horas por sprint y persona, registradas y automáticas (incluye subtareas).', 'lectura', '0'),
  ('api.Proyectos_Listar', N'Proyectos',                  N'Proyectos Scrum y de mesa de ayuda que se sincronizan.',                                        'lectura', '0'),
  ('api.Sync_Estado',      N'Estado de la sincronización', N'Cuándo se sincronizó cada fuente y cada tipo de dato.',                                        'lectura', '1'),
@@ -99,6 +100,13 @@ EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Origen', N'smc:opcione
 EXEC adm.Descripcion_Establecer 'api.Sprint_Avance', '@Estado', N'smc:opciones', N'active=Activo|closed=Cerrado|future=Futuro';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorSprint', '@Estado', N'smc:opciones', N'active=Activo|closed=Cerrado|future=Futuro';
 EXEC adm.Descripcion_Establecer 'api.Epicas_Avance', '@Categoria', N'smc:opciones', N'new=Por hacer|indeterminate=En curso|done=Terminada';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', NULL, N'smc:resultados', N'Resumen|Detalle por issue';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Nivel', N'smc:opciones', N'tarea=Tareas e historias|epica=Épicas';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Epica', N'MS_Description', N'Clave de una épica (p. ej. SSM26-56).';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Sprint', N'MS_Description', N'Parte del nombre del sprint.';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Responsable', N'MS_Description', N'Parte del nombre del responsable.';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@SoloExcedidas', N'MS_Description', N'Solo los que registraron más horas de las estimadas.';
+EXEC adm.Descripcion_Establecer 'api.Estimacion_VsReal', '@Detalle', N'MS_Description', N'No = solo el resumen.';
 EXEC adm.Descripcion_Establecer 'api.Epicas_Avance', '@Texto', N'MS_Description', N'Parte de la clave o del resumen de la épica.';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorPersona', '@Epica', N'MS_Description', N'Clave de una épica (p. ej. SSM26-56): solo su tiempo, el de sus tareas y subtareas.';
 EXEC adm.Descripcion_Establecer 'api.Horas_PorSprint', '@Sprint', N'MS_Description', N'Parte del nombre del sprint.';

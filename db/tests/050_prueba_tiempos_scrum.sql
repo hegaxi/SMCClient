@@ -115,13 +115,37 @@ EXEC prueba.Afirmar @ok, N'Épicas para elegir, con cuántos issues tiene cada u
 
 DECLARE @e TABLE (Epica varchar(50), Resumen nvarchar(1000), Proyecto varchar(50), Estado nvarchar(100), Categoria varchar(20), Responsable nvarchar(200),
                   Issues int, Terminados int, Avance decimal(5,1), SP decimal(9,2), SPT decimal(9,2),
-                  Est decimal(12,2), Reg decimal(12,2), Aut decimal(12,2), Ultimo datetimeoffset, Creado datetimeoffset, Venc date, Resuelto datetimeoffset);
+                  Est decimal(12,2), Reg decimal(12,2), Aut decimal(12,2), Ultimo datetimeoffset, Creado datetimeoffset, Venc date, Resuelto datetimeoffset,
+                  Desv decimal(12,2), Consumo decimal(9,1), SinEst int);
 INSERT @e EXEC api.Epicas_Avance @Proyecto = 'SCR';
 SET @ok = CASE WHEN (SELECT COUNT(*) FROM @e) = 1 AND (SELECT Issues FROM @e) = 2 AND (SELECT Terminados FROM @e) = 1 AND (SELECT Avance FROM @e) = 50
                 AND (SELECT SP FROM @e) = 11 AND (SELECT SPT FROM @e) = 8 AND (SELECT Est FROM @e) = 10 THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Avance de la épica: 2 tareas, 1 terminada (50 %), 11 story points (8 terminados), 10 h estimadas';
 SET @ok = CASE WHEN (SELECT Reg FROM @e) = 17 AND (SELECT Aut FROM @e) = 16 THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Horas de la épica con todo su árbol: 17 h registradas (8 + 4 + 2 + 3, casi todas en tareas y subtarea) y 16 automáticas (8 en la épica + 8 en la historia)';
+SET @ok = CASE WHEN (SELECT Desv FROM @e) = 7 AND (SELECT Consumo FROM @e) = 170 AND (SELECT SinEst FROM @e) = 1 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Épica: 17 h registradas contra 10 estimadas (+7 h, 170 %) y 1 tarea sin estimar';
+
+/* Estimado vs. real */
+DECLARE @res TABLE (Issues int, Con int, Sin int, PctCon decimal(5,1), Est decimal(12,2), RegEst decimal(12,2), Desv decimal(12,2), Consumo decimal(9,1), Excedidas int);
+INSERT @res EXEC api.Estimacion_VsReal @Proyecto = 'SCR', @Nivel = 'tarea', @Detalle = 0;
+SET @ok = CASE WHEN (SELECT Issues FROM @res) = 2 AND (SELECT Con FROM @res) = 1 AND (SELECT Sin FROM @res) = 1 AND (SELECT PctCon FROM @res) = 50
+                AND (SELECT Est FROM @res) = 10 AND (SELECT RegEst FROM @res) = 3 AND (SELECT Desv FROM @res) = -7 AND (SELECT Consumo FROM @res) = 30
+                AND (SELECT Excedidas FROM @res) = 0 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Estimado vs. real (tareas): 2 tareas, 1 sin estimar (50 % capturado); la estimada lleva 3 de 10 h (30 %)';
+DELETE @res; INSERT @res EXEC api.Estimacion_VsReal @Proyecto = 'SCR', @Nivel = 'epica', @Detalle = 0;
+SET @ok = CASE WHEN (SELECT Issues FROM @res) = 1 AND (SELECT Excedidas FROM @res) = 1 AND (SELECT Desv FROM @res) = 7 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Estimado vs. real (épicas): la épica se excedió 7 h (las automáticas no cuentan como esfuerzo)';
+DELETE @res; INSERT @res EXEC api.Estimacion_VsReal @Proyecto = 'SCR', @Detalle = 0;
+SET @ok = CASE WHEN (SELECT Issues FROM @res) = 3 AND (SELECT Sin FROM @res) = 1 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Estimado vs. real sin nivel: tareas y épicas (las subtareas cuentan dentro de su tarea)';
+DECLARE @cs TABLE (Clave nvarchar(50), TotalFilas int);
+INSERT @cs EXEC api.Issues_Consultar @Columnas = N'clave', @Criterios = N'[{"campo":"jerarquia","operador":"en","valores":["Estándar"]},{"campo":"horas_estimadas_arbol","operador":"vacio"}]';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @cs WHERE Clave LIKE 'SCR-%') = 1 AND EXISTS (SELECT 1 FROM @cs WHERE Clave = 'SCR-7') THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Búsqueda: tareas sin estimación';
+DELETE @cs; INSERT @cs EXEC api.Issues_Consultar @Columnas = N'clave', @Criterios = N'[{"campo":"consumo_estimacion","operador":"mayor","valor":"100"}]';
+SET @ok = CASE WHEN (SELECT COUNT(*) FROM @cs) = 1 AND EXISTS (SELECT 1 FROM @cs WHERE Clave = 'SCR-1') THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Búsqueda: más del 100 % de la estimación consumido';
 
 DECLARE @h TABLE (Persona nvarchar(200), Proyecto varchar(50), Tipo varchar(30), Issues int, Reg decimal(12,2), Aut decimal(12,2), Total decimal(12,2));
 INSERT @h EXEC api.Horas_PorPersona @Desde = '2026-10-01', @Hasta = '2026-11-30', @Epica = 'SCR-1';
@@ -146,13 +170,14 @@ GO
 /* ===== Horas por sprint ===== */
 DECLARE @ok bit;
 DECLARE @sp TABLE (SprintId bigint, Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Comp datetimeoffset,
-                   Issues int, Terminados int, SP decimal(9,2), SPT decimal(9,2), Reg decimal(12,2), Aut decimal(12,2));
+                   Issues int, Terminados int, SP decimal(9,2), SPT decimal(9,2), Reg decimal(12,2), Aut decimal(12,2), Est decimal(12,2), SinEst int);
 INSERT @sp EXEC api.Sprint_Avance @Proyecto = 'SCR';
 SET @ok = CASE WHEN (SELECT Reg FROM @sp WHERE Sprint = N'Sprint 4') = 14 AND (SELECT Aut FROM @sp WHERE Sprint = N'Sprint 4') = 8
                 AND (SELECT Reg FROM @sp WHERE Sprint = N'Sprint 3') IS NULL THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Sprint 4 (sigue activo después de su fecha de fin): 14 h registradas (8 de la historia + 6 de la subtarea) y 8 automáticas; el Sprint 3, cerrado antes, no repite esas horas';
-SET @ok = CASE WHEN (SELECT Issues FROM @sp WHERE Sprint = N'Sprint 4') = 1 THEN 1 ELSE 0 END;
-EXEC prueba.Afirmar @ok, N'Las subtareas no cuentan como issues del sprint';
+SET @ok = CASE WHEN (SELECT Issues FROM @sp WHERE Sprint = N'Sprint 4') = 1 AND (SELECT SinEst FROM @sp WHERE Sprint = N'Sprint 4') = 1
+                AND (SELECT Est FROM @sp WHERE Sprint = N'Sprint 4') IS NULL THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Las subtareas no cuentan como issues del sprint; el sprint muestra cuántos no tienen estimación';
 
 DECLARE @h TABLE (Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Persona nvarchar(200),
                   Issues int, Reg decimal(12,2), Aut decimal(12,2), Total decimal(12,2));

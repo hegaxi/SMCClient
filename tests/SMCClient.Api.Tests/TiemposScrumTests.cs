@@ -41,5 +41,10 @@ public class TiemposScrumTests(ApiFixture bd) : IClassFixture<ApiFixture>
         Assert.Equal(0, (await Filas(lector, "Epicas_Avance", new { Proyecto = "SCR" })).GetArrayLength());
         var conEpica = await Filas(lector, "Horas_PorPersona", new { Desde = "2026-10-01", Hasta = "2026-11-30", Epica = "SCR-1" });
         Assert.Equal(0, conEpica.GetArrayLength());
+
+        // Estimado vs. real: SCR-7 es una historia sin estimación (la captura se mide).
+        var resumen = (await Filas(lector, "Estimacion_VsReal", new { Proyecto = "SCR" }))[0];
+        Assert.Equal(1, resumen.GetProperty("Issues").GetInt32());
+        Assert.Equal(1, resumen.GetProperty("SinEstimacion").GetInt32());
     }
 }

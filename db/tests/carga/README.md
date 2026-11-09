@@ -32,13 +32,19 @@ la mediana es de las 3 últimas.
 | Horas por sprint (todos) | 16 069 ms | 538 ms |
 | Avance de sprints | más de 10 min | 133 ms |
 | Detalle de una épica | 145 ms | 50 ms |
-| Resto de los casos (búsquedas, valores, conteos, épicas, estado) | 0 – 2 000 ms | 4 – 294 ms |
+| Resto de los casos (búsquedas, valores, conteos, épicas, estado, estimado vs. real) | 0 – 2 000 ms | 4 – 380 ms |
 
 Qué cambió: la atribución de horas (a quién se le cuentan las automáticas), las horas de cada issue con todo su árbol y
 su épica se calculaban **en cada consulta**, fila por fila. Ahora se calculan **al integrar** y se guardan
 (`ops.Worklog.EsAutomatico / AtribuidoAId / MetodoAtribucion` con `sync.Worklog_Atribuir`, y `ops.IssueResumen` con
 `sync.Resumen_Recalcular`), solo para los issues tocados en cada corrida (`sync.Derivados_Actualizar`). Los reportes de
 sprint usan tablas temporales indexadas y los worklogs se unen por la llave que tiene índice (`FuenteId, IssueId`).
+
+Estabilidad de los planes: con estadísticas recién cargadas el optimizador llegó a recorrer todos los worklogs de la fuente
+por cada issue (*Horas por sprint* volvió a tardar más de 60 s y el detalle de una épica 39 s). Por eso los reportes que
+leen worklogs de un conjunto de issues primero juntan los ids con una búsqueda forzada en `IX_ops_Worklog_IssueDet` y luego
+leen `rpt.vWorklog` por llave con `OPTION (FORCE ORDER)`. Los 19 casos se midieron dos veces, la segunda sobre una base
+recién desplegada y cargada (el escenario que había fallado), y todos quedaron dentro del presupuesto.
 
 Costo de mantenerlo, medido en la misma carga:
 

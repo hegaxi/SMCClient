@@ -33,10 +33,17 @@ BEGIN
         FROM arbol a JOIN ops.Issue h ON h.FuenteId = a.FuenteId AND h.PadreId = a.IssueId
         WHERE h.Eliminado = 0 AND a.Nivel < 5
     )
+    SELECT FuenteId, IssueId INTO #arbol FROM arbol OPTION (MAXRECURSION 10);
+    SELECT w.FuenteId, w.WorklogId INTO #w
+    FROM #arbol a JOIN ops.Worklog w WITH (FORCESEEK(IX_ops_Worklog_IssueDet(FuenteId, IssueId))) ON w.FuenteId = a.FuenteId AND w.IssueId = a.IssueId
+    WHERE w.Eliminado = 0;
+
+    -- FORCE ORDER: primero los ids, luego el worklog por su llave y después su issue (sin esto el optimizador cruzaba
+    -- los ids con todos los issues de la fuente; prueba de carga: 39 s contra 50 ms).
     SELECT w.Clave, w.WorklogId, w.Inicio, w.Horas, w.Origen, w.AtribuidoA, w.MetodoAtribucion, w.Autor
-    FROM arbol a
-    JOIN rpt.vWorklog w ON w.FuenteId = a.FuenteId AND w.IssueId = a.IssueId
-    ORDER BY w.Inicio;
+    FROM #w x JOIN rpt.vWorklog w ON w.FuenteId = x.FuenteId AND w.WorklogId = x.WorklogId
+    ORDER BY w.Inicio
+    OPTION (FORCE ORDER);
 
     SELECT Sla, Ciclo, EnCurso, Inicio, Fin, Vencimiento, ObjetivoMs, TranscurridoMs, Pausado, Incumplido, MinutosParaVencer
     FROM rpt.vSla WHERE IssueSk = @IssueSk ORDER BY Sla, Ciclo;

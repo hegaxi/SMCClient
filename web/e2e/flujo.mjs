@@ -126,6 +126,13 @@ try {
     await pagina.getByRole('cell', { name: 'Dev Uno' }).waitFor();
   });
 
+  await paso('Estimado vs real', async () => {
+    await pagina.getByRole('link', { name: 'Estimado vs. real' }).click();
+    await titulo('Estimado vs. real').waitFor();
+    await titulo('Detalle por issue').waitFor();
+    await pagina.getByRole('cell', { name: 'Sin estimación' }).first().waitFor();
+  });
+
   await paso('Avance de epicas', async () => {
     await pagina.getByRole('link', { name: 'Avance de épicas' }).click();
     await titulo('Avance de épicas').waitFor();
