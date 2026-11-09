@@ -642,3 +642,6 @@ table.arbol tr.nivel-2 td { font-weight: 500; }
 table.arbol tr.nivel-1 td { border-top: 1px solid var(--borde-control); }
 .alternar-nodo { min-width: 24px; min-height: 24px; }
 th abbr.ayuda-columna { text-decoration: underline dotted; text-underline-offset: 3px; cursor: help; }
+
+/* ◀ ▶ para mover el periodo (junto al campo Hasta) */
+.navegar-periodo { display: flex; gap: var(--e-1); margin-top: var(--e-1); }

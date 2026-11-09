@@ -1,4 +1,4 @@
-import { aCsv, claseSituacion, construirCuerpo, etiqueta, etiquetasDeValores, formatear, opcionesDeColumna, textoOpcionVacia, valoresIniciales } from '../formato';
+import { aCsv, claseSituacion, construirCuerpo, desplazarPeriodo, etiqueta, etiquetasDeValores, formatear, opcionesDeColumna, textoOpcionVacia, valoresIniciales } from '../formato';
 import { parametro } from './datos';
 
 describe('formato', () => {
@@ -65,5 +65,26 @@ describe('formato', () => {
 
   it('exporta CSV escapando comillas y comas', () => {
     expect(aCsv([{ nombre: 'A' }, { nombre: 'B' }], [{ A: 'x, "y"', B: null }])).toBe('﻿A,B\r\n"x, ""y""",');
+  });
+});
+
+describe('desplazarPeriodo', () => {
+  const hoy = new Date(2026, 10, 9);   // 9 nov 2026
+  it('mueve un año completo, o del 1 de enero a hoy', () => {
+    expect(desplazarPeriodo('2026-01-01', '2026-11-09', -1, hoy)).toEqual({ desde: '2025-01-01', hasta: '2025-12-31' });
+    expect(desplazarPeriodo('2025-01-01', '2025-12-31', 1, hoy)).toEqual({ desde: '2026-01-01', hasta: '2026-12-31' });
+  });
+  it('mueve meses completos, o del día 1 a hoy, la misma cantidad de meses', () => {
+    expect(desplazarPeriodo('2026-11-01', '2026-11-09', -1, hoy)).toEqual({ desde: '2026-10-01', hasta: '2026-10-31' });
+    expect(desplazarPeriodo('2026-01-01', '2026-02-28', 1, hoy)).toEqual({ desde: '2026-03-01', hasta: '2026-04-30' });
+    expect(desplazarPeriodo('2026-03-01', '2026-03-31', -1, hoy)).toEqual({ desde: '2026-02-01', hasta: '2026-02-28' });
+  });
+  it('cualquier otro rango se mueve tantos días como dura', () => {
+    expect(desplazarPeriodo('2026-11-02', '2026-11-08', -1, hoy)).toEqual({ desde: '2026-10-26', hasta: '2026-11-01' });
+    expect(desplazarPeriodo('2025-11-30', '2026-11-09', 1, hoy)?.desde).toBe('2026-11-10');
+  });
+  it('null si faltan fechas o están al revés', () => {
+    expect(desplazarPeriodo('', '2026-11-09', 1, hoy)).toBeNull();
+    expect(desplazarPeriodo('2026-11-09', '2026-11-01', 1, hoy)).toBeNull();
   });
 });

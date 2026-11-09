@@ -176,6 +176,36 @@ export function valoresIniciales(parametros: ParametroInfo[], hoy = new Date()):
 }
 
 /**
+ * Mueve un rango de fechas (yyyy-mm-dd) al periodo anterior (-1) o siguiente (+1), como las flechas del reporte de
+ * Worklogs de Jira:
+ *   - un año (del 1 de enero al 31 de diciembre, o hasta hoy) -> el año anterior / siguiente completo;
+ *   - meses completos (del día 1 al último día de un mes, o hasta hoy) -> la misma cantidad de meses, completos;
+ *   - cualquier otro rango -> tantos días como dura.
+ * null si alguna fecha no es válida o el rango está al revés.
+ */
+export function desplazarPeriodo(desde: string, hasta: string, sentido: -1 | 1, hoy = new Date()): { desde: string; hasta: string } | null {
+  const leer = (s: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
+  const iso = (f: Date) => `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+  const d = leer(desde), h = leer(hasta);
+  if (!d || !h || d > h) return null;
+  const ultimoDia = (a: number, m: number) => new Date(a, m + 1, 0);
+  const esHoy = iso(h) === iso(hoy);
+  const finDeMes = h.getDate() === ultimoDia(h.getFullYear(), h.getMonth()).getDate();
+  if (d.getMonth() === 0 && d.getDate() === 1 && h.getFullYear() === d.getFullYear() && (esHoy || (h.getMonth() === 11 && h.getDate() === 31))) {
+    const a = d.getFullYear() + sentido;
+    return { desde: `${a}-01-01`, hasta: `${a}-12-31` };
+  }
+  if (d.getDate() === 1 && (finDeMes || esHoy)) {
+    const meses = (h.getFullYear() - d.getFullYear()) * 12 + h.getMonth() - d.getMonth() + 1;
+    const ini = new Date(d.getFullYear(), d.getMonth() + sentido * meses, 1);
+    return { desde: iso(ini), hasta: iso(ultimoDia(ini.getFullYear(), ini.getMonth() + meses - 1)) };
+  }
+  const dias = Math.round((h.getTime() - d.getTime()) / 86_400_000) + 1;
+  const mover = (f: Date) => new Date(f.getFullYear(), f.getMonth(), f.getDate() + sentido * dias);
+  return { desde: iso(mover(d)), hasta: iso(mover(h)) };
+}
+
+/**
  * Columna "Situacion" (Estimado vs. real): clase de la insignia de color. El texto siempre se muestra (el color no es
  * la única señal).
  */

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ErrorApi } from '../api';
-import { construirCuerpo, valoresIniciales } from '../formato';
+import { construirCuerpo, desplazarPeriodo, valoresIniciales } from '../formato';
 import { accionDisponible, accionVisibleEnFila, reemplazar, valoresDeAccion } from '../acciones';
 import type { AccionListado, Fila, ProcedimientoInfo, ResultadoEjecucion, ValoresFormulario } from '../tipos';
 import { DialogoAccion } from './DialogoAccion';
@@ -99,6 +99,16 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
   const pagina = Number(valores.Pagina || 1);
   const tamano = Number(valores.TamanoPagina || 50);
   const paginas = Math.max(1, Math.ceil(total / tamano));
+  // ◀ ▶ junto a Hasta: mismo rango un periodo antes o después (formato.desplazarPeriodo), y se consulta de inmediato.
+  const nombreDesde = proc.parametros.find((p) => p.nombre.toLowerCase() === 'desde')?.nombre ?? 'Desde';
+  const nombreHasta = proc.parametros.find((p) => p.nombre.toLowerCase() === 'hasta')?.nombre ?? 'Hasta';
+  const desplazar = (sentido: -1 | 1) => {
+    const r = desplazarPeriodo(valores[nombreDesde] ?? '', valores[nombreHasta] ?? '', sentido);
+    if (!r) { setMensaje('Escriba las fechas Desde y Hasta para moverse entre periodos.'); return; }
+    const v = { ...valores, [nombreDesde]: r.desde, [nombreHasta]: r.hasta, ...(tienePaginas ? { Pagina: '' } : {}) };
+    setValores(v);
+    if (!proc.accion) void ejecutar(v);
+  };
   const irA = (n: number) => {
     const v = { ...valores, Pagina: String(n) };
     setValores(v);
@@ -159,6 +169,7 @@ export function VistaProcedimiento({ proc, valoresUrl, onNavegar, puedeVerDetall
         ocupado={ocupado}
         onCambio={cambiar}
         onEnviar={enviar}
+        onDesplazarPeriodo={proc.accion ? undefined : desplazar}
         textoBoton={proc.accion ? 'Ejecutar' : 'Consultar'}
       >
         {puedeGuardarFiltro && !proc.accion && !guardando && (

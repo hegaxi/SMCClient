@@ -19,10 +19,13 @@ interface Props {
   textoSinValor?: string;
   /** Acciones secundarias junto al botón principal (p. ej. "Guardar como filtro"). */
   children?: ReactNode;
+  /** Si se indica y hay campos Desde y Hasta, junto a Hasta aparecen ◀ ▶ para pasar al periodo anterior o siguiente. */
+  onDesplazarPeriodo?: (sentido: -1 | 1) => void;
 }
 
 /** Formulario generado a partir de los metadatos del procedimiento (tipo, longitud, opcional, opciones, descripción). */
-export function Formulario({ parametros, valores, errores, ocupado, onCambio, onEnviar, textoBoton = 'Consultar', textoOcupado = 'Consultando…', bloqueados = [], textoSinValor, children }: Props) {
+export function Formulario({ parametros, valores, errores, ocupado, onCambio, onEnviar, textoBoton = 'Consultar', textoOcupado = 'Consultando…', bloqueados = [], textoSinValor, children, onDesplazarPeriodo }: Props) {
+  const conPeriodo = !!onDesplazarPeriodo && ['desde', 'hasta'].every((n) => parametros.some((p) => p.tipo === 'date' && p.nombre.toLowerCase() === n));
   const visibles = parametros.filter((p) => !p.salida);
   const enviar = (e: FormEvent) => {
     e.preventDefault();
@@ -87,6 +90,14 @@ export function Formulario({ parametros, valores, errores, ocupado, onCambio, on
                 ) : entrada}
                 {p.descripcion && <small id={ayuda} className="ayuda">{p.descripcion}</small>}
                 {err && <small id={`${id}-error`} className="error-campo">{err.join(' ')}</small>}
+                {conPeriodo && p.nombre.toLowerCase() === 'hasta' && (
+                  <div className="navegar-periodo" role="group" aria-label="Mover el periodo">
+                    <button type="button" className="boton secundario-btn pequeno" disabled={ocupado} onClick={() => onDesplazarPeriodo!(-1)}
+                            title="Mismo rango, un periodo antes">◀ Anterior</button>
+                    <button type="button" className="boton secundario-btn pequeno" disabled={ocupado} onClick={() => onDesplazarPeriodo!(1)}
+                            title="Mismo rango, un periodo después">Siguiente ▶</button>
+                  </div>
+                )}
               </div>
             );
           })}
