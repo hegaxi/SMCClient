@@ -39,7 +39,8 @@ AUTH=(-E); [[ -n "$USER_SQL" ]] && AUTH=(-U "$USER_SQL")
 BASE=("$SQLCMD" -S "$SERVER" "${AUTH[@]}" $TRUST -b -I -x -f 65001)   # scripts en UTF-8
 
 if [[ $CREAR -eq 1 ]]; then
-  "${BASE[@]}" -d master -Q "IF DB_ID(N'${DB//\'/\'\'}') IS NULL CREATE DATABASE [${DB//]/]]}];"
+  # Creada por una cuenta de Windows (DOMINIO\usuario): el dueño pasa a sa (EXECUTE AS OWNER no consulta al dominio).
+  "${BASE[@]}" -d master -Q "IF DB_ID(N'${DB//\'/\'\'}') IS NULL BEGIN CREATE DATABASE [${DB//]/]]}]; IF SUSER_SNAME() LIKE N'%\\%' ALTER AUTHORIZATION ON DATABASE::[${DB//]/]]}] TO sa; END;"
 fi
 
 consulta() { "${BASE[@]}" -d "$DB" -h -1 -W -Q "SET NOCOUNT ON; $1"; }

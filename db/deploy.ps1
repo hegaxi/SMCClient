@@ -47,7 +47,9 @@ function Get-Escalar([string]$query) {
 
 if ($CrearBd) {
     $db = $Database.Replace("'", "''"); $dbq = $Database.Replace(']', ']]')
-    Invoke-Sql @('-d', 'master', '-Q', "IF DB_ID(N'$db') IS NULL CREATE DATABASE [$dbq];")
+    # Si la crea una cuenta de Windows (DOMINIO\usuario), el dueño pasa a sa: los procedimientos WITH EXECUTE AS OWNER
+    # (búsqueda avanzada) no deben depender de que el controlador de dominio responda (error 15404 sin VPN).
+    Invoke-Sql @('-d', 'master', '-Q', "IF DB_ID(N'$db') IS NULL BEGIN CREATE DATABASE [$dbq]; IF SUSER_SNAME() LIKE N'%\%' ALTER AUTHORIZATION ON DATABASE::[$dbq] TO sa; END;")
 }
 
 foreach ($rel in $scripts) {

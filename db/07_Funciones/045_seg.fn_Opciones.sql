@@ -14,7 +14,8 @@ RETURN
             (N'tableros.editar',          N'Crear y editar tableros',   N'Nuevo tablero: widgets, orden y con quién se comparte.',                               N'Tablero_Guardar'),
             (N'filtros',                  N'Mis filtros',               N'Guardar las consultas como filtros, compartirlos y usarlos en tableros.',              N'Filtros_Listar'),
             (N'busqueda_avanzada',        N'Búsqueda avanzada',         N'Filtros desde cero sobre cualquier campo de Jira, con columnas, orden y resúmenes.',   N'Issues_Consultar'),
-            (N'consultas_personalizadas', N'Consultas personalizadas',  N'Ver y ejecutar las consultas personalizadas compartidas con el usuario o su rol.',     N'ConsultasPersonalizadas_Listar')
+            (N'consultas_personalizadas', N'Consultas personalizadas',  N'Ver y ejecutar las consultas personalizadas compartidas con el usuario o su rol.',     N'ConsultasPersonalizadas_Listar'),
+            (N'sync.proyectos',           N'Proyectos a sincronizar',   N'Elegir qué proyectos de Jira se sincronizan y qué pasa con los proyectos nuevos.',       N'ProyectosSync_Listar')
         ) v (Codigo, Titulo, Descripcion, Principal)),
     opcion AS (
         SELECT o.Opcion, MAX(o.Categoria) AS Categoria, MIN(o.Procedimiento) AS Primero,

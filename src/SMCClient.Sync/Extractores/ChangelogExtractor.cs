@@ -20,6 +20,8 @@ public sealed class ChangelogExtractor : IExtractor
         foreach (var bloque in ctx.Issues.Todos.Select(i => i.IssueId).Chunk(tamano))
         {
             var historias = bloque.ToDictionary(id => id, _ => new List<string>(), StringComparer.Ordinal);
+            // bulkfetch puede repetir una historia entre páginas: se guarda una sola vez por id.
+            var vistas = new HashSet<string>(StringComparer.Ordinal);
             string? token = null;
             do
             {
@@ -29,7 +31,11 @@ public sealed class ChangelogExtractor : IExtractor
                 {
                     var id = Json.Texto(registro, "issueId");
                     if (id is null || !historias.TryGetValue(id, out var lista)) continue;
-                    foreach (var h in Json.Arreglo(registro, "changeHistories")) lista.Add(h.GetRawText());
+                    foreach (var h in Json.Arreglo(registro, "changeHistories"))
+                    {
+                        var hid = Json.Texto(h, "id");
+                        if (hid is null || vistas.Add(hid)) lista.Add(h.GetRawText());
+                    }
                 }
                 token = Json.Texto(doc.RootElement, "nextPageToken");
             } while (token is not null);

@@ -33,6 +33,8 @@ public class BaseDatosPrueba : IAsyncLifetime
     {
         if (!Activo) return;
         await EjecutarAsync("master", $"CREATE DATABASE [{BaseDatos}];");
+        // Igual que deploy: si la crea una cuenta de Windows, el dueño pasa a sa (EXECUTE AS OWNER no consulta al dominio).
+        await EjecutarAsync("master", $"IF SUSER_SNAME() LIKE N'%\\%' ALTER AUTHORIZATION ON DATABASE::[{BaseDatos}] TO sa;");
         foreach (var script in ScriptsEnOrden()) await EjecutarScriptAsync(script);
     }
 

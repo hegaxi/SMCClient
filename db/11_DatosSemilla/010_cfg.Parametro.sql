@@ -8,7 +8,8 @@ USING (VALUES
     ('UmbralBajaCatalogoPct', N'50',  N'Porcentaje mínimo del catálogo que debe llegar para dar de baja campos, proyectos o issues.'),
     ('ContrasenaLongitudMinima', N'10', N'Caracteres mínimos de una contraseña.'),
     ('IntentosFallidosMaximos',  N'5',  N'Intentos fallidos seguidos antes de bloquear la cuenta.'),
-    ('MinutosBloqueo',           N'15', N'Minutos que la cuenta queda bloqueada tras los intentos fallidos.')
+    ('MinutosBloqueo',           N'15', N'Minutos que la cuenta queda bloqueada tras los intentos fallidos.'),
+    ('ProyectosNuevosSincronizar', N'1', N'1 = un proyecto nuevo en Jira se sincroniza solo; 0 = queda desactivado hasta que un administrador lo active en Proyectos a sincronizar.')
 ) AS s (Clave, Valor, Descripcion) ON t.Clave = s.Clave
 WHEN NOT MATCHED THEN INSERT (Clave, Valor, Descripcion) VALUES (s.Clave, s.Valor, s.Descripcion);
 GO
