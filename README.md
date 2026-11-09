@@ -172,7 +172,10 @@ En Scrum las personas registran el tiempo en las **subtareas**. *Horas por sprin
 (registradas y automáticas), *Avance de sprints* incluye las horas registradas dentro de las fechas de cada sprint, el
 detalle de una historia suma y lista las de sus subtareas, y la búsqueda avanzada tiene *Horas registradas (con
 subtareas)*, *Es subtarea*, *Registró tiempo (persona)* y *Fecha de registro de tiempo*.
-Detalle: [`docs/arquitectura.md` §5.6.1](docs/arquitectura.md).
+Las **épicas** suman las horas de sus tareas y de las subtareas de éstas: *Avance de épicas* da tareas terminadas, % de
+avance, story points, estimación y horas; *Horas por persona* se puede filtrar por épica, y la búsqueda tiene la columna
+y el criterio *Épica*.
+Detalle: [`docs/arquitectura.md` §5.6.1 y §5.6.2](docs/arquitectura.md).
 
 ### 7. Búsqueda avanzada (como el navegador de issues de Jira)
 

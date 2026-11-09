@@ -65,8 +65,9 @@ dotnet SMCClient.Api.dll crear-administrador --usuario admin --nombre "Administr
 
 ## Pruebas
 
-`tests/050_prueba_tiempos_scrum.sql` verifica 12 reglas del tiempo en Scrum (marca de subtarea, horas de una historia con
-sus subtareas, criterios por worklog, horas dentro de cada sprint y por persona). Agrega una subtarea y la borra al final.
+`tests/050_prueba_tiempos_scrum.sql` verifica 19 reglas del tiempo en Scrum (jerarquía épica / tarea / subtarea, horas de una
+historia o épica con todos sus descendientes, avance de épicas, criterios por worklog y por épica, horas dentro de cada sprint
+y por persona). Agrega una épica, una tarea y una subtarea y las borra al final.
 
 `tests/040_prueba_buscador.sql` verifica 57 reglas de la búsqueda avanzada y su resumen (cada operador y tipo, campos de varios
 valores y personalizados, columnas, orden, paginación, guardado como filtro, resumen sin tope con 1 200 issues, widgets e

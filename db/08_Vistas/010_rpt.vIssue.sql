@@ -11,7 +11,7 @@ SELECT
     i.PrioridadId, i.Prioridad, i.ResolucionId, i.Resolucion,
     i.ResponsableId, ur.Nombre AS Responsable,
     i.InformanteId, ui.Nombre AS Informante, ui.TipoCuenta AS TipoCuentaInformante,
-    i.Resumen, i.PadreClave, i.EsSubtarea, i.TipoSolicitudId, i.TipoSolicitud, i.StoryPoints,
+    i.Resumen, i.PadreClave, i.EsSubtarea, i.NivelJerarquia, i.TipoSolicitudId, i.TipoSolicitud, i.StoryPoints,
     i.TiempoInvertidoSeg, i.EstimacionOriginalSeg, i.EstimacionRestanteSeg,
     i.Creado, i.Actualizado, i.Resuelto, i.Vencimiento
 FROM ops.Issue i

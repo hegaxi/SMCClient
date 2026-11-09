@@ -204,6 +204,22 @@ trae lo propio, así que no refleja el trabajo de sus subtareas. Por eso:
 El tiempo registrado fuera de las fechas de cualquier sprint (antes de empezar o después de cerrar) no se asigna a
 ningún sprint; sigue apareciendo en *Horas por persona* y en las horas del issue.
 
+### 5.6.2 Épicas
+
+En el Jira real (197 épicas en los proyectos Scrum) las tareas cuelgan de la épica con el campo `parent` y las subtareas
+de las tareas; las épicas no están en sprints y no tienen padre. El tiempo propio de una épica o de una tarea es solo una
+parte del total: también registran Automation (en la épica y en las tareas) y las personas (en las subtareas).
+
+| Pieza | Qué hace |
+|---|---|
+| `ops.Issue.NivelJerarquia` | `issuetype.hierarchyLevel` (1 épica, 0 estándar, -1 subtarea); si Jira no lo manda se deduce. Migración `0002` |
+| `rpt.fn_HorasIssue` | Horas registradas y automáticas, estimación y último registro de un issue **y todos sus descendientes** (hasta 5 niveles): una épica suma sus tareas y las subtareas de éstas |
+| `rpt.fn_EpicaIssue` | Épica de un issue: él mismo, su padre o su abuelo (subtareas) |
+| Búsqueda avanzada | Columna y criterio *Épica* (como `parent = X`, también para subtareas) y *Nivel* (épica / estándar / subtarea) |
+| `api.Epicas_Avance` | Por épica: tareas, terminadas, % de avance, story points, horas estimadas, registradas y automáticas, último registro |
+| `api.Horas_PorPersona @Epica` | Horas por persona de una épica (la épica, sus tareas y subtareas) |
+| `api.Issue_Detalle` | Épica del issue y worklogs de todos sus descendientes |
+
 
 ### 5.7 La interfaz (`web/`)
 

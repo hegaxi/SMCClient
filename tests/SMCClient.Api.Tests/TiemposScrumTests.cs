@@ -34,5 +34,12 @@ public class TiemposScrumTests(ApiFixture bd) : IClassFixture<ApiFixture>
         var campos = await Filas(lector, "Issues_Campos", new { });
         Assert.Contains(campos.EnumerateArray(), c => c.GetProperty("Clave").GetString() == "horas_registradas");
         Assert.Contains(campos.EnumerateArray(), c => c.GetProperty("Clave").GetString() == "registro_persona");
+        Assert.Contains(campos.EnumerateArray(), c => c.GetProperty("Clave").GetString() == "epica");
+        Assert.Contains(campos.EnumerateArray(), c => c.GetProperty("Clave").GetString() == "jerarquia");
+
+        // Los datos de prueba de la API no tienen épicas: el reporte responde vacío, no con error.
+        Assert.Equal(0, (await Filas(lector, "Epicas_Avance", new { Proyecto = "SCR" })).GetArrayLength());
+        var conEpica = await Filas(lector, "Horas_PorPersona", new { Desde = "2026-10-01", Hasta = "2026-11-30", Epica = "SCR-1" });
+        Assert.Equal(0, conEpica.GetArrayLength());
     }
 }

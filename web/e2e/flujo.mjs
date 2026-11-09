@@ -110,6 +110,13 @@ try {
     await pagina.getByRole('cell', { name: 'Dev Uno' }).waitFor();
   });
 
+  await paso('Avance de epicas', async () => {
+    await pagina.getByRole('link', { name: 'Avance de épicas' }).click();
+    await titulo('Avance de épicas').waitFor();
+    await pagina.getByLabel(/^Categor/).waitFor();
+    await pagina.getByText('No hay registros con estos filtros.').waitFor();   // los datos de prueba no tienen épicas
+  });
+
   await paso('Validacion de parametros', async () => {
     await pagina.goto(`${BASE}/?p=Issue_Detalle`);   // la sesión sigue tras recargar
     await titulo('Detalle de un issue').waitFor();

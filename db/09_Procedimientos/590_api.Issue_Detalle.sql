@@ -1,5 +1,6 @@
 /* Detalle de un issue: 1) datos canónicos, 2) TODOS los campos extra (formato largo, la interfaz los
-   convierte en columnas), 3) worklogs (también los de sus subtareas: en Scrum ahí se registra el tiempo),
+   convierte en columnas), 3) worklogs (también los de sus descendientes: subtareas de una tarea; tareas y subtareas
+   de una épica; en Scrum las personas registran en las subtareas),
    4) SLA, 5) historial de estados. */
 CREATE OR ALTER PROCEDURE api.Issue_Detalle
     @Clave varchar(50)
@@ -10,24 +11,30 @@ BEGIN
     IF @IssueSk IS NULL THROW 50404, 'No existe el issue.', 1;
 
     SELECT Clave, ProyectoClave, ProyectoNombre, TipoProyecto, TipoIssue, TipoSolicitud, Resumen, Estado, CategoriaEstado,
-           Prioridad, Resolucion, Responsable, Informante, PadreClave, StoryPoints,
+           Prioridad, Resolucion, Responsable, Informante, PadreClave, e.Epica, StoryPoints,
            CAST(TiempoInvertidoSeg / 3600.0 AS decimal(12,2)) AS HorasInvertidas,
            CAST(EstimacionOriginalSeg / 3600.0 AS decimal(12,2)) AS HorasEstimadas,
            CAST(EstimacionRestanteSeg / 3600.0 AS decimal(12,2)) AS HorasRestantes,
-           h.HorasRegistradas AS HorasRegistradasConSubtareas, h.HorasAutomaticas AS HorasAutomaticasConSubtareas,
+           h.HorasRegistradas AS HorasRegistradasConHijos, h.HorasAutomaticas AS HorasAutomaticasConHijos,
            Creado, Actualizado, Resuelto, Vencimiento
     FROM rpt.vIssue i
     OUTER APPLY rpt.fn_HorasIssue(i.FuenteId, i.IssueId, i.Clave) h
+    OUTER APPLY rpt.fn_EpicaIssue(i.FuenteId, i.Clave, i.PadreClave, i.NivelJerarquia) e
     WHERE i.IssueSk = @IssueSk;
 
     SELECT CampoId, Campo, TipoSchema, CampoActivo, Orden, ValorId, ValorTexto, ValorNumero, ValorFecha, ValorJson
     FROM rpt.vIssueCampoValor WHERE IssueSk = @IssueSk ORDER BY Campo, Orden;
 
+    WITH arbol AS (
+        SELECT IssueSk, FuenteId, Clave, 0 AS Nivel FROM ops.Issue WHERE IssueSk = @IssueSk
+        UNION ALL
+        SELECT h.IssueSk, h.FuenteId, h.Clave, a.Nivel + 1
+        FROM arbol a JOIN ops.Issue h ON h.FuenteId = a.FuenteId AND h.PadreClave = a.Clave
+        WHERE h.Eliminado = 0 AND a.Nivel < 5
+    )
     SELECT w.Clave, w.WorklogId, w.Inicio, w.Horas, w.Origen, w.AtribuidoA, w.MetodoAtribucion, w.Autor
     FROM rpt.vWorklog w
-    WHERE w.IssueSk = @IssueSk
-       OR w.IssueSk IN (SELECT s.IssueSk FROM ops.Issue s JOIN ops.Issue p ON p.IssueSk = @IssueSk
-                        WHERE s.FuenteId = p.FuenteId AND s.PadreClave = p.Clave AND s.EsSubtarea = 1 AND s.Eliminado = 0)
+    WHERE w.IssueSk IN (SELECT IssueSk FROM arbol)
     ORDER BY w.Inicio;
 
     SELECT Sla, Ciclo, EnCurso, Inicio, Fin, Vencimiento, ObjetivoMs, TranscurridoMs, Pausado, Incumplido, MinutosParaVencer

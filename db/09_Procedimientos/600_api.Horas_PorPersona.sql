@@ -8,7 +8,8 @@ CREATE OR ALTER PROCEDURE api.Horas_PorPersona
     @Hasta        date,
     @Proyecto     varchar(50) = NULL,
     @TipoProyecto varchar(30) = NULL,
-    @Origen       varchar(12) = NULL      -- manual | automatico | NULL = ambos
+    @Origen       varchar(12) = NULL,     -- manual | automatico | NULL = ambos
+    @Epica        varchar(50) = NULL      -- clave de una épica: solo el tiempo de la épica, sus tareas y subtareas
 AS
 BEGIN
     SET NOCOUNT ON;
@@ -25,6 +26,8 @@ BEGIN
       AND (@Proyecto IS NULL OR w.ProyectoClave = @Proyecto)
       AND (@TipoProyecto IS NULL OR w.TipoProyecto = @TipoProyecto)
       AND (@Origen IS NULL OR w.Origen = @Origen)
+      AND (@Epica IS NULL OR EXISTS (SELECT 1 FROM ops.Issue i CROSS APPLY rpt.fn_EpicaIssue(i.FuenteId, i.Clave, i.PadreClave, i.NivelJerarquia) e
+                                     WHERE i.IssueSk = w.IssueSk AND e.EpicaClave = @Epica))
     GROUP BY w.AtribuidoA, w.ProyectoClave, w.TipoProyecto
     ORDER BY HorasRegistradas DESC, HorasTotales DESC;
 END;
