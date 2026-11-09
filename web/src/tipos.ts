@@ -28,6 +28,30 @@ export interface OrigenParametro {
   descripcion: string | null;
   /** Además de elegir, se puede escribir un valor nuevo. */
   libre: boolean;
+  /** Parámetros del procedimiento de la lista; "@Campo" = el valor de ese campo del formulario (listas dependientes). */
+  parametros?: Record<string, string> | null;
+}
+
+/** Botón de un listado (smc:acciones): "Nuevo …" arriba o una acción por fila (ver db/11_DatosSemilla/093_Acciones.sql). */
+export interface AccionListado {
+  etiqueta: string;
+  /** Procedimiento que ejecuta (abre su formulario, o directo tras confirmar). */
+  proc?: string;
+  /** Pantalla a la que lleva (otro procedimiento o una vista propia como _restablecer). */
+  vista?: string;
+  /** true = en cada fila; false = arriba del listado. */
+  fila: boolean;
+  /** "{Columna}" = valor de la fila; otro texto, fijo. */
+  valores?: Record<string, string>;
+  /** Parámetros que no se pueden cambiar (la llave del registro). */
+  bloquear?: string[];
+  /** Sin formulario: confirma y ejecuta. */
+  directo?: boolean;
+  confirmar?: string;
+  exito?: string;
+  peligro?: boolean;
+  /** No se muestra en las filas con estos valores. */
+  ocultarSi?: Record<string, unknown>;
 }
 
 export interface ColumnaInfo {
@@ -55,6 +79,8 @@ export interface ProcedimientoInfo {
   orden?: number | null;
   /** Procedimiento bajo el que aparece como sub-opción (smc:padre). */
   padre?: string | null;
+  /** Botones "Nuevo" y acciones por fila del listado (smc:acciones). */
+  acciones?: AccionListado[] | null;
 }
 
 export type Fila = Record<string, unknown>;

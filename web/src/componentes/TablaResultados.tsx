@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, type ReactNode } from 'react';
 import type { ConjuntoResultados, Fila } from '../tipos';
 import { aCsv, claveOrden, esNumero, etiqueta, formatear, opcionesDeColumna } from '../formato';
 
@@ -14,6 +14,8 @@ interface Props {
   etiquetasValores?: Map<string, Map<string, string>>;
   /** Mensaje cuando no hay filas (por omisión, el de una consulta con filtros). */
   textoVacio?: string;
+  /** Botones de cada fila (acciones del listado: Editar, Eliminar…). */
+  accionesFila?: (fila: Fila) => ReactNode;
 }
 
 const COLUMNAS_CLAVE = new Set(['Clave', 'PadreClave']);
@@ -24,7 +26,7 @@ const COLUMNAS_TEXTO = new Set(['Comentario', 'Cuerpo', 'Descripcion', 'UltimoCo
 const COLUMNAS_OCULTAS = new Set(['TotalFilas']);
 
 /** Un conjunto de resultados: ficha si es un solo registro con muchas columnas; si no, tabla ordenable. */
-export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave, permitirFicha = false, etiquetasValores, textoVacio = 'No hay registros con estos filtros.' }: Props) {
+export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave, permitirFicha = false, etiquetasValores, textoVacio = 'No hay registros con estos filtros.', accionesFila }: Props) {
   const columnas = conjunto.columnas.filter((c) => !COLUMNAS_OCULTAS.has(c.nombre));
   const [orden, setOrden] = useState<{ columna: string; asc: boolean } | null>(null);
 
@@ -61,7 +63,7 @@ export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
     URL.revokeObjectURL(url);
   };
 
-  const esFicha = permitirFicha && conjunto.filas.length === 1 && columnas.length > 6;
+  const esFicha = permitirFicha && !accionesFila && conjunto.filas.length === 1 && columnas.length > 6;
   const encabezado = (
     <div className="encabezado-resultado">
       {titulo && <h3>{titulo}</h3>}
@@ -125,6 +127,7 @@ export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
                   </th>
                 );
               })}
+              {accionesFila && <th scope="col" className="col-acciones">Acciones</th>}
             </tr>
           </thead>
           <tbody>
@@ -133,6 +136,7 @@ export function TablaResultados({ conjunto, titulo, nombreArchivo, onAbrirClave,
                 {columnas.map((c) => (
                   <td key={c.nombre} className={esNumero(c.tipo) ? 'num' : undefined}>{celda(f, c.nombre, c.tipo)}</td>
                 ))}
+                {accionesFila && <td className="col-acciones"><div className="acciones-fila">{accionesFila(f)}</div></td>}
               </tr>
             ))}
           </tbody>

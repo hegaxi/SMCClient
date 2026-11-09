@@ -127,7 +127,7 @@ SET @ok = CASE WHEN (SELECT Desv FROM @e) = 7 AND (SELECT Consumo FROM @e) = 170
 EXEC prueba.Afirmar @ok, N'Épica: 17 h registradas contra 10 estimadas (+7 h, 170 %) y 1 tarea sin estimar';
 
 /* Estimado vs. real */
-DECLARE @res TABLE (Issues int, Con int, Sin int, PctCon decimal(5,1), Est decimal(12,2), RegEst decimal(12,2), Desv decimal(12,2), Consumo decimal(9,1), Excedidas int);
+DECLARE @res TABLE (Issues int, Con int, Sin int, PctCon decimal(5,1), Est decimal(12,2), RegEst decimal(12,2), Desv decimal(12,2), Consumo decimal(9,1), Excedidas int, EnRiesgo int);
 INSERT @res EXEC api.Estimacion_VsReal @Proyecto = 'SCR', @Nivel = 'tarea', @Detalle = 0;
 SET @ok = CASE WHEN (SELECT Issues FROM @res) = 2 AND (SELECT Con FROM @res) = 1 AND (SELECT Sin FROM @res) = 1 AND (SELECT PctCon FROM @res) = 50
                 AND (SELECT Est FROM @res) = 10 AND (SELECT RegEst FROM @res) = 3 AND (SELECT Desv FROM @res) = -7 AND (SELECT Consumo FROM @res) = 30
@@ -137,8 +137,8 @@ DELETE @res; INSERT @res EXEC api.Estimacion_VsReal @Proyecto = 'SCR', @Nivel = 
 SET @ok = CASE WHEN (SELECT Issues FROM @res) = 1 AND (SELECT Excedidas FROM @res) = 1 AND (SELECT Desv FROM @res) = 7 THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Estimado vs. real (épicas): la épica se excedió 7 h (las automáticas no cuentan como esfuerzo)';
 DELETE @res; INSERT @res EXEC api.Estimacion_VsReal @Proyecto = 'SCR', @Detalle = 0;
-SET @ok = CASE WHEN (SELECT Issues FROM @res) = 3 AND (SELECT Sin FROM @res) = 1 THEN 1 ELSE 0 END;
-EXEC prueba.Afirmar @ok, N'Estimado vs. real sin nivel: tareas y épicas (las subtareas cuentan dentro de su tarea)';
+SET @ok = CASE WHEN (SELECT Issues FROM @res) = 2 AND (SELECT Sin FROM @res) = 1 AND (SELECT Est FROM @res) = 10 THEN 1 ELSE 0 END;
+EXEC prueba.Afirmar @ok, N'Estimado vs. real sin nivel: compara tareas (épicas y tareas juntas contaban todo dos veces)';
 DECLARE @cs TABLE (Clave nvarchar(50), TotalFilas int);
 INSERT @cs EXEC api.Issues_Consultar @Columnas = N'clave', @Criterios = N'[{"campo":"jerarquia","operador":"en","valores":["Estándar"]},{"campo":"horas_estimadas_arbol","operador":"vacio"}]';
 SET @ok = CASE WHEN (SELECT COUNT(*) FROM @cs WHERE Clave LIKE 'SCR-%') = 1 AND EXISTS (SELECT 1 FROM @cs WHERE Clave = 'SCR-7') THEN 1 ELSE 0 END;
@@ -169,8 +169,9 @@ GO
 
 /* ===== Horas por sprint ===== */
 DECLARE @ok bit;
-DECLARE @sp TABLE (SprintId bigint, Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Comp datetimeoffset,
-                   Issues int, Terminados int, SP decimal(9,2), SPT decimal(9,2), Reg decimal(12,2), Aut decimal(12,2), Est decimal(12,2), SinEst int);
+DECLARE @sp TABLE (SprintId bigint, Proyecto varchar(50), Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Comp datetimeoffset, Vencido bit,
+                   Issues int, Comprometidos int, Agregados int, YaTerminados int, Terminados int, TermComp int, Pct decimal(5,1), Arrastrados int,
+                   SP decimal(9,2), SPT decimal(9,2), Reg decimal(12,2), Aut decimal(12,2), Est decimal(12,2), SinEst int);
 INSERT @sp EXEC api.Sprint_Avance @Proyecto = 'SCR';
 SET @ok = CASE WHEN (SELECT Reg FROM @sp WHERE Sprint = N'Sprint 4') = 14 AND (SELECT Aut FROM @sp WHERE Sprint = N'Sprint 4') = 8
                 AND (SELECT Reg FROM @sp WHERE Sprint = N'Sprint 3') IS NULL THEN 1 ELSE 0 END;
@@ -179,7 +180,7 @@ SET @ok = CASE WHEN (SELECT Issues FROM @sp WHERE Sprint = N'Sprint 4') = 1 AND 
                 AND (SELECT Est FROM @sp WHERE Sprint = N'Sprint 4') IS NULL THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Las subtareas no cuentan como issues del sprint; el sprint muestra cuántos no tienen estimación';
 
-DECLARE @h TABLE (Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Persona nvarchar(200),
+DECLARE @h TABLE (Proyecto varchar(50), Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Completado datetimeoffset, Persona nvarchar(200),
                   Issues int, Reg decimal(12,2), Aut decimal(12,2), Total decimal(12,2));
 INSERT @h EXEC api.Horas_PorSprint @Proyecto = 'SCR', @Sprint = N'Sprint 4';
 SET @ok = CASE WHEN (SELECT Reg FROM @h WHERE Persona = N'Dev Uno') = 8 AND (SELECT Aut FROM @h WHERE Persona = N'Dev Uno') = 8

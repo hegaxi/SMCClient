@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react';
 import { api } from '../api';
-import type { OrigenParametro } from '../tipos';
+import type { OrigenParametro, ValoresFormulario } from '../tipos';
 
 export interface OpcionLista {
   valor: string;
@@ -8,25 +8,35 @@ export interface OpcionLista {
   descripcion: string | null;
 }
 
-/** Las listas se piden una vez por sesión de página; las acciones que modifican datos limpian el caché. */
+/** Usuarios y roles para "Compartir con" (tableros y consultas personalizadas); formato de @CompartirCon. */
+export const DESTINATARIOS: OrigenParametro = {
+  procedimiento: 'Destinatarios_Listar', valor: 'Valor', etiqueta: 'Etiqueta', descripcion: 'Tipo', libre: false,
+};
+
+/** Las listas se piden una vez por combinación de parámetros; las acciones que modifican datos limpian el caché. */
 const cache = new Map<string, Promise<OpcionLista[]>>();
 
 export function limpiarCacheListas() {
   cache.clear();
 }
 
-/** Usuarios y roles para "Compartir con" (tableros y consultas personalizadas); formato de @CompartirCon. */
-export const DESTINATARIOS: OrigenParametro = {
-  procedimiento: 'Destinatarios_Listar', valor: 'Valor', etiqueta: 'Etiqueta', descripcion: 'Tipo', libre: false,
-};
-
 const texto = (v: unknown) => (v === null || v === undefined ? '' : String(v));
 
-export function cargarOpciones(origen: OrigenParametro): Promise<OpcionLista[]> {
-  const clave = [origen.procedimiento, origen.valor, origen.etiqueta, origen.descripcion].join('|');
+/** Parámetros del origen con los valores actuales del formulario ("@Proyecto" -> el proyecto elegido). Vacíos se omiten. */
+export function parametrosDeOrigen(origen: OrigenParametro, valores: ValoresFormulario = {}): Record<string, string> {
+  const r: Record<string, string> = {};
+  for (const [k, v] of Object.entries(origen.parametros ?? {})) {
+    const x = v.startsWith('@') ? (valores[v.slice(1)] ?? '').trim() : v;
+    if (x !== '') r[k] = x;
+  }
+  return r;
+}
+
+export function cargarOpciones(origen: OrigenParametro, parametros: Record<string, string> = {}): Promise<OpcionLista[]> {
+  const clave = [origen.procedimiento, origen.valor, origen.etiqueta, origen.descripcion, JSON.stringify(parametros)].join('|');
   let p = cache.get(clave);
   if (!p) {
-    p = api.ejecutar(origen.procedimiento).then((r) => {
+    p = api.ejecutar(origen.procedimiento, parametros).then((r) => {
       const vistos = new Set<string>();
       const opciones: OpcionLista[] = [];
       for (const f of r.resultados[0]?.filas ?? []) {
@@ -49,9 +59,12 @@ export function cargarOpciones(origen: OrigenParametro): Promise<OpcionLista[]> 
 export const separar = (valor: string, separador: string) =>
   valor.split(separador).map((x) => x.trim()).filter(Boolean);
 
+/** Una lista de un valor con más opciones que esto se elige escribiendo (combobox con búsqueda). */
+const LIMITE_DESPLEGABLE = 15;
+
 interface Props {
   id: string;
-  /** id de la etiqueta visible del campo (para nombrar el grupo de casillas). */
+  /** id de la etiqueta visible del campo (para nombrar el grupo de casillas o el combobox). */
   etiquetaId: string;
   origen: OrigenParametro;
   /** Separador si se pueden elegir varios; null = uno solo. */
@@ -59,6 +72,8 @@ interface Props {
   valor: string;
   onCambio: (valor: string) => void;
   opcional: boolean;
+  /** Valores del formulario: los usan las listas que dependen de otro campo (sprints del proyecto elegido). */
+  valoresFormulario?: ValoresFormulario;
   /** Texto de la primera opción de una lista de un solo valor ("Todos", "Seleccione…"). */
   textoVacio?: string;
   describedBy?: string;
@@ -68,24 +83,29 @@ interface Props {
 }
 
 /**
- * Lista que sale de otro procedimiento (smc:origen): desplegable para un valor, casillas con búsqueda para varios, o
- * texto con sugerencias si también se puede escribir un valor nuevo (smc:origenLibre).
+ * Lista que sale de otro procedimiento (smc:origen): desplegable para pocas opciones, combobox con búsqueda para muchas
+ * o si también se puede escribir un valor nuevo (smc:origenLibre), y casillas con búsqueda para varios valores.
  */
-export function ListaOrigen({ id, etiquetaId, origen, multiple, valor, onCambio, opcional, textoVacio, describedBy, invalido, respaldo }: Props) {
+export function ListaOrigen({ id, etiquetaId, origen, multiple, valor, onCambio, opcional, valoresFormulario, textoVacio, describedBy, invalido, respaldo }: Props) {
   const [opciones, setOpciones] = useState<OpcionLista[] | null>(null);
   const [fallo, setFallo] = useState(false);
   const [filtro, setFiltro] = useState('');
+  const parametros = useMemo(() => parametrosDeOrigen(origen, valoresFormulario), [origen, valoresFormulario]);
+  const claveParametros = JSON.stringify(parametros);
 
   useEffect(() => {
     let vigente = true;
-    cargarOpciones(origen).then((o) => vigente && setOpciones(o)).catch(() => vigente && setFallo(true));
+    setOpciones(null);
+    cargarOpciones(origen, JSON.parse(claveParametros) as Record<string, string>)
+      .then((o) => vigente && setOpciones(o)).catch(() => vigente && setFallo(true));
     return () => { vigente = false; };
-  }, [origen]);
+  }, [origen, claveParametros]);
 
-  // Obligatorio y con una sola opción posible (p. ej. una sola fuente de Jira): se elige sola.
+  // Obligatorio y con una sola opción posible (p. ej. una sola fuente de Jira): se elige sola. No en una lista libre
+  // (alta de un usuario: que exista un solo usuario no significa que se quiera editar ése).
   useEffect(() => {
-    if (!multiple && !opcional && !valor && opciones?.length === 1) onCambio(opciones[0].valor);
-  }, [multiple, opcional, valor, opciones, onCambio]);
+    if (!multiple && !opcional && !origen.libre && !valor && opciones?.length === 1) onCambio(opciones[0].valor);
+  }, [multiple, opcional, origen.libre, valor, opciones, onCambio]);
 
   const seleccionados = useMemo(() => (multiple ? separar(valor, multiple) : []), [valor, multiple]);
 
@@ -100,15 +120,10 @@ export function ListaOrigen({ id, etiquetaId, origen, multiple, valor, onCambio,
 
   const textoOpcion = (o: OpcionLista) => (o.descripcion ? `${o.etiqueta} — ${o.descripcion}` : o.etiqueta);
 
-  if (!multiple && origen.libre) {
+  if (!multiple && (origen.libre || opciones.length > LIMITE_DESPLEGABLE)) {
     return (
-      <>
-        <input id={id} type="text" list={`${id}-opciones`} value={valor} autoComplete="off" {...comunes}
-               required={!opcional} onChange={(e) => onCambio(e.target.value)} />
-        <datalist id={`${id}-opciones`}>
-          {opciones.map((o) => <option key={o.valor} value={o.valor}>{textoOpcion(o)}</option>)}
-        </datalist>
-      </>
+      <Combobox id={id} etiquetaId={etiquetaId} opciones={opciones} valor={valor} onCambio={onCambio} libre={origen.libre}
+                requerido={!opcional} describedBy={describedBy} invalido={invalido} />
     );
   }
 
@@ -116,7 +131,7 @@ export function ListaOrigen({ id, etiquetaId, origen, multiple, valor, onCambio,
     const fuera = valor && !opciones.some((o) => o.valor === valor); // p. ej. un valor que llegó en la dirección
     return (
       <select id={id} value={valor} required={!opcional} {...comunes} onChange={(e) => onCambio(e.target.value)}>
-        <option value="">{textoVacio ?? (opcional ? 'Todos' : 'Seleccione…')}</option>
+        <option value="">{opcional ? (textoVacio ?? 'Todos') : 'Seleccione…'}</option>
         {fuera && <option value={valor}>{valor}</option>}
         {opciones.map((o) => <option key={o.valor} value={o.valor}>{textoOpcion(o)}</option>)}
       </select>
@@ -157,6 +172,95 @@ export function ListaOrigen({ id, etiquetaId, origen, multiple, valor, onCambio,
         <p className="secundario lista-resumen">
           {seleccionados.length} seleccionado(s) · <button type="button" className="enlace" onClick={() => onCambio('')}>Quitar todos</button>
         </p>
+      )}
+    </div>
+  );
+}
+
+interface PropsCombobox {
+  id: string;
+  etiquetaId: string;
+  opciones: OpcionLista[];
+  valor: string;
+  onCambio: (valor: string) => void;
+  /** Se acepta lo escrito aunque no esté en la lista. */
+  libre: boolean;
+  requerido: boolean;
+  describedBy?: string;
+  invalido?: boolean;
+}
+
+const MAX_SUGERENCIAS = 50;
+
+/**
+ * Campo con autocompletado (patrón combobox de WAI-ARIA): se escribe para filtrar y se elige con el ratón o con
+ * ↑ ↓ Enter; Escape cierra. Muestra la etiqueta de la opción (p. ej. el nombre) aunque el valor sea un id.
+ */
+export function Combobox({ id, etiquetaId, opciones, valor, onCambio, libre, requerido, describedBy, invalido }: PropsCombobox) {
+  const elegida = opciones.find((o) => o.valor === valor);
+  const [texto, setTexto] = useState(elegida?.etiqueta ?? valor);
+  const [abierto, setAbierto] = useState(false);
+  const [activa, setActiva] = useState(0);
+  const listaId = useId();
+  const editando = useRef(false);
+
+  // Si el valor cambia desde fuera (p. ej. se limpia el formulario), se muestra su etiqueta.
+  useEffect(() => {
+    if (!editando.current) setTexto(opciones.find((o) => o.valor === valor)?.etiqueta ?? valor);
+  }, [valor, opciones]);
+
+  const t = texto.trim().toLocaleLowerCase('es-MX');
+  const filtradas = (t && t !== elegida?.etiqueta.toLocaleLowerCase('es-MX')
+    ? opciones.filter((o) => `${o.valor} ${o.etiqueta} ${o.descripcion ?? ''}`.toLocaleLowerCase('es-MX').includes(t))
+    : opciones);
+  const visibles = filtradas.slice(0, MAX_SUGERENCIAS);
+
+  const elegir = (o: OpcionLista) => {
+    editando.current = false;
+    setTexto(o.etiqueta);
+    setAbierto(false);
+    onCambio(o.valor);
+  };
+  const escribir = (v: string) => {
+    editando.current = true;
+    setTexto(v);
+    setAbierto(true);
+    setActiva(0);
+    if (libre || v.trim() === '') onCambio(v.trim());
+  };
+  const salir = () => {
+    editando.current = false;
+    setAbierto(false);
+    // Sin valor libre, lo escrito que no es una opción se descarta.
+    if (!libre) setTexto(opciones.find((o) => o.valor === valor)?.etiqueta ?? '');
+  };
+  const teclear = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setAbierto(true); setActiva((a) => Math.min(a + 1, visibles.length - 1)); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiva((a) => Math.max(a - 1, 0)); }
+    else if (e.key === 'Enter' && abierto && visibles[activa]) { e.preventDefault(); elegir(visibles[activa]); }
+    else if (e.key === 'Escape') { setAbierto(false); }
+  };
+
+  return (
+    <div className="combobox">
+      <input id={id} type="text" role="combobox" aria-autocomplete="list" aria-expanded={abierto} aria-controls={listaId}
+             aria-activedescendant={abierto && visibles[activa] ? `${listaId}-${activa}` : undefined}
+             aria-describedby={describedBy} aria-invalid={invalido || undefined} required={requerido}
+             value={texto} autoComplete="off" placeholder={libre ? 'Elija o escriba…' : 'Escriba para buscar…'}
+             onChange={(e) => escribir(e.target.value)} onFocus={() => setAbierto(true)} onBlur={salir} onKeyDown={teclear} />
+      {abierto && (
+        <ul id={listaId} role="listbox" aria-labelledby={etiquetaId} className="combobox-lista">
+          {visibles.map((o, i) => (
+            <li key={o.valor} id={`${listaId}-${i}`} role="option" aria-selected={o.valor === valor}
+                className={i === activa ? 'activa' : undefined}
+                onMouseDown={(e) => { e.preventDefault(); elegir(o); }}>
+              <span>{o.etiqueta}</span>
+              {o.descripcion && <small className="secundario">{o.descripcion}</small>}
+            </li>
+          ))}
+          {filtradas.length > MAX_SUGERENCIAS && <li className="secundario" aria-disabled="true">{filtradas.length - MAX_SUGERENCIAS} más: siga escribiendo…</li>}
+          {visibles.length === 0 && <li className="secundario" aria-disabled="true">{libre ? 'Nuevo: se usará lo que escribió.' : 'Nada coincide.'}</li>}
+        </ul>
       )}
     </div>
   );

@@ -44,7 +44,7 @@ SET @ok = CASE WHEN NOT EXISTS (SELECT 1 FROM seg.fn_OpcionProcedimiento() o
 EXEC prueba.Afirmar @ok, N'Cada procedimiento del esquema api pertenece a una opción de menú con categoría válida';
 SET @ok = CASE WHEN (SELECT Procedimientos FROM seg.fn_Opciones() WHERE Codigo = N'tableros') = N'Tablero_Inicio, Tablero_Obtener, Tableros_Listar'
                 AND (SELECT Procedimientos FROM seg.fn_Opciones() WHERE Codigo = N'busqueda_avanzada') = N'Issues_Campos, Issues_Consultar, Issues_Resumir, Issues_Valores'
-                AND (SELECT Titulo FROM seg.fn_Opciones() WHERE Codigo = N'api.Horas_PorPersona') = N'Horas por persona'
+                AND (SELECT Titulo FROM seg.fn_Opciones() WHERE Codigo = N'api.Horas_PorPersona') = N'Horas por persona (tabla)'
                 AND EXISTS (SELECT 1 FROM seg.fn_Opciones() WHERE Codigo = N'contrasena.restablecer' AND Categoria = N'admin')
                THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Las pantallas de varios procedimientos son una sola opción; las demás toman el título de su procedimiento';

@@ -26,6 +26,7 @@ USING (VALUES
   ('sprint',              N'Sprints del issue',                      'id',     0, NULL,                   N'com.pyxis.greenhopper.jira:gh-sprint',       N'Sprint',                                      N'$',              NULL),
   ('story_points',        N'Story points',                           'numero', 0, NULL,                   N'com.pyxis.greenhopper.jira:jsw-story-points', N'Story point estimate|Story Points|Puntos de historia', N'$',     NULL),
   ('tipo_solicitud',      N'Tipo de solicitud de JSM (request type)', 'id',    0, NULL,                   N'com.atlassian.servicedesk:vp-origin',        N'Request Type|Tipo de solicitud',              N'$.requestType.id', N'$.requestType.name'),
+  ('prioridad_itil',      N'Prioridad ITIL que fija el objetivo del SLA (urgencia x impacto)', 'numero', 0, NULL, NULL, N'prioridad|Prioridad ITIL|Prioridad SLA', N'$', NULL),
   ('organizacion',        N'Organizaciones (clientes) de JSM',        'texto', 0, NULL,                   N'com.atlassian.servicedesk:sd-customer-organizations', N'Organizations|Organizaciones',        N'$',              NULL)
 ) AS s (Rol, Descripcion, TipoDato, Obligatorio, ReglaCampoSistema, ReglaTipoCustom, ReglaNombre, RutaValor, RutaTexto)
 ON t.Rol = s.Rol

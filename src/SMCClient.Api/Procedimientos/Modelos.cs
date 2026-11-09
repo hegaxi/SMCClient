@@ -14,7 +14,8 @@ public sealed record ProcedimientoInfo(
     bool Oculto = false,
     string? Menu = null,      // smc:menu: "Sección" o "Sección/Subgrupo"
     int? Orden = null,        // smc:orden
-    string? Padre = null)     // smc:padre: aparece como sub-opción de ese procedimiento
+    string? Padre = null,     // smc:padre: aparece como sub-opción de ese procedimiento
+    System.Text.Json.JsonElement? Acciones = null)   // smc:acciones: botones "Nuevo" y acciones por fila de un listado
 {
     /// <summary>Parámetros que llena el servidor (usuario autenticado); no se exponen ni se aceptan del cliente.</summary>
     internal IReadOnlyList<ParametroInfo> ParametrosDeContexto { get; init; } = Array.Empty<ParametroInfo>();
@@ -35,7 +36,10 @@ public sealed record ParametroInfo(
 
 /// <summary>Lista dinámica de un parámetro (smc:origen): procedimiento del esquema api y columnas de sus filas.</summary>
 /// <param name="Libre">smc:origenLibre = 1: además de elegir, se puede escribir un valor nuevo (p. ej. un usuario nuevo).</param>
-public sealed record OrigenParametro(string Procedimiento, string Valor, string? Etiqueta, string? Descripcion, bool Libre);
+/// <param name="Parametros">Parámetros del procedimiento de la lista; "@Campo" = el valor de ese campo del formulario
+/// (p. ej. los sprints del proyecto elegido).</param>
+public sealed record OrigenParametro(string Procedimiento, string Valor, string? Etiqueta, string? Descripcion, bool Libre,
+    IReadOnlyDictionary<string, string>? Parametros = null);
 
 public sealed record OpcionParametro(string Valor, string Etiqueta);
 

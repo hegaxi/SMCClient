@@ -1,4 +1,5 @@
 using System.Data;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
@@ -13,7 +14,7 @@ public interface ICatalogoProcedimientos
 /// <summary>
 /// Lee de SQL Server los procedimientos del esquema api: parámetros (sys.parameters), columnas del primer
 /// resultado (sys.dm_exec_describe_first_result_set_for_object) y propiedades extendidas
-/// (MS_Description, smc:permiso, smc:exentoSync, smc:titulo, smc:accion, smc:oculto, smc:menu, smc:orden, smc:padre…). Se guarda en memoria y se recarga solo cuando cambia
+/// (MS_Description, smc:permiso, smc:exentoSync, smc:titulo, smc:accion, smc:oculto, smc:menu, smc:orden, smc:padre, smc:acciones…). Se guarda en memoria y se recarga solo cuando cambia
 /// algo en la base (firma = fechas de modificación + propiedades extendidas), así un procedimiento
 /// nuevo aparece sin reiniciar la API.
 /// </summary>
@@ -41,7 +42,8 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:oculto') AS nvarchar(10)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:menu') AS nvarchar(200)),
                CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:orden') AS nvarchar(20)),
-               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:padre') AS nvarchar(128))
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:padre') AS nvarchar(128)),
+               CAST((SELECT value FROM sys.extended_properties WHERE class = 1 AND major_id = p.object_id AND minor_id = 0 AND name = 'smc:acciones') AS nvarchar(3750))
         FROM sys.procedures p
         WHERE p.schema_id = SCHEMA_ID('api')
         ORDER BY p.name;
@@ -106,7 +108,7 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
         await using var cmd = new SqlCommand(SqlMetadatos, cn);
         await using var r = await cmd.ExecuteReaderAsync(ct);
 
-        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion, string? Resultados, string Titulo, bool Accion, bool Oculto, string? Menu, int? Orden, string? Padre)>();
+        var procs = new List<(int Id, string Nombre, string? Descripcion, string Permiso, bool Exento, string Definicion, string? Resultados, string Titulo, bool Accion, bool Oculto, string? Menu, int? Orden, string? Padre, string? Acciones)>();
         while (await r.ReadAsync(ct))
         {
             procs.Add((r.GetInt32(0), r.GetString(1), r.IsDBNull(2) ? null : r.GetString(2),
@@ -119,7 +121,8 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                        !r.IsDBNull(9) && r.GetString(9).Trim() == "1",
                        r.IsDBNull(10) ? null : r.GetString(10).Trim(),
                        !r.IsDBNull(11) && int.TryParse(r.GetString(11), out var orden) ? orden : null,
-                       r.IsDBNull(12) ? null : r.GetString(12).Trim()));
+                       r.IsDBNull(12) ? null : r.GetString(12).Trim(),
+                       r.IsDBNull(13) ? null : r.GetString(13)));
         }
 
         await r.NextResultAsync(ct);
@@ -165,7 +168,8 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
                 p.Oculto,
                 p.Menu,
                 p.Orden,
-                p.Padre)
+                p.Padre,
+                Acciones(p.Nombre, p.Acciones))
             {
                 ParametrosDeContexto = todos.Where(x => deUsuario.Contains(x.Nombre)).ToList(),
             };
@@ -205,7 +209,35 @@ public sealed partial class CatalogoProcedimientos(ConexionSql conexion, IOption
         var partes = valor.Split(':', StringSplitOptions.TrimEntries);
         if (partes.Length < 2 || partes[0] == "" || partes[1] == "") return null;
         string? Parte(int i) => partes.Length > i && partes[i] != "" ? partes[i] : null;
-        return new OrigenParametro(partes[0], partes[1], Parte(2), Parte(3), libre);
+        // "Sprints_Listar(Proyecto=@Proyecto)": parámetros del origen; @Campo = valor de ese campo del formulario.
+        var m = OrigenConParametros().Match(partes[0]);
+        if (!m.Success) return null;
+        var parametros = m.Groups[2].Success
+            ? m.Groups[2].Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Select(x => x.Split('=', 2, StringSplitOptions.TrimEntries)).Where(x => x.Length == 2 && x[0] != "")
+                .ToDictionary(x => x[0], x => x[1], StringComparer.OrdinalIgnoreCase)
+            : null;
+        return new OrigenParametro(m.Groups[1].Value, partes[1], Parte(2), Parte(3), libre, parametros);
+    }
+
+    [GeneratedRegex(@"^(\w+)(?:\((.*)\))?$")]
+    private static partial Regex OrigenConParametros();
+
+    /// <summary>
+    /// smc:acciones (en un listado): JSON con los botones "Nuevo" y las acciones de cada fila (ver
+    /// db/11_DatosSemilla/093_Acciones.sql). Se valida que sea un arreglo JSON; si no, se ignora y se avisa en el log.
+    /// </summary>
+    private JsonElement? Acciones(string procedimiento, string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.ValueKind == JsonValueKind.Array) return doc.RootElement.Clone();
+        }
+        catch (JsonException) { }
+        log.LogWarning("smc:acciones de {Procedimiento} no es un arreglo JSON válido; se ignora.", procedimiento);
+        return null;
     }
 
     private static bool EsTexto(string tipo) => tipo is "varchar" or "nvarchar" or "char" or "nchar";

@@ -9,8 +9,8 @@ export function generarTemporal(aleatorio = (n: number) => crypto.getRandomValue
 }
 
 /** Administración: asigna una contraseña temporal; el usuario deberá cambiarla al entrar. */
-export function RestablecerContrasena() {
-  const [usuario, setUsuario] = useState('');
+export function RestablecerContrasena({ usuarioInicial = '' }: { usuarioInicial?: string }) {
+  const [usuario, setUsuario] = useState(usuarioInicial);
   const [temporal, setTemporal] = useState(() => generarTemporal());
   const [resultado, setResultado] = useState<{ ok: boolean; texto: string } | null>(null);
   const [ocupado, setOcupado] = useState(false);
@@ -34,7 +34,7 @@ export function RestablecerContrasena() {
     <article className="vista">
       <header>
         <h1>Restablecer contraseña</h1>
-        <p className="secundario">Para un usuario nuevo o que olvidó su contraseña. Primero dé de alta al usuario en <em>Guardar usuario</em>.</p>
+        <p className="secundario">Para un usuario nuevo o que olvidó su contraseña. Primero dé de alta al usuario en <em>Usuarios › Nuevo usuario</em>.</p>
       </header>
       <form className="formulario" onSubmit={enviar}>
         <div className="campos">

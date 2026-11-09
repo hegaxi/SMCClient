@@ -97,10 +97,11 @@ DECLARE @admin nvarchar(200) = (SELECT TOP (1) u.Login FROM seg.Usuario u WHERE 
 INSERT @t EXEC api.Usuario_Guardar @Login = N'cli_acme', @Nombre = N'Cliente ACME', @Roles = N'Cliente', @UsuarioActual = @admin;
 INSERT @t EXEC api.Usuario_Guardar @Login = N'cli_sinorg', @Nombre = N'Cliente sin organización', @Roles = N'Cliente', @UsuarioActual = @admin;
 INSERT @t EXEC api.Usuario_Guardar @Login = N'interno70', @Nombre = N'Interno', @Roles = N'Consulta', @UsuarioActual = @admin;
-DECLARE @x TABLE (Login nvarchar(100), Nombre nvarchar(200), Activo bit, Roles nvarchar(400), Orgs nvarchar(2000), Consultas nvarchar(2000));
+DECLARE @x TABLE (Login nvarchar(100), Nombre nvarchar(200), Activo bit, Roles nvarchar(400), Orgs nvarchar(2000), VeTickets bit, Consultas nvarchar(2000));
 INSERT @x EXEC api.Usuario_Organizaciones_Guardar @Login = N'cli_acme', @Organizaciones = N'ACME', @UsuarioActual = @admin;
 DECLARE @ok bit = CASE WHEN (SELECT Orgs FROM @x WHERE Login = N'cli_acme') = N'ACME'
-                        AND (SELECT Orgs FROM @x WHERE Login = N'cli_sinorg') LIKE N'(sin organización%' THEN 1 ELSE 0 END;
+                        AND (SELECT VeTickets FROM @x WHERE Login = N'cli_acme') = 1
+                        AND (SELECT Orgs FROM @x WHERE Login = N'cli_sinorg') IS NULL AND (SELECT VeTickets FROM @x WHERE Login = N'cli_sinorg') = 0 THEN 1 ELSE 0 END;
 EXEC prueba.Afirmar @ok, N'Clientes con su organización (y uno sin organización)';
 DECLARE @o TABLE (Organizacion nvarchar(400), Tickets int);
 INSERT @o EXEC api.Organizaciones_Listar;

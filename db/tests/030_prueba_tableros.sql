@@ -70,7 +70,7 @@ EXEC prueba.AfirmarError @sql, 50403, N'Solo el propietario modifica un filtro';
 DECLARE @lista TABLE (FiltroId int, Nombre nvarchar(150), Procedimiento sysname, Consulta nvarchar(200), Parametros nvarchar(max), Resueltos nvarchar(max), Compartido bit,
                       Propietario nvarchar(200), EsMio bit, PuedoUsar bit, Widgets int, FechaCambio datetimeoffset);
 INSERT @lista EXEC api.Filtros_Listar @UsuarioActual = N'ajeno';
-SET @ok = (SELECT CASE WHEN COUNT(*) = 1 AND MAX(Nombre) = N'Horas del mes' AND MAX(Consulta) = N'Horas por persona' AND MAX(Resueltos) NOT LIKE N'%"{%' THEN 1 ELSE 0 END FROM @lista);
+SET @ok = (SELECT CASE WHEN COUNT(*) = 1 AND MAX(Nombre) = N'Horas del mes' AND MAX(Consulta) = N'Horas por persona (tabla)' AND MAX(Resueltos) NOT LIKE N'%"{%' THEN 1 ELSE 0 END FROM @lista);
 EXEC prueba.Afirmar @ok, N'Otro usuario ve solo el filtro compartido (con el título de la consulta)';
 DELETE @lista; INSERT @lista EXEC api.Filtros_Listar @UsuarioActual = N'externo';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 0 THEN 1 ELSE 0 END FROM @lista);

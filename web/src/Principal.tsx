@@ -211,7 +211,7 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
     );
   else if (seleccion.nombre === VISTA_FILTROS && tieneFiltros) contenido = <MisFiltros onAbrir={(n, v) => navegar(n, v)} />;
   else if (seleccion.nombre === VISTA_CONTRASENA) contenido = <CambiarContrasena obligatorio={false} onListo={() => navegar(null)} onCancelar={() => navegar(null)} />;
-  else if (seleccion.nombre === VISTA_RESTABLECER && puedeRestablecer) contenido = <RestablecerContrasena />;
+  else if (seleccion.nombre === VISTA_RESTABLECER && puedeRestablecer) contenido = <RestablecerContrasena key={vista} usuarioInicial={seleccion.valores.usuario} />;
   else if (proc?.nombre === 'Permisos_Matriz') contenido = <PermisosRoles key={vista} />;
   else if (proc?.nombre === 'ProyectosSync_Listar') contenido = <ProyectosSync key={vista} />;
   else if (proc?.nombre === 'Issues_Consultar')
@@ -234,6 +234,8 @@ export function Principal({ sesion, intervaloSyncMs, onSalir }: Props) {
         onSyncPendiente={sync.marcarPendiente}
         etiquetasValores={etiquetasValores}
         puedeGuardarFiltro={procs.some((p) => p.nombre === 'Filtro_Guardar')}
+        catalogo={procs}
+        vistasPropias={puedeRestablecer ? [VISTA_RESTABLECER] : []}
       />
     );
   else if (tableroInicio) contenido = tableroVista(Number(tableroInicio.TableroId));

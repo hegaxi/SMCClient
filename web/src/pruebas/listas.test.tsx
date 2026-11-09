@@ -80,13 +80,52 @@ describe('listas que salen de otro procedimiento (smc:origen)', () => {
   it('libre: se elige de las sugerencias o se escribe un valor nuevo', async () => {
     simularFetch({ 'POST /api/procedimientos/Roles_Listar': () => roles });
     const enviar = vi.fn();
-    const { container } = render(<Probar onEnviar={enviar} parametros={[parametro({
+    render(<Probar onEnviar={enviar} parametros={[parametro({
       nombre: 'Nombre', tipo: 'nvarchar', opcional: false,
       origen: { procedimiento: 'Roles_Listar', valor: 'Nombre', etiqueta: 'Nombre', descripcion: 'Descripcion', libre: true },
     })]} />);
-    await waitFor(() => expect(container.querySelectorAll('datalist option')).toHaveLength(3));
-    await userEvent.type(screen.getByRole('combobox', { name: /Nombre/ }), 'Soporte');
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /Nombre/ }).tagName).toBe('INPUT'));
+    const campo = screen.getByRole('combobox', { name: /Nombre/ });
+    await userEvent.click(campo);
+    expect(screen.getAllByRole('option')).toHaveLength(3);
+    await userEvent.type(campo, 'Soporte');
+    expect(screen.getByText('Nuevo: se usará lo que escribió.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
     expect(enviar).toHaveBeenLastCalledWith({ Nombre: 'Soporte' });
+  });
+
+  it('lista larga: se busca escribiendo y se elige con el teclado; envía el valor (id), muestra la etiqueta', async () => {
+    const personas = Array.from({ length: 20 }, (_, i) => ({ AccountId: `acc-${i}`, Nombre: `Persona ${i}`, Detalle: `${i} issues` }));
+    simularFetch({ 'POST /api/procedimientos/Personas_Listar': () => filas(personas) });
+    const enviar = vi.fn();
+    render(<Probar onEnviar={enviar} parametros={[parametro({
+      nombre: 'ResponsableId', tipo: 'varchar',
+      origen: { procedimiento: 'Personas_Listar', valor: 'AccountId', etiqueta: 'Nombre', descripcion: 'Detalle', libre: false },
+    })]} />);
+    await waitFor(() => expect(screen.getByRole('combobox', { name: /Responsable/ }).tagName).toBe('INPUT'));
+    const campo = screen.getByRole('combobox', { name: /Responsable/ });
+    await userEvent.type(campo, 'Persona 1');
+    expect(screen.getAllByRole('option').length).toBe(11); // Persona 1 y Persona 10..19
+    await userEvent.keyboard('{ArrowDown}{Enter}');
+    expect(campo).toHaveValue('Persona 10');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }));
+    expect(enviar).toHaveBeenLastCalledWith({ ResponsableId: 'acc-10' });
+  });
+
+  it('lista dependiente: los sprints se piden con el proyecto elegido', async () => {
+    const peticiones = simularFetch({
+      'POST /api/procedimientos/Proyectos_Listar': () => filas([{ Clave: 'SSM26', Nombre: 'Scrum' }, { Clave: 'SMC26', Nombre: 'Mesa' }]),
+      'POST /api/procedimientos/Sprints_Listar': (c) => filas((c as { Proyecto?: string }).Proyecto === 'SSM26'
+        ? [{ Valor: 'Sprint 6', Etiqueta: 'Sprint 6', Detalle: 'SSM26 · activo' }]
+        : [{ Valor: 'Sprint 6', Etiqueta: 'Sprint 6', Detalle: 'SSM26' }, { Valor: 'Sprint 9', Etiqueta: 'Sprint 9', Detalle: 'SSMCO' }]),
+    });
+    render(<Probar onEnviar={vi.fn()} parametros={[
+      parametro({ nombre: 'Proyecto', tipo: 'varchar', origen: { procedimiento: 'Proyectos_Listar', valor: 'Clave', etiqueta: 'Clave', descripcion: 'Nombre', libre: false } }),
+      parametro({ nombre: 'Sprint', tipo: 'nvarchar', origen: { procedimiento: 'Sprints_Listar', valor: 'Valor', etiqueta: 'Etiqueta', descripcion: 'Detalle', libre: false, parametros: { Proyecto: '@Proyecto' } } }),
+    ]} />);
+    await waitFor(() => expect(screen.getByRole('option', { name: 'Sprint 9 — SSMCO' })).toBeInTheDocument());
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Proyecto' }), 'SSM26');
+    await waitFor(() => expect(screen.queryByRole('option', { name: 'Sprint 9 — SSMCO' })).not.toBeInTheDocument());
+    expect(peticiones.filter((p) => p.url.endsWith('/Sprints_Listar')).map((p) => p.cuerpo)).toEqual([{}, { Proyecto: 'SSM26' }]);
   });
 });

@@ -11,12 +11,18 @@ interface Props {
   onCambio: (nombre: string, valor: string) => void;
   onEnviar: () => void;
   textoBoton?: string;
+  /** Texto del botón mientras trabaja (por omisión, "Consultando…"). */
+  textoOcupado?: string;
+  /** Parámetros que se muestran pero no se pueden cambiar (la llave de un registro al editarlo). */
+  bloqueados?: string[];
+  /** Texto de la opción vacía de un campo opcional: "Sin filtro" en una consulta, "Sin cambio" al guardar. */
+  textoSinValor?: string;
   /** Acciones secundarias junto al botón principal (p. ej. "Guardar como filtro"). */
   children?: ReactNode;
 }
 
 /** Formulario generado a partir de los metadatos del procedimiento (tipo, longitud, opcional, opciones, descripción). */
-export function Formulario({ parametros, valores, errores, ocupado, onCambio, onEnviar, textoBoton = 'Consultar', children }: Props) {
+export function Formulario({ parametros, valores, errores, ocupado, onCambio, onEnviar, textoBoton = 'Consultar', textoOcupado = 'Consultando…', bloqueados = [], textoSinValor, children }: Props) {
   const visibles = parametros.filter((p) => !p.salida);
   const enviar = (e: FormEvent) => {
     e.preventDefault();
@@ -44,14 +50,14 @@ export function Formulario({ parametros, valores, errores, ocupado, onCambio, on
             const control = tipoControl(p);
             const entrada = control === 'lista' ? (
                   <select {...comunes}>
-                    <option value="">{p.opcional ? 'Todos' : 'Seleccione…'}</option>
+                    <option value="">{p.opcional ? (textoSinValor ?? 'Todos') : 'Seleccione…'}</option>
                     {p.opciones!.map((o) => (
                       <option key={o.valor} value={o.valor}>{o.etiqueta}</option>
                     ))}
                   </select>
                 ) : control === 'siNo' ? (
                   <select {...comunes}>
-                    <option value="">{p.opcional ? 'Sin filtro' : 'Seleccione…'}</option>
+                    <option value="">{p.opcional ? (textoSinValor ?? 'Sin filtro') : 'Seleccione…'}</option>
                     <option value="true">Sí</option>
                     <option value="false">No</option>
                   </select>
@@ -65,16 +71,19 @@ export function Formulario({ parametros, valores, errores, ocupado, onCambio, on
                   />
                 );
             const etiquetaId = `${id}-etiqueta`;
+            const bloqueado = bloqueados.includes(p.nombre);
             return (
               <div key={p.nombre} className={err ? 'campo con-error' : 'campo'}>
-                <label htmlFor={p.origen && p.multiple ? undefined : id} id={etiquetaId}>
+                <label htmlFor={p.origen && p.multiple && !bloqueado ? undefined : id} id={etiquetaId}>
                   {etiqueta(p.nombre)}
                   {!p.opcional && <span className="obligatorio" aria-hidden="true"> *</span>}
                 </label>
-                {p.origen ? (
+                {bloqueado ? (
+                  <input id={id} value={valores[p.nombre] ?? ''} readOnly aria-readonly="true" className="bloqueado" aria-describedby={descrito} />
+                ) : p.origen ? (
                   <ListaOrigen id={id} etiquetaId={etiquetaId} origen={p.origen} multiple={p.multiple ?? null}
                                valor={valores[p.nombre] ?? ''} onCambio={(v) => onCambio(p.nombre, v)} opcional={p.opcional}
-                               describedBy={descrito} invalido={!!err} respaldo={entrada} />
+                               valoresFormulario={valores} textoVacio={textoSinValor} describedBy={descrito} invalido={!!err} respaldo={entrada} />
                 ) : entrada}
                 {p.descripcion && <small id={ayuda} className="ayuda">{p.descripcion}</small>}
                 {err && <small id={`${id}-error`} className="error-campo">{err.join(' ')}</small>}
@@ -85,7 +94,7 @@ export function Formulario({ parametros, valores, errores, ocupado, onCambio, on
       )}
       <div className="acciones-formulario">
         <button type="submit" className="boton" disabled={ocupado} aria-busy={ocupado || undefined}>
-          {ocupado ? 'Consultando…' : textoBoton}
+          {ocupado ? textoOcupado : textoBoton}
         </button>
         {children}
       </div>

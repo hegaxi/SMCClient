@@ -279,8 +279,8 @@ DELETE @h;
 INSERT @h EXEC api.Horas_PorPersona @Desde = '2026-10-01', @Hasta = '2026-11-30', @Origen = 'manual';
 SET @ok = (SELECT CASE WHEN SUM(Totales) = 10 THEN 1 ELSE 0 END FROM @h); EXEC prueba.Afirmar @ok, N'Filtro @Origen = manual';
 
-DECLARE @sla TABLE (Proyecto varchar(50), Sla nvarchar(255), Ciclos int, Cumplidos int, Incumplidos int, EnCurso int, Pct decimal(5,1), HorasProm decimal(10,2));
-INSERT @sla EXEC api.Sla_Resumen @Desde = '2026-10-01', @Hasta = '2026-11-30';
+DECLARE @sla TABLE (Proyecto varchar(50), Sla nvarchar(255), Ciclos int, Cumplidos int, Incumplidos int, EnCurso int, Pct decimal(5,1), HorasProm decimal(10,2), EnCursoCerrado int);
+INSERT @sla EXEC api.Sla_Resumen @Desde = '2026-10-01', @Hasta = '2026-11-30', @TicketsSinSla = 0;
 SET @ok = (SELECT CASE WHEN SUM(Incumplidos) >= 1 AND SUM(Ciclos) = 3 THEN 1 ELSE 0 END FROM @sla); EXEC prueba.Afirmar @ok, N'api.Sla_Resumen';
 
 DECLARE @b TABLE (Clave varchar(50), Proyecto varchar(50), TipoProyecto varchar(30), TipoIssue nvarchar(255), TipoSolicitud nvarchar(255), Resumen nvarchar(1000),
@@ -289,8 +289,9 @@ DECLARE @b TABLE (Clave varchar(50), Proyecto varchar(50), TipoProyecto varchar(
 INSERT @b EXEC api.Issues_Buscar @TipoProyecto = 'service_desk';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 1 AND MAX(Clave) = 'MDA-1' AND MAX(Estado) = N'In Progress' THEN 1 ELSE 0 END FROM @b); EXEC prueba.Afirmar @ok, N'api.Issues_Buscar filtra mesa de ayuda';
 
-DECLARE @sp TABLE (SprintId bigint, Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Comp datetimeoffset,
-                   Issues int, Terminados int, SP decimal(9,2), SPT decimal(9,2), HorasReg decimal(12,2), HorasAut decimal(12,2), HorasEst decimal(12,2), SinEst int);
+DECLARE @sp TABLE (SprintId bigint, Proyecto varchar(50), Sprint nvarchar(255), Estado varchar(20), Inicio datetimeoffset, Fin datetimeoffset, Comp datetimeoffset, Vencido bit,
+                   Issues int, Comprometidos int, Agregados int, YaTerminados int, Terminados int, TermComp int, Pct decimal(5,1), Arrastrados int,
+                   SP decimal(9,2), SPT decimal(9,2), HorasReg decimal(12,2), HorasAut decimal(12,2), HorasEst decimal(12,2), SinEst int);
 INSERT @sp EXEC api.Sprint_Avance @Proyecto = 'SCR';
 SET @ok = (SELECT CASE WHEN COUNT(*) = 2 AND SUM(SPT) = 16 THEN 1 ELSE 0 END FROM @sp); EXEC prueba.Afirmar @ok, N'api.Sprint_Avance (8 SP terminados en cada sprint)';
 

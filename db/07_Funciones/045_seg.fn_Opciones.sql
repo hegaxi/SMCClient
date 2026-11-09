@@ -15,6 +15,7 @@ RETURN
             (N'filtros',                  N'Mis filtros',               N'Guardar las consultas como filtros, compartirlos y usarlos en tableros.',              N'Filtros_Listar'),
             (N'busqueda_avanzada',        N'Búsqueda avanzada',         N'Filtros desde cero sobre cualquier campo de Jira, con columnas, orden y resúmenes.',   N'Issues_Consultar'),
             (N'consultas_personalizadas', N'Consultas personalizadas',  N'Ver y ejecutar las consultas personalizadas compartidas con el usuario o su rol.',     N'ConsultasPersonalizadas_Listar'),
+            (N'listas',                   N'Listas para elegir',        N'Sprints, épicas y personas que se ofrecen como lista en los filtros de las consultas.',  N'Sprints_Listar'),
             (N'sync.proyectos',           N'Proyectos a sincronizar',   N'Elegir qué proyectos de Jira se sincronizan y qué pasa con los proyectos nuevos.',       N'ProyectosSync_Listar')
         ) v (Codigo, Titulo, Descripcion, Principal)),
     opcion AS (
